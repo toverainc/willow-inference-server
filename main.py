@@ -1,5 +1,7 @@
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 import datetime
 import numpy as np
 from PIL import Image
@@ -67,4 +69,12 @@ async def do_infer(request: Request, file: UploadFile, response: Response):
     # Setup access to file
     img = io.BytesIO(await file.read())
     response = do_vit(img)
-    return response
+    print(response)
+    # Build JSON - NASTY
+    response_split = response.split(':', -1)
+    prob = response_split[0]
+    index = response_split[1]
+    label = response_split[2]
+    finalResponse = {'prob': prob, 'index': index, 'label': label}
+    json_compatible_item_data = jsonable_encoder(finalResponse)
+    return JSONResponse(content=json_compatible_item_data)
