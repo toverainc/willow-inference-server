@@ -64,7 +64,6 @@ async def root():
 
 @app.post("/api/infer")
 async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
-
     # Setup access to file
     img = io.BytesIO(await file.read())
     triton_model = model
