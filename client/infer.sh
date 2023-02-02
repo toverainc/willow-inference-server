@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ -r "$1" ]; then
+  IMAGE="$1"
+else
+  echo "Need image"
+  exit 1
+fi
+
+if [ "$2" ]; then
+  URL="$2"
+else
+  URL="http://127.0.0.6:58000/api/infer"
+fi
+
+MIME_TYPE=$(file -b --mime-type "$IMAGE")
+
+curl "$URL" -H "accept: application/json" \
+-H "Content-Type: multipart/form-data" -F "file=@$IMAGE"
