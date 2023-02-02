@@ -2,6 +2,7 @@
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from typing import List, Optional
 import datetime
 import numpy as np
 from PIL import Image
@@ -11,9 +12,10 @@ from transformers import AutoImageProcessor
 import tritonclient.grpc as grpcclient
 import json
 import io
+import os
 
-triton_url = "hw0-mke.tovera.com:18001"
-triton_model = "medvit"
+triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
+triton_model = os.environ.get('triton_model', 'medvit')
 
 # transformers
 def get_transform(img):
@@ -22,7 +24,7 @@ def get_transform(img):
     processed_image = processor(image, return_tensors='np').pixel_values
     return processed_image
 
-def do_vit(img):
+def do_vit(img, triton_model):
     # Set up Triton GRPC inference client
     client = grpcclient.InferenceServerClient(url=triton_url, verbose=False, ssl=False)
 
@@ -52,29 +54,29 @@ def do_vit(img):
     inference_output = inference_output[0][0]
     result = inference_output.decode('utf-8')
 
-    return result
+    return result, infer_time_milliseconds
 
 app = FastAPI()
 
-
-@app.get("/")
+@app.get("/ping")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Pong"}
 
 @app.post("/api/infer")
-async def do_infer(request: Request, file: UploadFile, response: Response):
-#    # Setup content-type
-#    content_type = file.content_type
-
+async def do_infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
     # Setup access to file
     img = io.BytesIO(await file.read())
-    response = do_vit(img)
+    triton_model = model
+    try:
+        response, infer_time = do_vit(img, model)
+    except:
+        return {'status': 'inference failed'}
     print(response)
     # Build JSON - NASTY
     response_split = response.split(':', -1)
     prob = response_split[0]
     index = response_split[1]
     label = response_split[2]
-    finalResponse = {'prob': prob, 'index': index, 'label': label}
+    finalResponse = {'model': model, 'prob': prob, 'index': index, 'label': label, 'infer_time': infer_time}
     json_compatible_item_data = jsonable_encoder(finalResponse)
     return JSONResponse(content=json_compatible_item_data)
