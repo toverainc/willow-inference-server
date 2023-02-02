@@ -1,4 +1,4 @@
-# Ideally we could really cut these imports down to just the basics and transformers or less
+# FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 import datetime
 import numpy as np
