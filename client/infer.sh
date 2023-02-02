@@ -15,5 +15,7 @@ fi
 
 MIME_TYPE=$(file -b --mime-type "$IMAGE")
 
-curl "$URL" -H "accept: application/json" \
+MODEL="medvit-trt-fp32"
+
+curl "$URL?model=$MODEL" -H "accept: application/json" \
 -H "Content-Type: multipart/form-data" -F "file=@$IMAGE"
