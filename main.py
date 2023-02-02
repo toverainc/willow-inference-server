@@ -53,6 +53,7 @@ def do_infer(img, triton_model):
     inference_output = results.as_numpy('output__0')
 
     # Display results - hacky
+    print(str(inference_output))
     inference_output = inference_output[0][0]
     result = inference_output.decode('utf-8')
 

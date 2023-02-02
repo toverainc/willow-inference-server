@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build -t airapi:latest .
+docker build -t air-infer-api:latest .

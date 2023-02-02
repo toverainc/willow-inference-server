@@ -1,5 +1,7 @@
 #!/bin/bash
 
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+
 if [ -r "$1" ]; then
   IMAGE="$1"
 else
