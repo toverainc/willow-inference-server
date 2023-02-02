@@ -21,6 +21,8 @@ triton_model = os.environ.get('triton_model', 'medvit')
 def get_transform(img):
     processor = AutoImageProcessor.from_pretrained('preprocessor_config.json')
     image = Image.open(img)
+    if image.mode == "L":
+        image = image.convert("RGB")
     processed_image = processor(image, return_tensors='np').pixel_values
     return processed_image
 
