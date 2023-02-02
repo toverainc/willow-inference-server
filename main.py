@@ -64,19 +64,19 @@ async def root():
 
 @app.post("/api/infer")
 async def do_infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
-    # Setup access to file
-    img = io.BytesIO(await file.read())
-    triton_model = model
     try:
+        # Setup access to file
+        img = io.BytesIO(await file.read())
+        triton_model = model
         response, infer_time = do_vit(img, model)
+        print(response)
+        # Build JSON - NASTY
+        response_split = response.split(':', -1)
+        prob = response_split[0]
+        index = response_split[1]
+        label = response_split[2]
+        finalResponse = {'model': model, 'prob': prob, 'index': index, 'label': label, 'infer_time': infer_time}
+        json_compatible_item_data = jsonable_encoder(finalResponse)
+        return JSONResponse(content=json_compatible_item_data)
     except:
         return {'status': 'inference failed'}
-    print(response)
-    # Build JSON - NASTY
-    response_split = response.split(':', -1)
-    prob = response_split[0]
-    index = response_split[1]
-    label = response_split[2]
-    finalResponse = {'model': model, 'prob': prob, 'index': index, 'label': label, 'infer_time': infer_time}
-    json_compatible_item_data = jsonable_encoder(finalResponse)
-    return JSONResponse(content=json_compatible_item_data)
