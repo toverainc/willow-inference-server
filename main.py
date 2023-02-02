@@ -52,12 +52,11 @@ def do_infer(img, triton_model):
 
     inference_output = results.as_numpy('output__0')
 
-    # Display results - hacky
+    # Display and return full results
     print(str(inference_output))
-    inference_output = inference_output[0][0]
-    result = inference_output.decode('utf-8')
+    inference_output_dict = dict(enumerate(inference_output.flatten(), 1))
 
-    return result, infer_time_milliseconds
+    return inference_output_dict, infer_time_milliseconds
 
 app = FastAPI()
 
@@ -69,14 +68,7 @@ async def root():
 async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
     # Setup access to file
     img = io.BytesIO(await file.read())
-    triton_model = model
     response, infer_time = do_infer(img, model)
-    print(response)
-    # Build JSON - NASTY
-    response_split = response.split(':', -1)
-    prob = response_split[0]
-    index = response_split[1]
-    label = response_split[2]
-    finalResponse = {'model': model, 'prob': prob, 'index': index, 'label': label, 'infer_time': infer_time}
-    json_compatible_item_data = jsonable_encoder(finalResponse)
+    final_response = [response]
+    json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
