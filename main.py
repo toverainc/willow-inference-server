@@ -24,7 +24,7 @@ def get_transform(img):
     processed_image = processor(image, return_tensors='np').pixel_values
     return processed_image
 
-def do_vit(img, triton_model):
+def do_infer(img, triton_model):
     # Set up Triton GRPC inference client
     client = grpcclient.InferenceServerClient(url=triton_url, verbose=False, ssl=False)
 
@@ -63,12 +63,12 @@ async def root():
     return {"message": "Pong"}
 
 @app.post("/api/infer")
-async def do_infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
+async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
     try:
         # Setup access to file
         img = io.BytesIO(await file.read())
         triton_model = model
-        response, infer_time = do_vit(img, model)
+        response, infer_time = do_infer(img, model)
         print(response)
         # Build JSON - NASTY
         response_split = response.split(':', -1)
