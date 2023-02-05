@@ -69,6 +69,7 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
     # Setup access to file
     img = io.BytesIO(await file.read())
     response, infer_time = do_infer(img, model)
-    final_response = [response]
+    print(type(response))
+    final_response = {"infer_time": infer_time, "results": [response]}
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
