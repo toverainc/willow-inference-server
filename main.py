@@ -13,6 +13,7 @@ import tritonclient.grpc as grpcclient
 import json
 import io
 import os
+import re
 
 # Whisper
 import ctranslate2
@@ -32,7 +33,9 @@ compute_types = str(ctranslate2.get_supported_compute_types("cuda"))
 print("Supported compute types are: " + compute_types)
 
 # Load the model on CUDA
-whisper_model = ctranslate2.models.Whisper("models/openai-whisper-large-v2", device="cuda")
+asr_model = "openai-whisper-large-v2"
+whisper_model_path = "models" + "/"+ asr_model
+whisper_model = ctranslate2.models.Whisper(whisper_model_path, device="cuda")
 
 # Triton
 triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
@@ -50,6 +53,7 @@ def do_whisper(audio_file):
     # Detect the language.
     results = whisper_model.detect_language(features)
     language, probability = results[0][0]
+
     print("Detected language %s with probability %f" % (language, probability))
 
     # Describe the task in the prompt.
@@ -72,6 +76,9 @@ def do_whisper(audio_file):
     print('Inference took ' + str(infer_time_milliseconds) + ' ms')
     results = processor.decode(results[0].sequences_ids[0])
     print(results)
+    # Strip out token stuff
+    pattern = re.compile("[A-Za-z0-9]+", )
+    language = pattern.findall(language)[0]
     return language, results, infer_time_milliseconds
 
 # transformers
@@ -130,11 +137,11 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
 
-@app.post("/api/asr")
-async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
+@app.post("/api/large/asr")
+async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = asr_model, output: Optional[str] = "json", task: Optional[str] = "transcribe"):
     # Setup access to file
-    audio_file = io.BytesIO(await file.read())
+    audio_file = io.BytesIO(await audio_file.read())
     language, results, infer_time = do_whisper(audio_file)
-    final_response = {"infer_time": infer_time, "language": language, "results": results}
+    final_response = {"infer_time": infer_time, "language": language, "text": results}
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
