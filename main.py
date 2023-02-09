@@ -22,6 +22,16 @@ import transformers
 import datetime
 import logging
 
+# CUDA params
+device = "cuda"
+device_index = [0]
+compute_type = "float16"
+
+## Testing CPU
+#device = "cpu"
+#device_index = [0]
+#compute_type = "auto"
+
 # Turn up log_level for ctranslate2
 ctranslate2.set_log_level(logging.INFO)
 
@@ -34,8 +44,11 @@ print("Supported compute types are: " + compute_types)
 
 # Load the model on CUDA
 asr_model = "openai-whisper-large-v2"
+#asr_model = "openai-whisper-medium"
+
 whisper_model_path = "models" + "/"+ asr_model
-whisper_model = ctranslate2.models.Whisper(whisper_model_path, device="cuda")
+
+whisper_model = ctranslate2.models.Whisper(whisper_model_path, device=device, device_index=device_index, compute_type=compute_type)
 
 # Triton
 triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
@@ -137,9 +150,10 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
 
-@app.post("/api/large/asr")
+@app.post("/api/asr")
 async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = asr_model, output: Optional[str] = "json", task: Optional[str] = "transcribe"):
     # Setup access to file
+    print("Got ASR request for model: " + model)
     audio_file = io.BytesIO(await audio_file.read())
     language, results, infer_time = do_whisper(audio_file)
     final_response = {"infer_time": infer_time, "language": language, "text": results}
