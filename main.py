@@ -14,8 +14,65 @@ import json
 import io
 import os
 
+# Whisper
+import ctranslate2
+import librosa
+import transformers
+import datetime
+import logging
+
+# Turn up log_level for ctranslate2
+ctranslate2.set_log_level(logging.INFO)
+
+# Load processor from transformers
+processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-large-v2")
+
+# Show supported compute types
+compute_types = str(ctranslate2.get_supported_compute_types("cuda"))
+print("Supported compute types are: " + compute_types)
+
+# Load the model on CUDA
+whisper_model = ctranslate2.models.Whisper("models/openai-whisper-large-v2", device="cuda")
+
+# Triton
 triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
 triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
+
+def do_whisper(audio_file):
+    time_start = datetime.datetime.now()
+
+    # Load audio
+    audio, _ = librosa.load(audio_file, sr=16000, mono=True)
+
+    inputs = processor(audio, return_tensors="np", sampling_rate=16000)
+    features = ctranslate2.StorageView.from_array(inputs.input_features)
+
+    # Detect the language.
+    results = whisper_model.detect_language(features)
+    language, probability = results[0][0]
+    print("Detected language %s with probability %f" % (language, probability))
+
+    # Describe the task in the prompt.
+    # See the prompt format in https://github.com/openai/whisper.
+    prompt = processor.tokenizer.convert_tokens_to_ids(
+        [
+            "<|startoftranscript|>",
+            language,
+            "<|transcribe|>",
+            "<|notimestamps|>",  # Remove this token to generate timestamps.
+        ]
+    )
+
+    # Run generation for the 30-second window.
+    time_start = datetime.datetime.now()
+    results = whisper_model.generate(features, [prompt])
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Inference took ' + str(infer_time_milliseconds) + ' ms')
+    results = processor.decode(results[0].sequences_ids[0])
+    print(results)
+    return language, results, infer_time_milliseconds
 
 # transformers
 def get_transform(img):
@@ -55,7 +112,7 @@ def do_infer(img, triton_model):
     # Display and return full results
     print(str(inference_output))
     inference_output_dict = dict(enumerate(inference_output.flatten(), 1))
-
+    print(inference_output_dict)
     return inference_output_dict, infer_time_milliseconds
 
 app = FastAPI()
@@ -67,8 +124,17 @@ async def root():
 @app.post("/api/infer")
 async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
     # Setup access to file
-    img = io.BytesIO(await file.read())
+    audio_file = io.BytesIO(await file.read())
     response, infer_time = do_infer(img, model)
     final_response = {"infer_time": infer_time, "results": [response]}
+    json_compatible_item_data = jsonable_encoder(final_response)
+    return JSONResponse(content=json_compatible_item_data)
+
+@app.post("/api/asr")
+async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
+    # Setup access to file
+    audio_file = io.BytesIO(await file.read())
+    language, results, infer_time = do_whisper(audio_file)
+    final_response = {"infer_time": infer_time, "language": language, "results": results}
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
