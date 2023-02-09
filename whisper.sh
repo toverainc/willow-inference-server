@@ -10,6 +10,6 @@ MODEL_OUT=`echo $MODEL | sed -e 's,/,-,g'`
 
 # Verbose
 export CT2_VERBOSE=1
-export QUANT="int8_float16"
+export QUANT="float16"
 
 ct2-transformers-converter --model "$MODEL" --quantization "$QUANT" --output_dir models/"$MODEL_OUT"
