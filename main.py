@@ -54,8 +54,15 @@ async def rtc_offer(request):
     def on_datachannel(channel):
         @channel.on("message")
         def on_message(message):
+            print("RTC DC message: " + message)
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
+            if isinstance(message, str) and message.startswith("stop"):
+                print("RTC: Recording stopped")
+                recorder.stop()
+                language, results, infer_time, translation, used_macros = do_whisper(recorder_file, "model", "transcribe", "en")
+                print("RTC: " + results)
+                channel.send('ASR Transcript: ' + results)
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
