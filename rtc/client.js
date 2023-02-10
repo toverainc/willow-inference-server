@@ -10,14 +10,18 @@ var pc = null;
 // data channel
 var dc = null, dcInterval = null;
 
+document.addEventListener('DOMContentLoaded', function() {
+    start()
+ }, false);
+
 function createPeerConnection() {
     var config = {
         sdpSemantics: 'unified-plan'
     };
 
-    if (document.getElementById('use-stun').checked) {
-        config.iceServers = [{urls: ['stun:stun.l.google.com:19302']}];
-    }
+ 
+    config.iceServers = [{urls: ['stun:stun.l.google.com:19302']}];
+
 
     pc = new RTCPeerConnection(config);
 
@@ -70,14 +74,9 @@ function negotiate() {
         var offer = pc.localDescription;
         var codec;
 
-        codec = document.getElementById('audio-codec').value;
+        codec = 'opus/48000/2'
         if (codec !== 'default') {
             offer.sdp = sdpFilterCodec('audio', codec, offer.sdp);
-        }
-
-        codec = document.getElementById('video-codec').value;
-        if (codec !== 'default') {
-            offer.sdp = sdpFilterCodec('video', codec, offer.sdp);
         }
 
         document.getElementById('offer-sdp').textContent = offer.sdp;
@@ -118,49 +117,32 @@ function start() {
         }
     }
 
-    if (document.getElementById('use-datachannel').checked) {
-        var parameters = JSON.parse(document.getElementById('datachannel-parameters').value);
+    // Init DC
+    var parameters = {'ordered': true}
+    console.log(parameters)
+    dc = pc.createDataChannel('chat', parameters);
+    dc.onclose = function() {
+        clearInterval(dcInterval);
+        dataChannelLog.textContent += 'Disconnected from AIR ASR Service\n';
+    };
+    dc.onopen = function() {
+        dataChannelLog.textContent += 'Connected to AIR ASR Service\n';
+    };
+    dc.onmessage = function(evt) {
+        dataChannelLog.textContent += evt.data + '\n';
 
-        dc = pc.createDataChannel('chat', parameters);
-        dc.onclose = function() {
-            clearInterval(dcInterval);
-            dataChannelLog.textContent += 'Disconnected from AIR ASR Service\n';
-        };
-        dc.onopen = function() {
-            dataChannelLog.textContent += 'Connected to AIR ASR Service\n';
-        };
-        dc.onmessage = function(evt) {
-            dataChannelLog.textContent += evt.data + '\n';
-
-            if (evt.data.substring(0, 4) === 'pong') {
-                var elapsed_ms = current_stamp() - parseInt(evt.data.substring(5), 10);
-                dataChannelLog.textContent += ' RTT ' + elapsed_ms + ' ms\n';
-            }
-        };
-    }
+        if (evt.data.substring(0, 4) === 'pong') {
+            var elapsed_ms = current_stamp() - parseInt(evt.data.substring(5), 10);
+            dataChannelLog.textContent += ' RTT ' + elapsed_ms + ' ms\n';
+        }
+    };
 
     var constraints = {
-        audio: document.getElementById('use-audio').checked,
+        audio: true,
         video: false
     };
 
-    if (document.getElementById('use-video').checked) {
-        var resolution = document.getElementById('video-resolution').value;
-        if (resolution) {
-            resolution = resolution.split('x');
-            constraints.video = {
-                width: parseInt(resolution[0], 0),
-                height: parseInt(resolution[1], 0)
-            };
-        } else {
-            constraints.video = true;
-        }
-    }
-
-    if (constraints.audio || constraints.video) {
-        if (constraints.video) {
-            document.getElementById('media').style.display = 'block';
-        }
+    if (constraints.audio) {
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             stream.getTracks().forEach(function(track) {
                 pc.addTrack(track, stream);
