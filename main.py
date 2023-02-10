@@ -20,6 +20,8 @@ import re
 # WebRTC
 import asyncio
 import uuid
+import resample
+import resampy
 
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
@@ -43,7 +45,10 @@ async def rtc_offer(request):
 
     # prepare local media
     player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    recorder = MediaRecorder(os.path.join(ROOT, "recorder.wav"))
+    recorder_file = os.path.join(ROOT, "recorder.wav")
+    #recorder_file = io.BytesIO()
+    #recorder_file.name = "recorder.wav"
+    recorder = MediaRecorder(recorder_file)
 
     @pc.on("datachannel")
     def on_datachannel(channel):
@@ -64,13 +69,16 @@ async def rtc_offer(request):
         print("RTC: Track received", track.kind)
 
         if track.kind == "audio":
-            pc.addTrack(player.audio)
+            # pc.addTrack(player.audio)
             recorder.addTrack(track)
 
         @track.on("ended")
         async def on_ended():
             print("RTC: Track ended", track.kind)
             await recorder.stop()
+            language, results, infer_time, translation, used_macros = do_whisper(recorder_file, "model", "transcribe", "en")
+            print("RTC: " + results)
+            #channel.send("ASR transcription: " + results)
 
     # handle offer
     await pc.setRemoteDescription(offer)
