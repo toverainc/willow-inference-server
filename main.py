@@ -44,10 +44,9 @@ async def rtc_offer(request):
     print("RTC: Created for", request.client.host)
 
     # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    recorder_file = os.path.join(ROOT, "recorder.wav")
+    #recorder_file = os.path.join(ROOT, "recorder.wav")
     #recorder_file = io.BytesIO()
-    #recorder_file.name = "recorder.wav"
+    recorder_file = "/tmp/recorder.wav"
     recorder = MediaRecorder(recorder_file)
 
     @pc.on("datachannel")
@@ -60,6 +59,8 @@ async def rtc_offer(request):
             if isinstance(message, str) and message.startswith("stop"):
                 print("RTC: Recording stopped")
                 recorder.stop()
+                recorder_file = "/tmp/recorder.wav"
+                print("RTC: Got buffer")
                 language, results, infer_time, translation, used_macros = do_whisper(recorder_file, "model", "transcribe", "en")
                 print("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
