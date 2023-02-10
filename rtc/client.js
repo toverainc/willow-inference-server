@@ -210,6 +210,37 @@ function stop() {
     */
 }
 
+function disconnect() {
+    document.getElementById('disconnect').style.display = 'none';
+    // close data channel
+
+    pc.getSenders().forEach(function(sender) {
+        sender.track.stop();
+        dc.send("disconnecting");
+    });
+
+    if (dc) {
+        dc.close();
+    }
+
+    // close transceivers
+
+    if (pc.getTransceivers) {
+        pc.getTransceivers().forEach(function(transceiver) {
+            if (transceiver.stop) {
+                transceiver.stop();
+            }
+        });
+    }
+
+    // close peer connection
+
+    setTimeout(function() {
+        pc.close();
+    }, 500);
+    console.log('Disconnected')
+}
+
 function sdpFilterCodec(kind, codec, realSdp) {
     var allowed = []
     var rtxRegex = new RegExp('a=fmtp:(\\d+) apt=(\\d+)\r$');

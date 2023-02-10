@@ -63,6 +63,9 @@ async def rtc_offer(request):
                 language, results, infer_time, translation, used_macros = do_whisper(recorder_file, "model", "transcribe", "en")
                 print("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
+                #if translation is not None:
+                #    channel.send('ASR Translation: ' + translation)
+                #channel.send('ASR Infer time: ' + infer_time + " ms")
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
