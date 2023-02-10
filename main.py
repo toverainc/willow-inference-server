@@ -62,7 +62,35 @@ whisper_model = ctranslate2.models.Whisper(whisper_model_path, device=device, de
 triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
 triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
 
-def do_whisper(audio_file, model, task):
+def do_translate(features, language):
+    # Set task in token format for processor
+    task = 'translate'
+    processor_task = f'<|{task}|>'
+
+    # Describe the task in the prompt.
+    # See the prompt format in https://github.com/openai/whisper.
+    prompt = processor.tokenizer.convert_tokens_to_ids(
+        [
+            "<|startoftranscript|>",
+            language,
+            processor_task,
+            "<|notimestamps|>",  # Remove this token to generate timestamps.
+        ]
+    )
+
+    # Run generation for the 30-second window.
+    time_start = datetime.datetime.now()
+    results = whisper_model.generate(features, [prompt], beam_size=beam_size)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Translate inference took ' + str(infer_time_milliseconds) + ' ms')
+    results = processor.decode(results[0].sequences_ids[0])
+    print(results)
+
+    return results
+
+def do_whisper(audio_file, model, task, return_language):
     time_start = datetime.datetime.now()
 
     # Load audio
@@ -107,9 +135,11 @@ def do_whisper(audio_file, model, task):
 
     if not language == return_language:
         print(f'Detected non-preferred language {language}, translating to {return_language}')
-        print('WIP')
+        translation = do_translate(features, language)
+    else:
+        translation = None
 
-    return language, results, infer_time_milliseconds
+    return language, results, infer_time_milliseconds, translation
 
 # transformers
 def get_transform(img):
@@ -168,11 +198,17 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/asr")
-async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = asr_model, task: Optional[str] = "transcribe"):
+async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = asr_model, task: Optional[str] = "transcribe", return_language: Optional[str] = return_language):
     # Setup access to file
     print("Got ASR request for model: " + model)
     audio_file = io.BytesIO(await audio_file.read())
-    language, results, infer_time = do_whisper(audio_file, model, task)
+    language, results, infer_time, translation = do_whisper(audio_file, model, task, return_language)
+
     final_response = {"infer_time": infer_time, "language": language, "text": results}
+
+    # Handle translation in one response
+    if translation:
+        final_response['translation']=translation
+
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
