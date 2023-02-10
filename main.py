@@ -132,6 +132,7 @@ def do_whisper(audio_file, model, task, return_language):
     if not language == return_language:
         print(f'Detected non-preferred language {language}, translating to {return_language}')
         translation = do_translate(features, language)
+        translation = translation.strip()
     else:
         translation = None
 
@@ -142,9 +143,17 @@ def do_whisper(audio_file, model, task, return_language):
 
     # Remove trailing and leading spaces
     results = results.strip()
-    translation = translation.strip()
 
-    return language, results, infer_time_milliseconds, translation
+    used_macros = None
+    try:
+        results.find('period')
+        macro_results = results.replace("period", "" )
+        macro_results = results.replace("PERIOD", "" )
+        #used_macros = 'format_period'
+    except:
+        pass
+
+    return language, results, infer_time_milliseconds, translation, used_macros
 
 # transformers
 def get_transform(img):
@@ -207,13 +216,17 @@ async def infer(request: Request, audio_file: UploadFile, response: Response, mo
     # Setup access to file
     print("Got ASR request for model: " + model)
     audio_file = io.BytesIO(await audio_file.read())
-    language, results, infer_time, translation = do_whisper(audio_file, model, task, return_language)
+    language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, task, return_language)
 
     final_response = {"infer_time": infer_time, "language": language, "text": results}
 
     # Handle translation in one response
     if translation:
         final_response['translation']=translation
+
+    # If we detected a custom macro, tell them what it was
+    if used_macros:
+        final_response['used_macros']=used_macros
 
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
