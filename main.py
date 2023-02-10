@@ -1,7 +1,9 @@
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+#from starlette.routing import Mount
+#from starlette.staticfiles import StaticFiles
 from typing import List, Optional
 import datetime
 import numpy as np
@@ -201,6 +203,16 @@ app = FastAPI()
 @app.get("/ping")
 async def root():
     return {"message": "Pong"}
+
+@app.get("/rtc/index.html")
+async def rtc_index():
+    file_path = "/app/rtc/index.html"
+    return FileResponse(path=file_path)
+
+@app.get("/rtc/client.js")
+async def rtc_index():
+    file_path = "/app/rtc/client.js"
+    return FileResponse(path=file_path, filename=file_path)
 
 @app.post("/api/infer")
 async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
