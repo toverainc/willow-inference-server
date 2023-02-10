@@ -29,7 +29,7 @@
 <button id="stop" onclick="stop()">Stop</button>
 <button id="disconnect" onclick="disconnect()">Disconnect</button>
 
-<h2>State</h2>
+<h2>Connection Status</h2>
 <p>
     ICE gathering state: <span id="ice-gathering-state"></span>
 </p>
@@ -46,8 +46,10 @@
     <audio id="audio" autoplay="true"></audio>
 </div>
 
-<h2>AIR ASR Log</h2>
-<pre id="data-channel" style="height: 200px;"></pre>
+<h2>Log</h2>
+<p>
+    <textarea id="data-channel" style="margin: 0px; height: 300px; width: 800px"></textarea>
+</p>
 
 <script src="client.js"></script>
 </body>
