@@ -140,6 +140,10 @@ def do_whisper(audio_file, model, task, return_language):
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     print('Inference took ' + str(infer_time_milliseconds) + ' ms')
 
+    # Remove trailing and leading spaces
+    results = results.strip()
+    translation = translation.strip()
+
     return language, results, infer_time_milliseconds, translation
 
 # transformers
