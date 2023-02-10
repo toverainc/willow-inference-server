@@ -17,6 +17,71 @@ import io
 import os
 import re
 
+# WebRTC
+import asyncio
+import uuid
+
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
+
+ROOT = os.path.dirname(__file__)
+
+#logger = logging.getLogger("pc")
+pcs = set()
+relay = MediaRelay()
+
+async def rtc_offer(request):
+    params = await request.json()
+    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+
+    pc = RTCPeerConnection()
+    # TODO: This seems broken but still works
+    pc_id = "PeerConnection(%s)" % uuid.uuid4()
+    pcs.add(pc)
+
+    print("RTC: Created for", request.client.host)
+
+    # prepare local media
+    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
+    recorder = MediaRecorder(os.path.join(ROOT, "recorder.wav"))
+
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        @channel.on("message")
+        def on_message(message):
+            if isinstance(message, str) and message.startswith("ping"):
+                channel.send("pong" + message[4:])
+
+    @pc.on("connectionstatechange")
+    async def on_connectionstatechange():
+        print("RTC: Connection state is", pc.connectionState)
+        if pc.connectionState == "failed":
+            await pc.close()
+            pcs.discard(pc)
+
+    @pc.on("track")
+    def on_track(track):
+        print("RTC: Track received", track.kind)
+
+        if track.kind == "audio":
+            pc.addTrack(player.audio)
+            recorder.addTrack(track)
+
+        @track.on("ended")
+        async def on_ended():
+            print("RTC: Track ended", track.kind)
+            await recorder.stop()
+
+    # handle offer
+    await pc.setRemoteDescription(offer)
+    await recorder.start()
+
+    # send answer
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+
+    return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+
 # Whisper
 import ctranslate2
 import librosa
@@ -213,6 +278,11 @@ async def rtc_index():
 async def rtc_index():
     file_path = "/app/rtc/client.js"
     return FileResponse(path=file_path, filename=file_path)
+
+@app.post("/offer")
+async def offer(request: Request, response: Response):
+    response = await rtc_offer(request)
+    return JSONResponse(content=response)
 
 @app.post("/api/infer")
 async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
