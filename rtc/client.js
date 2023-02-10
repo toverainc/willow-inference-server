@@ -10,6 +10,11 @@ var pc = null;
 // data channel
 var dc = null, dcInterval = null;
 
+var constraints = {
+    audio: true,
+    video: false
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     start()
  }, false);
@@ -19,9 +24,7 @@ function createPeerConnection() {
         sdpSemantics: 'unified-plan'
     };
 
- 
     config.iceServers = [{urls: ['stun:stun.l.google.com:19302']}];
-
 
     pc = new RTCPeerConnection(config);
 
@@ -96,8 +99,6 @@ function negotiate() {
 }
 
 function start() {
-    //document.getElementById('start').style.display = 'none';
-
     pc = createPeerConnection();
 
     var time_start = null;
@@ -113,7 +114,6 @@ function start() {
 
     // Init DC
     var parameters = {'ordered': true}
-    console.log(parameters)
     dc = pc.createDataChannel('chat', parameters);
     dc.onclose = function() {
         clearInterval(dcInterval);
@@ -131,11 +131,6 @@ function start() {
         }
     };
 
-    var constraints = {
-        audio: true,
-        video: false
-    };
-
     if (constraints.audio) {
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             stream.getTracks().forEach(function(track) {
@@ -148,46 +143,17 @@ function start() {
     } else {
         negotiate();
     }
-
-    document.getElementById('stop').style.display = 'inline-block';
 }
 
 function stop() {
-    //document.getElementById('stop').style.display = 'none';
-
-    // close data channel
-    /*
-    if (dc) {
-        dc.close();
-    }
-    */
-    // close transceivers
-    /*
-    if (pc.getTransceivers) {
-        pc.getTransceivers().forEach(function(transceiver) {
-            if (transceiver.stop) {
-                transceiver.stop();
-            }
-        });
-    }
-    */
-
     // close local audio
     pc.getSenders().forEach(function(sender) {
         sender.track.stop();
         dc.send("stop");
     });
-
-    // close peer connection
-    /*
-    setTimeout(function() {
-        pc.close();
-    }, 500);
-    */
 }
 
 function disconnect() {
-    document.getElementById('disconnect').style.display = 'none';
     // close data channel
 
     pc.getSenders().forEach(function(sender) {
@@ -200,7 +166,6 @@ function disconnect() {
     }
 
     // close transceivers
-
     if (pc.getTransceivers) {
         pc.getTransceivers().forEach(function(transceiver) {
             if (transceiver.stop) {
@@ -210,7 +175,6 @@ function disconnect() {
     }
 
     // close peer connection
-
     setTimeout(function() {
         pc.close();
     }, 500);
