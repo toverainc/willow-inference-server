@@ -11,7 +11,7 @@ var pc = null;
 var dc = null, dcInterval = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    init()
+    start()
  }, false);
 
 function createPeerConnection() {
@@ -95,7 +95,7 @@ function negotiate() {
     });
 }
 
-function init() {
+function start() {
     //document.getElementById('start').style.display = 'none';
 
     pc = createPeerConnection();
@@ -131,10 +131,6 @@ function init() {
         }
     };
 
-}
-
-function start() {
-    //document.getElementById('start').style.display = 'none';
     var constraints = {
         audio: true,
         video: false
@@ -153,7 +149,7 @@ function start() {
         negotiate();
     }
 
-    //document.getElementById('stop').style.display = 'inline-block';
+    document.getElementById('stop').style.display = 'inline-block';
 }
 
 function stop() {
@@ -191,7 +187,7 @@ function stop() {
 }
 
 function disconnect() {
-    //document.getElementById('disconnect').style.display = 'none';
+    document.getElementById('disconnect').style.display = 'none';
     // close data channel
 
     pc.getSenders().forEach(function(sender) {
