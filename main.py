@@ -297,7 +297,7 @@ async def rtc_index():
     file_path = "/app/rtc/client.js"
     return FileResponse(path=file_path, filename=file_path)
 
-@app.post("/offer")
+@app.post("/rtc/offer")
 async def offer(request: Request, response: Response):
     response = await rtc_offer(request)
     return JSONResponse(content=response)

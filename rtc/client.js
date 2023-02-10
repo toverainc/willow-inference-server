@@ -76,8 +76,7 @@ function negotiate() {
             offer.sdp = sdpFilterCodec('audio', codec, offer.sdp);
         }
 
-        //document.getElementById('offer-sdp').textContent = offer.sdp;
-        return fetch('/offer', {
+        return fetch('/rtc/offer', {
             body: JSON.stringify({
                 sdp: offer.sdp,
                 type: offer.type
@@ -90,7 +89,6 @@ function negotiate() {
     }).then(function(response) {
         return response.json();
     }).then(function(answer) {
-        //document.getElementById('answer-sdp').textContent = answer.sdp;
         return pc.setRemoteDescription(answer);
     }).catch(function(e) {
         alert(e);
