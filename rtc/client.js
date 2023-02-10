@@ -10,6 +10,8 @@ var pc = null;
 // data channel
 var dc = null, dcInterval = null;
 
+var stop_time = null
+
 var constraints = {
     audio: true,
     video: false
@@ -124,6 +126,12 @@ function start() {
     };
     dc.onmessage = function(evt) {
         dataChannelLog.textContent += evt.data + '\n';
+        let data = evt.data
+        if (data.includes('Infer')) {
+            const end = Date.now();
+            let time_log = `Total time: ${end - stop_time} ms`
+            dataChannelLog.textContent += time_log + '\n';
+        }
 
         if (evt.data.substring(0, 4) === 'pong') {
             var elapsed_ms = current_stamp() - parseInt(evt.data.substring(5), 10);
@@ -148,6 +156,7 @@ function start() {
 function stop() {
     // close local audio
     pc.getSenders().forEach(function(sender) {
+        stop_time = Date.now()
         sender.track.stop();
         dc.send("stop");
     });
