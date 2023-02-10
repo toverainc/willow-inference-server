@@ -22,6 +22,14 @@ import transformers
 import datetime
 import logging
 
+# default return language
+return_language = "en"
+
+# default beam_size - 5 is lib default, 1 for greedy
+beam_size = 5
+
+# model threads
+model_threads = 4
 # CUDA params
 device = "cuda"
 device_index = [0]
@@ -48,7 +56,7 @@ asr_model = "openai-whisper-large-v2"
 
 whisper_model_path = "models" + "/"+ asr_model
 
-whisper_model = ctranslate2.models.Whisper(whisper_model_path, device=device, device_index=device_index, compute_type=compute_type)
+whisper_model = ctranslate2.models.Whisper(whisper_model_path, device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
 
 # Triton
 triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
@@ -82,7 +90,7 @@ def do_whisper(audio_file):
 
     # Run generation for the 30-second window.
     time_start = datetime.datetime.now()
-    results = whisper_model.generate(features, [prompt])
+    results = whisper_model.generate(features, [prompt], beam_size=beam_size)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
