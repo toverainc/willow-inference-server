@@ -96,7 +96,7 @@ function negotiate() {
 }
 
 function start() {
-    document.getElementById('start').style.display = 'none';
+    //document.getElementById('start').style.display = 'none';
 
     pc = createPeerConnection();
 
@@ -153,7 +153,7 @@ function start() {
 }
 
 function stop() {
-    document.getElementById('stop').style.display = 'none';
+    //document.getElementById('stop').style.display = 'none';
 
     // close data channel
     /*
