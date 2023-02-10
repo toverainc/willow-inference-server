@@ -41,12 +41,9 @@ function createPeerConnection() {
     }, false);
     signalingLog.textContent = pc.signalingState;
 
-    // connect audio / video
+    // connect audio
     pc.addEventListener('track', function(evt) {
-        if (evt.track.kind == 'video')
-            document.getElementById('video').srcObject = evt.streams[0];
-        else
-            document.getElementById('audio').srcObject = evt.streams[0];
+        document.getElementById('audio').srcObject = evt.streams[0];
     });
 
     return pc;
@@ -83,8 +80,7 @@ function negotiate() {
         return fetch('/offer', {
             body: JSON.stringify({
                 sdp: offer.sdp,
-                type: offer.type,
-                video_transform: document.getElementById('video-transform').value
+                type: offer.type
             }),
             headers: {
                 'Content-Type': 'application/json'
@@ -178,7 +174,7 @@ function stop() {
     }
     */
 
-    // close local audio / video
+    // close local audio
     pc.getSenders().forEach(function(sender) {
         sender.track.stop();
         dc.send("stop");
