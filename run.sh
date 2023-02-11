@@ -3,7 +3,7 @@
 if [ "$1" ]; then
     export CUDA_VISIBLE_DEVICES="$1"
 else
-    export CUDA_VISIBLE_DEVICES="0,1"
+    export CUDA_VISIBLE_DEVICES="0"
 fi
 
 #     -p 19000:8000 -p 8081:8080 

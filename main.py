@@ -110,6 +110,8 @@ import librosa
 import transformers
 import datetime
 import logging
+import torch
+import torchaudio
 
 # default return language
 return_language = "en"
@@ -139,13 +141,16 @@ processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-large-
 compute_types = str(ctranslate2.get_supported_compute_types("cuda"))
 print("Supported compute types are: " + compute_types)
 
-# Load the model on CUDA
-asr_model = "openai-whisper-large-v2"
-#asr_model = "openai-whisper-medium"
+# Load all models - thanks for quantization ctranslate2
+whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
+whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
+whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
 
-whisper_model_path = "models" + "/"+ asr_model
+# Go big or go home by default
+whisper_model_default = 'large'
 
-whisper_model = ctranslate2.models.Whisper(whisper_model_path, device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
+# Default detect language?
+detect_language = False
 
 # Triton
 triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
@@ -179,27 +184,40 @@ def do_translate(features, language):
 
     return results
 
-def do_whisper(audio_file, model, task, return_language):
-    time_start = datetime.datetime.now()
+def do_whisper(audio_file, model, beam_size, task, detect_language, return_language):
 
-    # Load audio
+    # Point to model object depending on passed model string
+    if model == "large":
+        whisper_model = whisper_model_large
+    elif model == "medium":
+        whisper_model = whisper_model_medium
+    elif model == "base":
+        whisper_model = whisper_model_base
+
+    processor_task = f'<|{task}|>'
+    first_time_start = datetime.datetime.now()
+
+    # Whisper STEP 1 - load audio and extract features
     audio, _ = librosa.load(audio_file, sr=16000, mono=True)
 
     inputs = processor(audio, return_tensors="np", sampling_rate=16000)
+    features = ctranslate2.StorageView.from_array(inputs.input_features)
     time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
+    infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     print('Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
-    features = ctranslate2.StorageView.from_array(inputs.input_features)
 
-    # Detect the language.
-    results = whisper_model.detect_language(features)
-    language, probability = results[0][0]
+    # Whisper STEP 2 - optionally actually detect the language or default to en
+    time_start = datetime.datetime.now()
+    if detect_language:
+        results = whisper_model.detect_language(features)
+        language, probability = results[0][0]
+        print("Detected language %s with probability %f" % (language, probability))
 
-    print("Detected language %s with probability %f" % (language, probability))
-
-    # Set task in token format for processor
-    processor_task = f'<|{task}|>'
+    else:
+        print('Hardcoding language to en')
+        # Hardcode language
+        language = '<|en|>'
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
@@ -211,10 +229,26 @@ def do_whisper(audio_file, model, task, return_language):
             "<|notimestamps|>",  # Remove this token to generate timestamps.
         ]
     )
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Language detection took ' + str(infer_time_milliseconds) + ' ms')
 
-    # Run generation for the 30-second window.
+    # Whisper STEP 3 - run model
+    time_start = datetime.datetime.now()
+    print(f'Using model {model} with beam size {beam_size}')
     results = whisper_model.generate(features, [prompt], beam_size=beam_size)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Model took ' + str(infer_time_milliseconds) + ' ms')
+    
+    time_start = datetime.datetime.now()
     results = processor.decode(results[0].sequences_ids[0])
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Decode took ' + str(infer_time_milliseconds) + ' ms')
     print(results)
 
     # Strip out token stuff
@@ -241,7 +275,7 @@ def do_whisper(audio_file, model, task, return_language):
         pass
 
     time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
+    infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     print('Inference took ' + str(infer_time_milliseconds) + ' ms')
 
@@ -319,14 +353,19 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/asr")
-async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = asr_model, task: Optional[str] = "transcribe", return_language: Optional[str] = return_language):
+async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
     prof = profile.Profile()
     prof.enable()
-    # Setup access to file
-    print("Got ASR request for model: " + model)
-    audio_file = io.BytesIO(await audio_file.read())
-    language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, task, return_language)
 
+    print(f"Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
+    # Setup access to file
+    audio_file = io.BytesIO(await audio_file.read())
+    # Do Whisper
+    # TODO: Move detect language bool to request param
+    detect_language = False
+    language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+
+    # Create final response
     final_response = {"infer_time": infer_time, "language": language, "text": results}
 
     # Handle translation in one response

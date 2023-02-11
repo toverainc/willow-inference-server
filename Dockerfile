@@ -10,6 +10,7 @@ RUN pip install -r requirements.txt
 RUN pip install ctranslate2 librosa transformers
 RUN pip install --upgrade numba
 RUN pip install aiortc resample resampy
+RUN pip install whisper ffmpeg torchaudio
 
 CMD uvicorn main:app --host 0.0.0.0 --port 8000 --log-level critical
 EXPOSE 8000
