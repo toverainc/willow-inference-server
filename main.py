@@ -1,11 +1,11 @@
+# Profiling
 import cProfile as profile
 import pstats
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse
-#from starlette.routing import Mount
-#from starlette.staticfiles import StaticFiles
+from fastapi.staticfiles import StaticFiles
 from typing import List, Optional
 import datetime
 import numpy as np
@@ -60,10 +60,26 @@ async def rtc_offer(request):
                 channel.send("pong" + message[4:])
             if isinstance(message, str) and message.startswith("stop"):
                 print("RTC: Recording stopped")
+                time_start_base = datetime.datetime.now()
+                time_end = datetime.datetime.now()
+                infer_time = time_end - time_start_base
+                infer_time_milliseconds = infer_time.total_seconds() * 1000
                 recorder.stop()
                 recorder_file = "/tmp/recorder.wav"
+                print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 print("RTC: Got buffer")
-                language, results, infer_time, translation, used_macros = do_whisper(recorder_file, "model", "transcribe", "en")
+                # TODO make these dynamic with data channel, url params, something
+                model = "base"
+                beam_size = 5
+                task = "transcribe"
+                detect_language = False
+                return_language = "en"
+                # Tell client what we are doing
+                channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
+                # Compat with standard whisper function all
+                audio_file = recorder_file
+                # Finally call Whisper
+                language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
                 print("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
                 if translation:
@@ -89,10 +105,6 @@ async def rtc_offer(request):
         @track.on("ended")
         async def on_ended():
             print("RTC: Track ended", track.kind)
-            await recorder.stop()
-            language, results, infer_time, translation, used_macros = do_whisper(recorder_file, "model", "transcribe", "en")
-            print("RTC: " + results)
-            #channel.send("ASR transcription: " + results)
 
     # handle offer
     await pc.setRemoteDescription(offer)
@@ -156,6 +168,13 @@ detect_language = False
 triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
 triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
 
+def warm_models():
+    print("Warming models...")
+    for x in range(5):
+        do_whisper("3sec.flac", "base", 5, "transcribe", True, "en")
+        do_whisper("3sec.flac", "medium", 5, "transcribe", True, "en")
+        do_whisper("3sec.flac", "large", 5, "transcribe", True, "en")
+
 def do_translate(features, language):
     # Set task in token format for processor
     task = 'translate'
@@ -185,7 +204,6 @@ def do_translate(features, language):
     return results
 
 def do_whisper(audio_file, model, beam_size, task, detect_language, return_language):
-
     # Point to model object depending on passed model string
     if model == "large":
         whisper_model = whisper_model_large
@@ -199,11 +217,16 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
     # Whisper STEP 1 - load audio and extract features
     audio, _ = librosa.load(audio_file, sr=16000, mono=True)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - first_time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Loading audio took ' + str(infer_time_milliseconds) + ' ms')
 
+    time_start = datetime.datetime.now()
     inputs = processor(audio, return_tensors="np", sampling_rate=16000)
     features = ctranslate2.StorageView.from_array(inputs.input_features)
     time_end = datetime.datetime.now()
-    infer_time = time_end - first_time_start
+    infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     print('Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
 
@@ -322,26 +345,16 @@ def do_infer(img, triton_model):
     print(inference_output_dict)
     return inference_output_dict, infer_time_milliseconds
 
+# Warm models
+warm_models()
+
 app = FastAPI()
+# Mount static dir to serve files for aiortc client
+app.mount("/rtc", StaticFiles(directory="rtc"), name="rtc_files")
 
 @app.get("/ping")
 async def root():
     return {"message": "Pong"}
-
-@app.get("/rtc/index.html")
-async def rtc_index():
-    file_path = "/app/rtc/index.html"
-    return FileResponse(path=file_path)
-
-@app.get("/rtc/client.js")
-async def rtc_index():
-    file_path = "/app/rtc/client.js"
-    return FileResponse(path=file_path, filename=file_path)
-
-@app.post("/rtc/offer")
-async def offer(request: Request, response: Response):
-    response = await rtc_offer(request)
-    return JSONResponse(content=response)
 
 @app.post("/api/infer")
 async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
@@ -352,6 +365,11 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
 
+@app.post("/api/rtc/asr")
+async def offer(request: Request, response: Response):
+    response = await rtc_offer(request)
+    return JSONResponse(content=response)
+
 @app.post("/api/asr")
 async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
     prof = profile.Profile()
@@ -361,8 +379,6 @@ async def infer(request: Request, audio_file: UploadFile, response: Response, mo
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
-    # TODO: Move detect language bool to request param
-    detect_language = False
     language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
 
     # Create final response
