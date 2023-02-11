@@ -76,12 +76,13 @@ function negotiate() {
         var offer = pc.localDescription;
         var codec;
 
+        console.log(JSON.stringify(offer.sdp))
         codec = 'opus/48000/2'
         if (codec !== 'default') {
             offer.sdp = sdpFilterCodec('audio', codec, offer.sdp);
         }
 
-        return fetch('/rtc/offer', {
+        return fetch('/api/rtc/asr', {
             body: JSON.stringify({
                 sdp: offer.sdp,
                 type: offer.type
@@ -213,6 +214,7 @@ function sdpFilterCodec(kind, codec, realSdp) {
             }
 
             match = lines[i].match(rtxRegex);
+
             if (match && allowed.includes(parseInt(match[2]))) {
                 allowed.push(parseInt(match[1]));
             }
@@ -244,6 +246,9 @@ function sdpFilterCodec(kind, codec, realSdp) {
         }
     }
 
+    console.log(`Processed SDP is ${sdp}`)
+    sdp = sdp.replace('minptime=10;useinbandfec=1', 'minptime=10;useinbandfec=1;sprop-maxcapturerate=16000')
+    console.log(`16kHz SDP is ${sdp}`)
     return sdp;
 }
 
