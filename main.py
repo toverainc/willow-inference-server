@@ -207,7 +207,6 @@ def do_whisper(audio_file, model, task, return_language):
     )
 
     # Run generation for the 30-second window.
-    time_start = datetime.datetime.now()
     results = whisper_model.generate(features, [prompt], beam_size=beam_size)
     results = processor.decode(results[0].sequences_ids[0])
     print(results)
@@ -223,11 +222,6 @@ def do_whisper(audio_file, model, task, return_language):
     else:
         translation = None
 
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Inference took ' + str(infer_time_milliseconds) + ' ms')
-
     # Remove trailing and leading spaces
     results = results.strip()
 
@@ -239,6 +233,11 @@ def do_whisper(audio_file, model, task, return_language):
         #used_macros = 'format_period'
     except:
         pass
+
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Inference took ' + str(infer_time_milliseconds) + ' ms')
 
     return language, results, infer_time_milliseconds, translation, used_macros
 
