@@ -1,3 +1,5 @@
+import cProfile as profile
+import pstats
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
@@ -184,6 +186,10 @@ def do_whisper(audio_file, model, task, return_language):
     audio, _ = librosa.load(audio_file, sr=16000, mono=True)
 
     inputs = processor(audio, return_tensors="np", sampling_rate=16000)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    print('Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
     features = ctranslate2.StorageView.from_array(inputs.input_features)
 
     # Detect the language.
@@ -314,6 +320,8 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
 
 @app.post("/api/asr")
 async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = asr_model, task: Optional[str] = "transcribe", return_language: Optional[str] = return_language):
+    prof = profile.Profile()
+    prof.enable()
     # Setup access to file
     print("Got ASR request for model: " + model)
     audio_file = io.BytesIO(await audio_file.read())
@@ -330,4 +338,8 @@ async def infer(request: Request, audio_file: UploadFile, response: Response, mo
         final_response['used_macros']=used_macros
 
     json_compatible_item_data = jsonable_encoder(final_response)
+    prof.disable()
+    # print profiling output
+    stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
+    stats.print_stats(10) # top 10 rows
     return JSONResponse(content=json_compatible_item_data)
