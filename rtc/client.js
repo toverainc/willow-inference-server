@@ -83,7 +83,7 @@ function negotiate() {
         }
 
         // The route in FastAPI supports all of the usual URL params to control ASR
-        return fetch('/api/rtc/asr?model=large', {
+        return fetch('/api/rtc/asr?model=large&beam_size=1', {
             body: JSON.stringify({
                 sdp: offer.sdp,
                 type: offer.type
@@ -248,7 +248,7 @@ function sdpFilterCodec(kind, codec, realSdp) {
     }
 
     console.log(`Processed SDP is ${sdp}`)
-    sdp = sdp.replace('minptime=10;useinbandfec=1', 'minptime=10;useinbandfec=1;sprop-maxcapturerate=16000')
+    sdp = sdp.replace('minptime=10;useinbandfec=1', 'minptime=10;useinbandfec=1;sprop-maxcapturerate=16000;stereo=0')
     console.log(`16kHz SDP is ${sdp}`)
     return sdp;
 }
