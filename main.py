@@ -26,13 +26,13 @@ import resample
 import resampy
 
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
+from aiortc.contrib.media import MediaRecorder
+from media import MediaRecorderLite
 
 # Only need this because of MediaRecorder...
 ROOT = os.path.dirname(__file__)
 
 pcs = set()
-relay = MediaRelay()
 
 # Whisper
 import ctranslate2
@@ -281,7 +281,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     #recorder_file = os.path.join(ROOT, "recorder.wav")
     #recorder_file = io.BytesIO()
     recorder_file = "/tmp/recorder.wav"
-    recorder = MediaRecorder(recorder_file)
+    recorder = MediaRecorderLite(recorder_file)
 
     @pc.on("datachannel")
     def on_datachannel(channel):
