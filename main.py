@@ -22,15 +22,9 @@ import re
 # WebRTC
 import asyncio
 import uuid
-import resample
-import resampy
 
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
-from aiortc.contrib.media import MediaRecorder
 from media import MediaRecorderLite
-
-# Only need this because of MediaRecorder...
-ROOT = os.path.dirname(__file__)
 
 pcs = set()
 
@@ -271,17 +265,16 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
     pc = RTCPeerConnection()
-    # TODO: This seems broken but still works
     pc_id = "PeerConnection(%s)" % uuid.uuid4()
     pcs.add(pc)
 
     print("RTC: Created for", request.client.host)
 
     # prepare local media
-    #recorder_file = os.path.join(ROOT, "recorder.wav")
-    #recorder_file = io.BytesIO()
-    recorder_file = "/tmp/recorder.wav"
-    recorder = MediaRecorderLite(recorder_file)
+    #audio_file = io.BytesIO()
+    #audio_file.name = "recorder.wav"
+    audio_file = "/tmp/recorder.wav"
+    recorder = MediaRecorderLite(audio_file, format="wav")
 
     @pc.on("datachannel")
     def on_datachannel(channel):
@@ -297,13 +290,12 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 infer_time = time_end - time_start_base
                 infer_time_milliseconds = infer_time.total_seconds() * 1000
                 recorder.stop()
-                recorder_file = "/tmp/recorder.wav"
                 print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 print("RTC: Got buffer")
                 # Tell client what we are doing
                 channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
                 # Compat with standard whisper function all
-                audio_file = recorder_file
+                #audio_file = recorder_file #.getvalue()
                 # Finally call Whisper
                 language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
                 print("RTC: " + results)
