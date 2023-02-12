@@ -43,7 +43,7 @@ from audio import log_mel_spectrogram, pad_or_trim
 return_language = "en"
 
 # default beam_size - 5 is lib default, 1 for greedy
-beam_size = 5
+beam_size = 2
 
 # model threads
 model_threads = 4
