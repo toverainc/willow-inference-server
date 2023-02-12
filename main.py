@@ -28,93 +28,11 @@ import resampy
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 
+# Only need this because of MediaRecorder...
 ROOT = os.path.dirname(__file__)
 
-#logger = logging.getLogger("pc")
 pcs = set()
 relay = MediaRelay()
-
-async def rtc_offer(request):
-    params = await request.json()
-    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-
-    pc = RTCPeerConnection()
-    # TODO: This seems broken but still works
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    pcs.add(pc)
-
-    print("RTC: Created for", request.client.host)
-
-    # prepare local media
-    #recorder_file = os.path.join(ROOT, "recorder.wav")
-    #recorder_file = io.BytesIO()
-    recorder_file = "/tmp/recorder.wav"
-    recorder = MediaRecorder(recorder_file)
-
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            print("RTC DC message: " + message)
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
-            if isinstance(message, str) and message.startswith("stop"):
-                print("RTC: Recording stopped")
-                time_start_base = datetime.datetime.now()
-                time_end = datetime.datetime.now()
-                infer_time = time_end - time_start_base
-                infer_time_milliseconds = infer_time.total_seconds() * 1000
-                recorder.stop()
-                recorder_file = "/tmp/recorder.wav"
-                print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
-                print("RTC: Got buffer")
-                # TODO make these dynamic with data channel, url params, something
-                model = "base"
-                beam_size = 5
-                task = "transcribe"
-                detect_language = False
-                return_language = "en"
-                # Tell client what we are doing
-                channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
-                # Compat with standard whisper function all
-                audio_file = recorder_file
-                # Finally call Whisper
-                language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
-                print("RTC: " + results)
-                channel.send('ASR Transcript: ' + results)
-                if translation:
-                    channel.send(f'ASR Translation from {language}:  {translation}')
-                infer_time = str(infer_time)
-                channel.send(f'ASR Infer time: {infer_time} ms')
-
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange():
-        print("RTC: Connection state is", pc.connectionState)
-        if pc.connectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
-
-    @pc.on("track")
-    def on_track(track):
-        print("RTC: Track received", track.kind)
-
-        if track.kind == "audio":
-            # pc.addTrack(player.audio)
-            recorder.addTrack(track)
-
-        @track.on("ended")
-        async def on_ended():
-            print("RTC: Track ended", track.kind)
-
-    # handle offer
-    await pc.setRemoteDescription(offer)
-    await recorder.start()
-
-    # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-
-    return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
 # Whisper
 import ctranslate2
@@ -124,6 +42,8 @@ import datetime
 import logging
 import torch
 import torchaudio
+
+# Configs
 
 # default return language
 return_language = "en"
@@ -345,6 +265,82 @@ def do_infer(img, triton_model):
     print(inference_output_dict)
     return inference_output_dict, infer_time_milliseconds
 
+# Function for WebRTC handling
+async def rtc_offer(request, model, beam_size, task, detect_language, return_language):
+    params = await request.json()
+    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+
+    pc = RTCPeerConnection()
+    # TODO: This seems broken but still works
+    pc_id = "PeerConnection(%s)" % uuid.uuid4()
+    pcs.add(pc)
+
+    print("RTC: Created for", request.client.host)
+
+    # prepare local media
+    #recorder_file = os.path.join(ROOT, "recorder.wav")
+    #recorder_file = io.BytesIO()
+    recorder_file = "/tmp/recorder.wav"
+    recorder = MediaRecorder(recorder_file)
+
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        @channel.on("message")
+        def on_message(message):
+            print("RTC DC message: " + message)
+            if isinstance(message, str) and message.startswith("ping"):
+                channel.send("pong" + message[4:])
+            if isinstance(message, str) and message.startswith("stop"):
+                print("RTC: Recording stopped")
+                time_start_base = datetime.datetime.now()
+                time_end = datetime.datetime.now()
+                infer_time = time_end - time_start_base
+                infer_time_milliseconds = infer_time.total_seconds() * 1000
+                recorder.stop()
+                recorder_file = "/tmp/recorder.wav"
+                print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
+                print("RTC: Got buffer")
+                # Tell client what we are doing
+                channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
+                # Compat with standard whisper function all
+                audio_file = recorder_file
+                # Finally call Whisper
+                language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+                print("RTC: " + results)
+                channel.send('ASR Transcript: ' + results)
+                if translation:
+                    channel.send(f'ASR Translation from {language}:  {translation}')
+                infer_time = str(infer_time)
+                channel.send(f'ASR Infer time: {infer_time} ms')
+
+    @pc.on("connectionstatechange")
+    async def on_connectionstatechange():
+        print("RTC: Connection state is", pc.connectionState)
+        if pc.connectionState == "failed":
+            await pc.close()
+            pcs.discard(pc)
+
+    @pc.on("track")
+    def on_track(track):
+        print("RTC: Track received", track.kind)
+
+        if track.kind == "audio":
+            recorder.addTrack(track)
+
+        @track.on("ended")
+        async def on_ended():
+            print("RTC: Track ended", track.kind)
+
+    # handle offer
+    await pc.setRemoteDescription(offer)
+    await recorder.start()
+
+    # send answer
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+
+    return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+
 # Warm models
 warm_models()
 
@@ -353,7 +349,7 @@ app = FastAPI()
 app.mount("/rtc", StaticFiles(directory="rtc"), name="rtc_files")
 
 @app.get("/ping")
-async def root():
+async def ping():
     return {"message": "Pong"}
 
 @app.post("/api/infer")
@@ -366,12 +362,12 @@ async def infer(request: Request, file: UploadFile, response: Response, model: O
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/rtc/asr")
-async def offer(request: Request, response: Response):
-    response = await rtc_offer(request)
+async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
+    response = await rtc_offer(request, model, beam_size, task, detect_language, return_language)
     return JSONResponse(content=response)
 
 @app.post("/api/asr")
-async def infer(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
+async def asr(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
     prof = profile.Profile()
     prof.enable()
 
