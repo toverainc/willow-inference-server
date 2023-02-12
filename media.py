@@ -6,12 +6,8 @@ import threading
 import time
 from typing import Dict, Optional, Set, Union
 
+# FFMPEG (for now)
 import av
-from av import AudioFrame, VideoFrame
-from av.audio import AudioStream
-from av.frame import Frame
-from av.packet import Packet
-from av.video.stream import VideoStream
 
 from aiortc.mediastreams import AUDIO_PTIME, MediaStreamError, MediaStreamTrack
 
@@ -43,6 +39,7 @@ class MediaRecorderLite:
     """
 
     def __init__(self, file, format=None, options={}):
+        print(f'MediaRecorderLite using file {file} format {format} options {options}')
         self.__container = av.open(file=file, format=format, mode="w", options=options)
         self.__tracks = {}
 
@@ -52,21 +49,9 @@ class MediaRecorderLite:
 
         :param track: A :class:`aiortc.MediaStreamTrack`.
         """
-        if track.kind == "audio":
-            if self.__container.format.name in ("wav", "alsa"):
-                codec_name = "pcm_s16le"
-            elif self.__container.format.name == "mp3":
-                codec_name = "mp3"
-            else:
-                codec_name = "aac"
-            stream = self.__container.add_stream(codec_name)
-        else:
-            if self.__container.format.name == "image2":
-                stream = self.__container.add_stream("png", rate=30)
-                stream.pix_fmt = "rgb24"
-            else:
-                stream = self.__container.add_stream("libx264", rate=30)
-                stream.pix_fmt = "yuv420p"
+        # WAV
+        codec_name = "pcm_s16le"
+        stream = self.__container.add_stream(codec_name, rate=16000)
         self.__tracks[track] = MediaRecorderLiteContext(stream)
 
     async def start(self):
@@ -102,10 +87,6 @@ class MediaRecorderLite:
                 return
 
             if not context.started:
-                # adjust the output size to match the first frame
-                if isinstance(frame, VideoFrame):
-                    context.stream.width = frame.width
-                    context.stream.height = frame.height
                 context.started = True
 
             for packet in context.stream.encode(frame):
