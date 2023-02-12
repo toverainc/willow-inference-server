@@ -85,9 +85,9 @@ triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
 def warm_models():
     print("Warming models...")
     for x in range(5):
-        do_whisper("3sec.flac", "base", 5, "transcribe", True, "en")
-        do_whisper("3sec.flac", "medium", 5, "transcribe", True, "en")
-        do_whisper("3sec.flac", "large", 5, "transcribe", True, "en")
+        do_whisper("3sec.flac", "base", beam_size, "transcribe", True, "en")
+        do_whisper("3sec.flac", "medium", beam_size, "transcribe", True, "en")
+        do_whisper("3sec.flac", "large", beam_size, "transcribe", True, "en")
 
 def do_translate(features, language):
     # Set task in token format for processor
@@ -364,8 +364,8 @@ async def rtc_asr(request: Request, response: Response, model: Optional[str] = w
 
 @app.post("/api/asr")
 async def asr(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
-    prof = profile.Profile()
-    prof.enable()
+    #prof = profile.Profile()
+    #prof.enable()
 
     print(f"Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
     # Setup access to file
@@ -385,8 +385,8 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
         final_response['used_macros']=used_macros
 
     json_compatible_item_data = jsonable_encoder(final_response)
-    prof.disable()
+    #prof.disable()
     # print profiling output
-    stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
-    stats.print_stats(10) # top 10 rows
+    #stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
+    #stats.print_stats(10) # top 10 rows
     return JSONResponse(content=json_compatible_item_data)
