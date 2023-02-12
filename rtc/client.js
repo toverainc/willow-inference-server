@@ -82,7 +82,8 @@ function negotiate() {
             offer.sdp = sdpFilterCodec('audio', codec, offer.sdp);
         }
 
-        return fetch('/api/rtc/asr', {
+        // The route in FastAPI supports all of the usual URL params to control ASR
+        return fetch('/api/rtc/asr?model=large', {
             body: JSON.stringify({
                 sdp: offer.sdp,
                 type: offer.type
