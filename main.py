@@ -35,8 +35,8 @@ import transformers
 import datetime
 import logging
 import torch
-import torchaudio
-
+# Import audio stuff adapted from ref Whisper implementation
+from audio import log_mel_spectrogram, pad_or_trim
 # Configs
 
 # default return language
@@ -137,8 +137,12 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     print('Loading audio took ' + str(infer_time_milliseconds) + ' ms')
 
     time_start = datetime.datetime.now()
-    inputs = processor(audio, return_tensors="np", sampling_rate=16000)
-    features = ctranslate2.StorageView.from_array(inputs.input_features)
+    mel_audio = pad_or_trim(audio)
+    mel_features = log_mel_spectrogram(mel_audio).numpy()
+    # Ref Whisper returns shape (80, 3000) but model expects (1, 80, 3000)
+    mel_features = np.expand_dims(mel_features, axis=0)
+    features = ctranslate2.StorageView.from_array(mel_features)
+
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000

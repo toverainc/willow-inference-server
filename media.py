@@ -63,6 +63,7 @@ class MediaRecorderLite:
                 context.task = asyncio.ensure_future(self.__run_track(track, context))
 
     async def stop(self):
+        print('Called stop')
         """
         Stop recording.
         """
@@ -76,6 +77,7 @@ class MediaRecorderLite:
             self.__tracks = {}
 
             if self.__container:
+                print('Closing container')
                 self.__container.close()
                 self.__container = None
 
