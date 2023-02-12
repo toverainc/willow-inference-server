@@ -45,6 +45,11 @@ return_language = "en"
 # default beam_size - 5 is lib default, 1 for greedy
 beam_size = 2
 
+# default beam size for longer transcriptions
+long_beam_size = 5
+# Audio duration in ms to activate "long" mode
+long_beam_size_threshold = 12000
+
 # model threads
 model_threads = 4
 # CUDA params
@@ -130,7 +135,12 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     first_time_start = datetime.datetime.now()
 
     # Whisper STEP 1 - load audio and extract features
-    audio, _ = librosa.load(audio_file, sr=16000, mono=True)
+    audio, audio_sr = librosa.load(audio_file, sr=16000, mono=True)
+    audio_duration = librosa.get_duration(audio, sr=audio_sr) * 1000
+    audio_duration = int(audio_duration)
+    if audio_duration >= long_beam_size_threshold:
+        print(f'Audio duration is {audio_duration} ms - activating long mode')
+        beam_size = long_beam_size
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
