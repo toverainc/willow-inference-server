@@ -18,7 +18,7 @@ var constraints = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    start()
+    init()
  }, false);
 
 function createPeerConnection() {
@@ -102,7 +102,7 @@ function negotiate() {
     });
 }
 
-function start() {
+function init() {
     pc = createPeerConnection();
 
     var time_start = null;
@@ -156,12 +156,13 @@ function start() {
 }
 
 function stop() {
-    // close local audio
-    pc.getSenders().forEach(function(sender) {
         stop_time = Date.now()
-        sender.track.stop();
         dc.send("stop");
-    });
+}
+
+function start() {
+        start_time = Date.now()
+        dc.send("start");
 }
 
 function disconnect() {

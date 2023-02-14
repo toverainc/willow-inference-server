@@ -44,6 +44,7 @@ class MediaRecorderLite:
         self.__tracks = {}
 
     def addTrack(self, track):
+        print('MEDIA RECORDER: Added track')
         """
         Add a track to be recorded.
 
@@ -53,17 +54,27 @@ class MediaRecorderLite:
         codec_name = "pcm_s16le"
         stream = self.__container.add_stream(codec_name, rate=16000)
         self.__tracks[track] = MediaRecorderLiteContext(stream)
+        print(f'MEDIA RECORDER: Added track with codec {codec_name}')
+        #print(track)
+        #print(stream)
 
     async def start(self):
         """
         Start recording.
         """
+        print('MEDIA RECORDER: Called start')
+        print(str(self))
+        print(str(self.__tracks.items()))
         for track, context in self.__tracks.items():
+            print('MEDIA RECORDER: start context with track')
+            print(track)
+            print(context)
             if context.task is None:
+                print('MEDIA RECORDER: start context')
                 context.task = asyncio.ensure_future(self.__run_track(track, context))
 
     async def stop(self):
-        print('Called stop')
+        print('MEDIA RECORDER: Called stop')
         """
         Stop recording.
         """
@@ -85,11 +96,14 @@ class MediaRecorderLite:
         while True:
             try:
                 frame = await track.recv()
+                print('MEDIA RECORDER: track frame')
             except MediaStreamError:
+                print("MediaStreamError")
                 return
 
             if not context.started:
                 context.started = True
 
             for packet in context.stream.encode(frame):
+                print('MEDIA RECORDER: track frame 2')
                 self.__container.mux(packet)

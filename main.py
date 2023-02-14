@@ -288,24 +288,34 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     #audio_file = io.BytesIO()
     #audio_file.name = "recorder.wav"
     audio_file = "/tmp/recorder.wav"
-    recorder = MediaRecorderLite(audio_file, format="wav")
+    recorder = MediaRecorderLite(file=audio_file, format="wav")
 
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
-        def on_message(message):
+        async def on_message(message):
             print("RTC DC message: " + message)
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
+            if isinstance(message, str) and message.startswith("start"):
+
+                print("TRACK GLOBAL IN DC")
+                print (track_global)
+                track = track_global
+                if track.kind == "audio":
+                    print("RTC: Recording started")
+                    await recorder.start()
+                    recorder.addTrack(track)
+                    channel.send(f'Started recording')
             if isinstance(message, str) and message.startswith("stop"):
                 print("RTC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
                 infer_time = time_end - time_start_base
                 infer_time_milliseconds = infer_time.total_seconds() * 1000
-                recorder.stop()
+                await recorder.stop()
                 print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
-                print("RTC: Got buffer")
+                #print("RTC: Got buffer")
                 # Tell client what we are doing
                 channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
                 # Compat with standard whisper function all
@@ -329,17 +339,16 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     @pc.on("track")
     def on_track(track):
         print("RTC: Track received", track.kind)
-
-        if track.kind == "audio":
-            recorder.addTrack(track)
-
+        print(track)
+        global track_global
+        track_global = track
         @track.on("ended")
         async def on_ended():
             print("RTC: Track ended", track.kind)
 
     # handle offer
     await pc.setRemoteDescription(offer)
-    await recorder.start()
+    #await recorder.start()
 
     # send answer
     answer = await pc.createAnswer()
