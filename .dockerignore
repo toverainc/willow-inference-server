@@ -3,3 +3,4 @@ __pycache__
 client
 cache
 models
+acme.json
