@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install --upgrade pip setuptools
+#RUN pip install --upgrade pip setuptools
 RUN pip install -r requirements.txt
 RUN pip install ctranslate2 librosa transformers
 RUN pip install --upgrade numba
