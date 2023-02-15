@@ -323,9 +323,16 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
         print("RTC: Connection state is", pc.connectionState)
-        if pc.connectionState == "failed":
+        if pc.connectionState == "failed" or pc.connectionState == "closed":
+            try:
+                await recorder.stop()
+            except:
+                pass
+            else:
+                print("RTC: Recording stopped")
             await pc.close()
             pcs.discard(pc)
+            print("RTC: Connection ended")
 
     @pc.on("track")
     def on_track(track):
@@ -337,6 +344,12 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
         @track.on("ended")
         async def on_ended():
             print("RTC: Track ended", track.kind)
+            try:
+                await recorder.stop()
+            except:
+                pass
+            else:
+                print("RTC: Recording stopped")
 
     # handle offer
     await pc.setRemoteDescription(offer)
@@ -354,6 +367,10 @@ warm_models()
 app = FastAPI()
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc"), name="rtc_files")
+
+@app.on_event('shutdown')
+def shutdown_event():
+    print("Got shutdown - we should properly handle in progress recording")
 
 @app.get("/ping")
 async def ping():
