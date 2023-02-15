@@ -188,7 +188,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     # Whisper STEP 3 - run model
     time_start = datetime.datetime.now()
     print(f'Using model {model} with beam size {beam_size}')
-    results = whisper_model.generate(features, [prompt], beam_size=beam_size)
+    results = whisper_model.generate(features, [prompt], beam_size=beam_size, return_scores=False)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -285,9 +285,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     print("RTC: Created for", request.client.host)
 
     # prepare local media
-    #audio_file = io.BytesIO()
+    audio_file = io.BytesIO()
     #audio_file.name = "recorder.wav"
-    audio_file = "/tmp/recorder.wav"
+    #audio_file = "/tmp/recorder.wav"
     recorder = MediaRecorderLite(audio_file, format="wav")
 
     @pc.on("datachannel")
@@ -311,6 +311,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 # Compat with standard whisper function all
                 #audio_file = recorder_file #.getvalue()
                 # Finally call Whisper
+                audio_file.seek(0)
                 language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
                 print("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
