@@ -49,13 +49,13 @@ services:
       #CUDA_VISIBLE_DEVICES: 0
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.asr.rule=Host(`asr.air.tovera.io`) && PathPrefix(`/asr`)"
+      - "traefik.http.routers.asr.rule=Host(`asr.air.tovera.io`)"
       - "traefik.http.services.asr.loadbalancer.server.port=8000"
       - "traefik.http.routers.asr.tls=true"
       - "traefik.http.routers.asr.tls.certresolver=le"
-      - "traefik.http.middlewares.asr-strip.stripprefix.prefixes=/asr"
-      - "traefik.http.middlewares.asr-strip.stripprefix.forceslash=true"
-      - "traefik.http.routers.asr.middlewares=asr-strip"
+#      - "traefik.http.middlewares.asr-strip.stripprefix.prefixes=/asr"
+#      - "traefik.http.middlewares.asr-strip.stripprefix.forceslash=true"
+#      - "traefik.http.routers.asr.middlewares=asr-strip"
     deploy:
       resources:
         reservations:
