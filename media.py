@@ -59,6 +59,7 @@ class MediaRecorderLite:
         self.__tracks[track] = MediaRecorderLiteContext(stream)
 
     def start(self):
+        print('MEDIA: Called start')
         """
         Start recording.
         """
@@ -67,7 +68,7 @@ class MediaRecorderLite:
                 context.task = asyncio.ensure_future(self.__run_track(track, context))
 
     def stop(self):
-        print('Called stop')
+        print('MEDIA: Called stop')
         """
         Stop recording.
         """

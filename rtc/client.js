@@ -18,7 +18,7 @@ var constraints = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    createPeerConnection()
+    init()
  }, false);
 
 function createPeerConnection() {
@@ -102,19 +102,8 @@ function negotiate() {
     });
 }
 
-function start() {
+function init() {
     pc = createPeerConnection();
-
-    var time_start = null;
-
-    function current_stamp() {
-        if (time_start === null) {
-            time_start = new Date().getTime();
-            return 0;
-        } else {
-            return new Date().getTime() - time_start;
-        }
-    }
 
     // Init DC
     var parameters = {'ordered': true}
@@ -157,11 +146,12 @@ function start() {
 
 function stop() {
     // close local audio
-    pc.getSenders().forEach(function(sender) {
-        stop_time = Date.now()
-        sender.track.stop();
-        if(dc.readyState === "open") dc.send("stop");
-    });
+    stop_time = Date.now()
+    dc.send("stop");
+}
+
+function start() {
+    dc.send("start");
 }
 
 function disconnect() {

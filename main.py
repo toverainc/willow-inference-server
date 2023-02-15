@@ -284,8 +284,6 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     print("RTC: Created for", request.client.host)
 
-    recorders = []
-
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
@@ -293,31 +291,32 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
             print("RTC DC message: " + message)
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
+            if isinstance(message, str) and message.startswith("start"):
+                print("RTC: Recording started")
+                global recorder
+                recorder = MediaRecorderLite()
+                recorder.addTrack(global_track)
+                recorder.start()
+                channel.send('ASR Recording')
             if isinstance(message, str) and message.startswith("stop"):
-                recs = recorders.copy()
-                recorders.clear()
-                for recorder in recs:
-                    print("RTC: Recording stopped")
-                    time_start_base = datetime.datetime.now()
-                    time_end = datetime.datetime.now()
-                    infer_time = time_end - time_start_base
-                    infer_time_milliseconds = infer_time.total_seconds() * 1000
-                    recorder.stop()
-                    print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
-                    print("RTC: Got buffer")
-                    # Tell client what we are doing
-                    channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
-                    # Compat with standard whisper function all
-                    #audio_file = recorder_file #.getvalue()
-                    # Finally call Whisper
-                    recorder.file.seek(0)
-                    language, results, infer_time, translation, used_macros = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
-                    print("RTC: " + results)
-                    channel.send('ASR Transcript: ' + results)
-                    if translation:
-                        channel.send(f'ASR Translation from {language}:  {translation}')
-                    infer_time = str(infer_time)
-                    channel.send(f'ASR Infer time: {infer_time} ms')
+                print("RTC: Recording stopped")
+                time_start_base = datetime.datetime.now()
+                time_end = datetime.datetime.now()
+                infer_time = time_end - time_start_base
+                infer_time_milliseconds = infer_time.total_seconds() * 1000
+                recorder.stop()
+                print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
+                # Tell client what we are doing
+                channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
+                # Finally call Whisper
+                recorder.file.seek(0)
+                language, results, infer_time, translation, used_macros = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
+                print("RTC: " + results)
+                channel.send('ASR Transcript: ' + results)
+                if translation:
+                    channel.send(f'ASR Translation from {language}:  {translation}')
+                infer_time = str(infer_time)
+                channel.send(f'ASR Infer time: {infer_time} ms')
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
@@ -338,10 +337,8 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     def on_track(track):
         print("RTC: Track received", track.kind)
         if track.kind == "audio":
-            recorder = MediaRecorderLite()
-            recorder.addTrack(track)
-            recorder.start()
-            recorders.append(recorder)
+            global global_track
+            global_track = track
 
         @track.on("ended")
         async def on_ended():
