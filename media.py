@@ -4,6 +4,7 @@ import fractions
 import logging
 import threading
 import time
+import io
 from typing import Dict, Optional, Set, Union
 
 # FFMPEG (for now)
@@ -38,7 +39,10 @@ class MediaRecorderLite:
     :param options: Additional options to pass to FFmpeg.
     """
 
-    def __init__(self, file, format=None, options={}):
+    def __init__(self, file=None, format='wav', options={}):
+        if file is None:
+            file = io.BytesIO()
+        self.file = file
         print(f'MediaRecorderLite using file {file} format {format} options {options}')
         self.__container = av.open(file=file, format=format, mode="w", options=options)
         self.__tracks = {}
@@ -54,7 +58,7 @@ class MediaRecorderLite:
         stream = self.__container.add_stream(codec_name, rate=16000)
         self.__tracks[track] = MediaRecorderLiteContext(stream)
 
-    async def start(self):
+    def start(self):
         """
         Start recording.
         """
@@ -62,7 +66,7 @@ class MediaRecorderLite:
             if context.task is None:
                 context.task = asyncio.ensure_future(self.__run_track(track, context))
 
-    async def stop(self):
+    def stop(self):
         print('Called stop')
         """
         Stop recording.

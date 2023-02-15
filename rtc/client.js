@@ -18,7 +18,7 @@ var constraints = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    start()
+    createPeerConnection()
  }, false);
 
 function createPeerConnection() {
@@ -160,7 +160,7 @@ function stop() {
     pc.getSenders().forEach(function(sender) {
         stop_time = Date.now()
         sender.track.stop();
-        dc.send("stop");
+        if(dc.readyState === "open") dc.send("stop");
     });
 }
 
