@@ -317,6 +317,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                     channel.send(f'ASR Translation from {language}:  {translation}')
                 infer_time = str(infer_time)
                 channel.send(f'ASR Infer time: {infer_time} ms')
+                #del recorder
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
@@ -337,18 +338,13 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     def on_track(track):
         print("RTC: Track received", track.kind)
         if track.kind == "audio":
+            print("Setting global track")
             global global_track
             global_track = track
 
         @track.on("ended")
         async def on_ended():
             print("RTC: Track ended", track.kind)
-            try:
-                await recorder.stop()
-            except:
-                pass
-            else:
-                print("RTC: Recording stopped")
 
     # handle offer
     await pc.setRemoteDescription(offer)

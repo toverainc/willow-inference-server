@@ -17,6 +17,9 @@ var constraints = {
     video: false
 };
 
+// track
+var asr_track = null, asr_stream = null, asr_sender = null
+
 document.addEventListener('DOMContentLoaded', function() {
     init()
  }, false);
@@ -102,6 +105,12 @@ function negotiate() {
     });
 }
 
+function switchTrack(switch_track) {
+    console.log("SWITCHING TRACK TO")
+    console.log(switch_track)
+    asr_sender.replaceTrack(switch_track);
+}
+
 function init() {
     pc = createPeerConnection();
 
@@ -134,7 +143,19 @@ function init() {
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             stream.getTracks().forEach(function(track) {
                 pc.addTrack(track, stream);
+                asr_track = track
+                asr_stream = stream
+                asr_sender = pc.getSenders()[0]
+                console.log('INIT - ASR TRACK')
+                console.log(asr_track)
+                console.log('INIT - ASR STREAM')
+                console.log(asr_stream)
+                console.log('INIT - ASR SENDER')
+                console.log(asr_sender)
+
             });
+            // After we init and negotiate replace track until we click start
+            switchTrack(null)
             return negotiate();
         }, function(err) {
             alert('Could not acquire media: ' + err);
@@ -146,11 +167,16 @@ function init() {
 
 function stop() {
     // close local audio
+    console.log('STOP')
     stop_time = Date.now()
     dc.send("stop");
+    switchTrack(null)
 }
 
 function start() {
+    console.log('START')
+    console.log(asr_track)
+    switchTrack(asr_track)
     dc.send("start");
 }
 
