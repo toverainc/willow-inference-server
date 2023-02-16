@@ -106,6 +106,9 @@ function negotiate() {
 }
 
 function switchTrack(switch_track) {
+    let current_track = pc.getSenders()[0]
+    console.log("SWITCHING TRACK FROM")
+    console.log(current_track)
     console.log("SWITCHING TRACK TO")
     console.log(switch_track)
     asr_sender.replaceTrack(switch_track);
@@ -175,7 +178,6 @@ function stop() {
 
 function start() {
     console.log('START')
-    console.log(asr_track)
     switchTrack(asr_track)
     dc.send("start");
 }

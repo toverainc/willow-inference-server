@@ -294,6 +294,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
             if isinstance(message, str) and message.startswith("start"):
                 print("RTC: Recording started")
                 global recorder
+                print("RTC: Recording with track", global_track)
                 recorder = MediaRecorderLite()
                 recorder.addTrack(global_track)
                 recorder.start()
