@@ -114,6 +114,15 @@ function switchTrack(switch_track) {
     asr_sender.replaceTrack(switch_track);
 }
 
+function muteMic (mute) {
+    if (mute) {
+        console.log("Muting microphone")
+    } else {
+        console.log("Unmuting microphone")
+    }
+    asr_stream.getAudioTracks()[0].enabled = !mute;
+};
+
 function init() {
     pc = createPeerConnection();
 
@@ -158,6 +167,7 @@ function init() {
 
             });
             // After we init and negotiate replace track until we click start
+            //muteMic(true)
             switchTrack(null)
             return negotiate();
         }, function(err) {
@@ -174,10 +184,12 @@ function stop() {
     stop_time = Date.now()
     dc.send("stop");
     switchTrack(null)
+    //muteMic(true)
 }
 
 function start() {
     console.log('START')
+    //muteMic(false)
     switchTrack(asr_track)
     dc.send("start");
 }
