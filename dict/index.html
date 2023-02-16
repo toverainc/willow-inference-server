@@ -1,0 +1,136 @@
+<!doctype html><html><head><meta charset="utf-8"/><title>Dictation support demo</title><script defer="defer" src="sdk.js"></script></head><body><script>let deviceManager = null;
+
+        function WriteLog(message) {
+            log = document.getElementById("log");
+            log.value = `${log.value}${new Date().toLocaleTimeString()}: ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        window.onerror = (error) => {
+            WriteLog(`onError() \t ${error}`);
+        };
+        window.addEventListener("unhandledrejection", (promiseRejectionEvent) => {
+            WriteLog(`onError() \t ${promiseRejectionEvent.reason}`);
+        });
+
+        function deviceToString(device) {
+            return JSON.stringify({
+                'id': device.id,
+                'type': DictationSupport.DeviceType[device.getDeviceType()],
+            });
+        }
+
+        function devicesToString(devices) {
+            return JSON.stringify(devices.map(device => JSON.parse(deviceToString(device))));
+        }
+
+        function setDeviceIdInUi(device) {
+            document.getElementById("id").value = device.id;
+        }
+
+        function onButtonEvent(device, bitMask) {
+            const events = new Set();
+            for (const value of Object.values(DictationSupport.ButtonEvent)) {
+                const valueAsNumber = Number(value);
+                if (isNaN(valueAsNumber)) continue;
+                if (bitMask & valueAsNumber) {
+                    events.add(DictationSupport.ButtonEvent[valueAsNumber]);
+                }
+            }
+
+            WriteLog(`onButtonEvent() \t device: ${deviceToString(device)} \t ${JSON.stringify([...events])}`);
+        }
+
+        function onMotionEvent(device, motionEvent) {
+            WriteLog(`onMotionEvent() \t device: ${deviceToString(device)} \t motionEvent: ${DictationSupport.MotionEvent[motionEvent]}`);
+        }
+
+        function onDeviceConnected(device) {
+            WriteLog(`onDeviceConnected() \t ${deviceToString(device)}`);
+            setDeviceIdInUi(device);
+        }
+
+        function onDeviceDisconnected(device) {
+            WriteLog(`onDeviceDisconnected() \t ${deviceToString(device)}`);
+        }
+
+        async function init() {
+            if (deviceManager === null) {
+                deviceManager = new DictationSupport.DictationDeviceManager();
+                deviceManager.addButtonEventListener(onButtonEvent);
+                deviceManager.addDeviceConnectedEventListener(onDeviceConnected);
+                deviceManager.addDeviceDisconnectedEventListener(onDeviceDisconnected);
+                deviceManager.addMotionEventListener(onMotionEvent);
+            }
+            await deviceManager.init();
+            WriteLog('init() done');
+            getDevices();
+        }
+
+        async function shutdown() {
+            await deviceManager.shutdown();
+            WriteLog('shutdown() done');
+        }
+
+        async function requestDevice() {
+            const devices = await deviceManager.requestDevice();
+            WriteLog(`requestDevice() devices: ${devicesToString(devices)}`);
+            if (devices.length !== 0) {
+                setDeviceIdInUi(devices[0]);
+            }
+        }
+
+        function getDevices() {
+            const devices = deviceManager.getDevices();
+            WriteLog(`getDevices() devices: ${devicesToString(devices)}`);
+            if (devices.length > 0) {
+                setDeviceIdInUi(devices[0]);
+            }
+        }
+
+        function getDeviceWithSelectedId() {
+            const devices = deviceManager.getDevices();
+            const id = parseInt(document.getElementById("id").value);
+            const device = devices.find(device => device.id === id);
+            if (device === undefined) {
+                const errorMessaage = `no device with ID ${id}`;
+                WriteLog(errorMessaage);
+                throw new Error(errorMessaage);
+            }
+            return device;
+        }
+
+        async function getEventMode() {
+            const device = getDeviceWithSelectedId();
+            const eventMode = await device.getEventMode();
+            WriteLog(`getEventMode() \t device: ${deviceToString(device)}} \t eventMode: ${DictationSupport.EventMode[eventMode]}`);
+        }
+
+        async function setEventMode() {
+            const device = getDeviceWithSelectedId();
+            const eventMode = parseInt(document.getElementById("eventMode").value);
+            await device.setEventMode(eventMode);
+            WriteLog(`setEventMode() \t device: ${deviceToString(device)}} \t eventMode: ${eventMode}`);
+        }
+
+        async function setSimpleLedState() {
+            const device = getDeviceWithSelectedId();
+            const simpleLedState = parseInt(document.getElementById("simpleLEDState").value);
+            await device.setSimpleLedState(simpleLedState);
+            WriteLog(`setSimpleLedState() \t device: ${deviceToString(device)} \t simpleLedState: ${simpleLedState}`);
+        }
+
+        async function setLed() {
+            const device = getDeviceWithSelectedId();
+            const index = parseInt(document.getElementById("ledIndex").value);
+            const mode = parseInt(document.getElementById("ledMode").value);
+            await device.setLed(index, mode);
+            WriteLog(`setLed() \t device: ${deviceToString(device)} \t index: ${index} \t mode: ${mode}`);
+        }
+
+        async function setLedPM3() {
+            const device = getDeviceWithSelectedId();
+            const state = parseInt(document.getElementById("ledState").value);
+            await device.setLed(state);
+            WriteLog(`setLed() \t device: ${deviceToString(device)} \t state: ${state}`);
+        }</script><p><button onclick="init()">init</button> <button onclick="shutdown()">shutdown</button></p><p><button onclick="requestDevice()">requestDevice</button> <button onclick="getDevices()">getDevices</button></p><p>deviceId for commands: <input id="id" value="0"/></p><fieldset><legend>SpeechMike / PowerMic4:</legend><p><button onclick="getEventMode()">getEventMode</button> <button onclick="setEventMode()">setEventMode</button> <select id="eventMode"><option value="0">0 = Hid</option><option value="1">1 = Keyboard</option><option value="2">2 = Browser</option><option value="3">3 = WindowsSR</option><option value="4">4 = DragonForMac</option><option value="5">5 = DragonForWindows</option></select></p><p></p><div><button onclick="setSimpleLedState()">setSimpleLedState</button> <select id="simpleLEDState"><option value="0">0 = Off</option><option value="1">1 = RecordInsert</option><option value="2">2 = RecordOverwrite</option><option value="3">3 = RecordStandbyInsert</option><option value="4">4 = RecordStandbyOverwrite</option></select></div><div><button onclick="setLed()">setLed</button> <select id="ledIndex"><option value="0">0 = RECORD_LED_GREEN</option><option value="1">1 = RECORD_LED_RED</option><option value="2">2 = INSTRUCTION_LED_GREEN</option><option value="3">3 = INSTRUCTION_LED_RED</option><option value="4">4 = INS_OWR_BUTTON_LED_GREEN</option><option value="5">5 = INS_OWR_BUTTON_LED_RED</option><option value="6">6 = F1_BUTTON_LED</option><option value="7">7 = F2_BUTTON_LED</option><option value="8">8 = F3_BUTTON_LED</option><option value="9">9 = F4_BUTTON_LED</option></select> <select id="ledMode"><option value="0">0 = Off</option><option value="1">1 = BlinkSlow</option><option value="2">2 = BlinkFast</option><option value="3">3 = On</option></select></div><p></p></fieldset><fieldset><legend>PowerMic3:</legend><p><button onclick="setLedPM3()">setLed</button> <select id="ledState"><option value="0">0 = OFF</option><option value="1">1 = RED</option><option value="2">2 = GREEN</option></select></p></fieldset><p><textarea id="log" style="margin: 0px; height: 300px; width: 800px"></textarea></p></body></html>

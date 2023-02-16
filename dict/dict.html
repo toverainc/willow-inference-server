@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>AIR ASR Dictation Demo</title>
+  <script src="sdk.js"></script>
+  <script src="recorder.js"></script>
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+</head>
+
+<body>
+  <h1>AIR ASR Dictation Demo</h1>
+
+  <fieldset>
+    <legend>Mic Controls</legend>
+    <p>deviceId for commands: <input id="id" value="0" /></p>
+    <p></p>
+    <div>
+      <button onclick="setSimpleLedState()">Simple LED</button>
+      <select id="simpleLEDState">
+        <option value="0">0 = Off</option>
+        <option value="1">1 = RecordInsert</option>
+        <option value="2">2 = RecordOverwrite</option>
+        <option value="3">3 = RecordStandbyInsert</option>
+        <option value="4">4 = RecordStandbyOverwrite</option>
+      </select>
+    </div>
+    <div>
+      <button onclick="setLed()">Set LEDs</button>
+      <select id="ledIndex">
+        <option value="0">0 = RECORD_LED_GREEN</option>
+        <option value="1">1 = RECORD_LED_RED</option>
+        <option value="2">2 = INSTRUCTION_LED_GREEN</option>
+        <option value="3">3 = INSTRUCTION_LED_RED</option>
+        <option value="4">4 = INS_OWR_BUTTON_LED_GREEN</option>
+        <option value="5">5 = INS_OWR_BUTTON_LED_RED</option>
+        <option value="6">6 = F1_BUTTON_LED</option>
+        <option value="7">7 = F2_BUTTON_LED</option>
+        <option value="8">8 = F3_BUTTON_LED</option>
+        <option value="9">9 = F4_BUTTON_LED</option>
+      </select>
+      <select id="ledMode">
+        <option value="0">0 = Off</option>
+        <option value="1">1 = BlinkSlow</option>
+        <option value="2">2 = BlinkFast</option>
+        <option value="3">3 = On</option>
+      </select>
+    </div>
+    <p></p>
+  </fieldset>
+
+  <p>
+    <textarea id="log" style="margin: 0px; height: 300px; width: 800px"></textarea>
+  </p>
+  <div id="controls">
+    <button id="recordButton">Record</button>
+    <button id="pauseButton" disabled>Pause</button>
+    <button id="stopButton" disabled>Stop</button>
+  </div>
+
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+  <!-- Create the editor container -->
+  <p><strong>Text Editor</strong></p>
+  <div id="editor">
+  </div>
+
+  <!-- Initialize Quill editor -->
+  <script>
+    var quill = new Quill('#editor', {
+      theme: 'snow'
+    });
+  </script>
+
+  <div id="formats">Format: start recording to see sample rate</div>
+  <p><strong>Recordings</strong></p>
+  <ol id="recordingsList"></ol>
+
+  <!-- Add our JS -->
+  <script src="dict.js"></script>
+</body>
+
+</html>
