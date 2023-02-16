@@ -90,8 +90,8 @@ class MediaRecorderLite:
         while True:
             try:
                 frame = await track.recv()
-            except MediaStreamError:
-                print("MEDIA STREAM ERROR")
+            except MediaStreamError as e:
+                logger.error("MEDIA STREAM ERROR", e)
                 return
 
             if not context.started:

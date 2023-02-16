@@ -168,8 +168,7 @@ function init() {
             });
             // After we init and negotiate replace track until we click start
             //muteMic(true)
-            switchTrack(null)
-            return negotiate();
+            return negotiate().then(switchTrack(null));
         }, function(err) {
             alert('Could not acquire media: ' + err);
         });

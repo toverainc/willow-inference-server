@@ -23,7 +23,8 @@ import re
 import asyncio
 import uuid
 
-from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
+from aiortc.rtp import RtcpByePacket
 from media import MediaRecorderLite
 
 pcs = set()
@@ -38,6 +39,17 @@ import torch
 # Import audio stuff adapted from ref Whisper implementation
 from audio import log_mel_spectrogram, pad_or_trim
 # Configs
+
+# Monkey patch aiortc
+# sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
+# in this case and keep connection open. XXX: Are there other cases we want to close?
+old_handle_rtcp_packet = RTCRtpReceiver._handle_rtcp_packet
+async def new_handle_rtcp_packet(self, packet):
+    if isinstance(packet, RtcpByePacket):
+        return
+    return old_handle_rtcp_packet(self, packet)
+RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
+#logging.basicConfig(level=logging.DEBUG) #very useful debugging aiortc issues
 
 # default return language
 return_language = "en"
