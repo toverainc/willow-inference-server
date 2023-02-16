@@ -197,12 +197,16 @@ function start() {
 function disconnect() {
     // close data channel
 
-    pc.getSenders().forEach(function(sender) {
-        sender.track.stop();
-        dc.send("disconnecting");
-    });
+    try {
+        pc.getSenders().forEach(function(sender) {
+            sender.track.stop();
+        });
+    } catch {
+        console.log("No sender tracks to stop")
+    }
 
     if (dc) {
+        dc.send("disconnecting");
         dc.close();
     }
 
