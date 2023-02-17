@@ -312,6 +312,12 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 recorder.start()
                 channel.send('ASR Recording')
             if isinstance(message, str) and message.startswith("stop"):
+                try:
+                    action_list = message.split(":")
+                    model = action_list[1]
+                    beam_size = int(action_list[2])
+                except:
+                    pass
                 print("RTC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
