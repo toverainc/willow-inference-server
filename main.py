@@ -385,7 +385,7 @@ warm_models()
 
 app = FastAPI()
 # Mount static dir to serve files for aiortc client
-app.mount("/rtc", StaticFiles(directory="rtc"), name="rtc_files")
+app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
 @app.on_event('shutdown')
 def shutdown_event():
