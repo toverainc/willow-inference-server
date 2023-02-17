@@ -319,11 +319,26 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
             if isinstance(message, str) and message.startswith("stop"):
                 try:
                     action_list = message.split(":")
-                    model = action_list[1]
-                    beam_size = int(action_list[2])
-                    detect_language = eval(action_list[3])
+                    print(f'Debug action list {action_list}')
                 except:
-                    pass
+                    print('Failed to get action list - setting to none')
+                    action_list = None
+                if action_list[1] is not None:
+                    model = action_list[1]
+                    print(f'Got DC provided model {model}')
+                else:
+                    print('Failed getting model from DC')
+                if action_list[2] is not None:
+                    beam_size = int(action_list[2])
+                    print(f'Got DC provided beam size {beam_size}')
+                else:
+                    print('Failed getting beam size from DC')
+                if action_list[3] is not None:
+                    detect_language = eval(action_list[3])
+                    print(f'Got DC provided detect language {detect_language}')
+                else:
+                    print('Failed getting detect language from DC')
+                print(f'Debug vars {model} {beam_size} {detect_language}')
                 print("RTC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
@@ -335,6 +350,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
                 # Finally call Whisper
                 recorder.file.seek(0)
+                print('Passed recoder')
                 language, results, infer_time, translation, used_macros = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
                 print("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
