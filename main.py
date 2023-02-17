@@ -102,11 +102,11 @@ triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
 def warm_models():
     print("Warming models...")
     for x in range(5):
-        do_whisper("3sec.flac", "base", beam_size, "transcribe", True, "en")
-        do_whisper("3sec.flac", "medium", beam_size, "transcribe", True, "en")
-        do_whisper("3sec.flac", "large", beam_size, "transcribe", True, "en")
+        do_whisper("3sec.flac", "base", beam_size, "transcribe", False, "en")
+        do_whisper("3sec.flac", "medium", beam_size, "transcribe", False, "en")
+        do_whisper("3sec.flac", "large", beam_size, "transcribe", False, "en")
 
-def do_translate(features, language):
+def do_translate(features, language, beam_size=beam_size):
     # Set task in token format for processor
     task = 'translate'
     processor_task = f'<|{task}|>'
@@ -124,7 +124,7 @@ def do_translate(features, language):
 
     # Run generation for the 30-second window.
     time_start = datetime.datetime.now()
-    results = whisper_model.generate(features, [prompt], beam_size=beam_size)
+    results = whisper_model_large.generate(features, [prompt], beam_size=beam_size)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -135,6 +135,10 @@ def do_translate(features, language):
     return results
 
 def do_whisper(audio_file, model, beam_size, task, detect_language, return_language):
+    if model != "large" and detect_language == True:
+        print(f'Language detection requested but not supported on model {model} - overriding with large')
+        model = "large"
+        beam_size = 5
     # Point to model object depending on passed model string
     if model == "large":
         whisper_model = whisper_model_large
@@ -220,8 +224,9 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
     if not language == return_language:
         print(f'Detected non-preferred language {language}, translating to {return_language}')
-        translation = do_translate(features, language)
+        translation = do_translate(features, language, beam_size=beam_size)
         translation = translation.strip()
+        print('Translation: ' + translation)
     else:
         translation = None
 
@@ -316,6 +321,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                     action_list = message.split(":")
                     model = action_list[1]
                     beam_size = int(action_list[2])
+                    detect_language = eval(action_list[3])
                 except:
                     pass
                 print("RTC: Recording stopped")
