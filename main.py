@@ -23,7 +23,8 @@ import re
 import asyncio
 import uuid
 
-from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
+from aiortc.rtp import RtcpByePacket
 from media import MediaRecorderLite
 
 pcs = set()
@@ -38,6 +39,17 @@ import torch
 # Import audio stuff adapted from ref Whisper implementation
 from audio import log_mel_spectrogram, pad_or_trim
 # Configs
+
+# Monkey patch aiortc
+# sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
+# in this case and keep connection open. XXX: Are there other cases we want to close?
+old_handle_rtcp_packet = RTCRtpReceiver._handle_rtcp_packet
+async def new_handle_rtcp_packet(self, packet):
+    if isinstance(packet, RtcpByePacket):
+        return
+    return old_handle_rtcp_packet(self, packet)
+RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
+#logging.basicConfig(level=logging.DEBUG) #very useful debugging aiortc issues
 
 # default return language
 return_language = "en"
@@ -284,12 +296,6 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     print("RTC: Created for", request.client.host)
 
-    # prepare local media
-    audio_file = io.BytesIO()
-    #audio_file.name = "recorder.wav"
-    #audio_file = "/tmp/recorder.wav"
-    recorder = MediaRecorderLite(audio_file, format="wav")
-
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
@@ -297,6 +303,14 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
             print("RTC DC message: " + message)
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
+            if isinstance(message, str) and message.startswith("start"):
+                print("RTC: Recording started")
+                global recorder
+                print("RTC: Recording with track", global_track)
+                recorder = MediaRecorderLite()
+                recorder.addTrack(global_track)
+                recorder.start()
+                channel.send('ASR Recording')
             if isinstance(message, str) and message.startswith("stop"):
                 print("RTC: Recording stopped")
                 time_start_base = datetime.datetime.now()
@@ -305,20 +319,18 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 infer_time_milliseconds = infer_time.total_seconds() * 1000
                 recorder.stop()
                 print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
-                print("RTC: Got buffer")
                 # Tell client what we are doing
                 channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
-                # Compat with standard whisper function all
-                #audio_file = recorder_file #.getvalue()
                 # Finally call Whisper
-                audio_file.seek(0)
-                language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+                recorder.file.seek(0)
+                language, results, infer_time, translation, used_macros = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
                 print("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
                 if translation:
                     channel.send(f'ASR Translation from {language}:  {translation}')
                 infer_time = str(infer_time)
                 channel.send(f'ASR Infer time: {infer_time} ms')
+                #del recorder
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
@@ -332,28 +344,23 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 print("RTC: Recording stopped")
             await pc.close()
             pcs.discard(pc)
+            #XXX: close recorders?
             print("RTC: Connection ended")
 
     @pc.on("track")
     def on_track(track):
         print("RTC: Track received", track.kind)
-
         if track.kind == "audio":
-            recorder.addTrack(track)
+            print("Setting global track")
+            global global_track
+            global_track = track
 
         @track.on("ended")
         async def on_ended():
             print("RTC: Track ended", track.kind)
-            try:
-                await recorder.stop()
-            except:
-                pass
-            else:
-                print("RTC: Recording stopped")
 
     # handle offer
     await pc.setRemoteDescription(offer)
-    await recorder.start()
 
     # send answer
     answer = await pc.createAnswer()

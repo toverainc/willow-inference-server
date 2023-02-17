@@ -17,8 +17,11 @@ var constraints = {
     video: false
 };
 
+// track
+var asr_track = null, asr_stream = null, asr_sender = null
+
 document.addEventListener('DOMContentLoaded', function() {
-    start()
+    init()
  }, false);
 
 function createPeerConnection() {
@@ -102,19 +105,26 @@ function negotiate() {
     });
 }
 
-function start() {
-    pc = createPeerConnection();
+function switchTrack(switch_track) {
+    let current_track = pc.getSenders()[0]
+    console.log("SWITCHING TRACK FROM")
+    console.log(current_track)
+    console.log("SWITCHING TRACK TO")
+    console.log(switch_track)
+    asr_sender.replaceTrack(switch_track);
+}
 
-    var time_start = null;
-
-    function current_stamp() {
-        if (time_start === null) {
-            time_start = new Date().getTime();
-            return 0;
-        } else {
-            return new Date().getTime() - time_start;
-        }
+function muteMic (mute) {
+    if (mute) {
+        console.log("Muting microphone")
+    } else {
+        console.log("Unmuting microphone")
     }
+    asr_stream.getAudioTracks()[0].enabled = !mute;
+};
+
+function init() {
+    pc = createPeerConnection();
 
     // Init DC
     var parameters = {'ordered': true}
@@ -145,8 +155,20 @@ function start() {
         navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
             stream.getTracks().forEach(function(track) {
                 pc.addTrack(track, stream);
+                asr_track = track
+                asr_stream = stream
+                asr_sender = pc.getSenders()[0]
+                console.log('INIT - ASR TRACK')
+                console.log(asr_track)
+                console.log('INIT - ASR STREAM')
+                console.log(asr_stream)
+                console.log('INIT - ASR SENDER')
+                console.log(asr_sender)
+
             });
-            return negotiate();
+            // After we init and negotiate replace track until we click start
+            //muteMic(true)
+            return negotiate().then(switchTrack(null));
         }, function(err) {
             alert('Could not acquire media: ' + err);
         });
@@ -157,22 +179,33 @@ function start() {
 
 function stop() {
     // close local audio
-    pc.getSenders().forEach(function(sender) {
-        stop_time = Date.now()
-        sender.track.stop();
-        dc.send("stop");
-    });
+    console.log('STOP')
+    stop_time = Date.now()
+    dc.send("stop");
+    switchTrack(null)
+    //muteMic(true)
+}
+
+function start() {
+    console.log('START')
+    //muteMic(false)
+    switchTrack(asr_track)
+    dc.send("start");
 }
 
 function disconnect() {
     // close data channel
 
-    pc.getSenders().forEach(function(sender) {
-        sender.track.stop();
-        dc.send("disconnecting");
-    });
+    try {
+        pc.getSenders().forEach(function(sender) {
+            sender.track.stop();
+        });
+    } catch {
+        console.log("No sender tracks to stop")
+    }
 
     if (dc) {
+        dc.send("disconnecting");
         dc.close();
     }
 
