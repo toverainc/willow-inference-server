@@ -6,7 +6,9 @@ from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from typing import List, Optional
+from typing import List, Optional, Tuple
+import types
+import random
 import datetime
 import numpy as np
 from PIL import Image
@@ -50,6 +52,34 @@ async def new_handle_rtcp_packet(self, packet):
     return old_handle_rtcp_packet(self, packet)
 RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
 #logging.basicConfig(level=logging.DEBUG) #very useful debugging aiortc issues
+
+# Monkey patch aiortc to control ephemeral ports
+local_ports = list(range(60000, 60000+3000)) # Allowed ephemeral port range
+loop = asyncio.get_event_loop()
+old_create_datagram_endpoint = loop.create_datagram_endpoint
+async def create_datagram_endpoint(self, protocol_factory,
+    local_addr: Tuple[str, int] = None,
+    **kwargs,
+):
+    #if port is specified just use it
+    if local_addr and local_addr[1]:
+        return await old_create_datagram_endpoint(protocol_factory, local_addr=local_addr, **kwargs)
+    #if port is not specified make it use our range
+    ports = list(local_ports)
+    random.shuffle(ports)
+    for port in ports:
+        try:
+            ret = await old_create_datagram_endpoint(
+                protocol_factory, local_addr=(local_addr[0], port), **kwargs
+            )
+            print('create_datagram_endpoint chose port', port)
+            return ret
+        except OSError as exc:
+            if port == ports[-1]:
+                # this was the last port, give up
+                raise exc
+    raise ValueError("local_ports must not be empty")
+loop.create_datagram_endpoint = types.MethodType(create_datagram_endpoint, loop)
 
 # default return language
 return_language = "en"
