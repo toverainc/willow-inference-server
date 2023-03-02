@@ -1,6 +1,14 @@
 #!/bin/bash
+PORT="19000"
 
-docker run --rm -it --gpus all --shm-size=1g --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
-    -v $PWD:/app -v $PWD/cache:/root/.cache \
-    -p 127.0.0.6:58000:8000 air-infer-api:latest \
-    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+if [ "$1" ]; then
+    export CUDA_VISIBLE_DEVICES="$1"
+else
+    export CUDA_VISIBLE_DEVICES="0"
+fi
+
+docker run --rm -it --gpus all --shm-size=1g --ipc=host \
+    -v $PWD:/app -v $PWD/cache:/root/.cache -e CUDA_VISIBLE_DEVICES -e WEB_CONCURRENCY \
+    --name air-infer-api \
+    -p "$PORT":"$PORT" -p 60000-60100:60000-60100/udp air-infer-api:latest \
+    uvicorn main:app --host 0.0.0.0 --port "$PORT" --reload --ssl-keyfile="/app/key.pem" --ssl-certfile="/app/cert.pem"
