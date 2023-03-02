@@ -20,7 +20,6 @@ import json
 import io
 import os
 import re
-import random
 
 # WebRTC
 import asyncio
@@ -56,8 +55,6 @@ RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
 
 # Monkey patch aiortc to control ephemeral ports
 local_ports = list(range(10000, 10000+100)) # Allowed ephemeral port range
-# Randomize ports in list
-random.shuffle(local_ports)
 loop = asyncio.get_event_loop()
 old_create_datagram_endpoint = loop.create_datagram_endpoint
 async def create_datagram_endpoint(self, protocol_factory,
