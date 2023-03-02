@@ -10,9 +10,9 @@ else
     export CUDA_VISIBLE_DEVICES="0"
 fi
 
-#     -p 19000:8000 -p 8081:8080 
+#     -p "$PORT":8000 -p 60000-60100:60000-60100/udp
 docker run --rm -it --gpus all --shm-size=1g --ipc=host \
     -v $PWD:/app -v $PWD/cache:/root/.cache -e CUDA_VISIBLE_DEVICES -e WEB_CONCURRENCY \
     --name air-infer-api \
-    --net host air-infer-api:latest \
+    -p "$PORT":"$PORT" -p 60000-60100:60000-60100/udp air-infer-api:latest \
     uvicorn main:app --host 0.0.0.0 --port "$PORT" --reload --ssl-keyfile="/app/key.pem" --ssl-certfile="/app/cert.pem"
