@@ -64,6 +64,8 @@ async def create_datagram_endpoint(self, protocol_factory,
     #if port is specified just use it
     if local_addr and local_addr[1]:
         return await old_create_datagram_endpoint(protocol_factory, local_addr=local_addr, **kwargs)
+    if local_addr is None: 
+        return await old_create_datagram_endpoint(protocol_factory, local_addr=None, **kwargs)
     #if port is not specified make it use our range
     ports = list(local_ports)
     random.shuffle(ports)
