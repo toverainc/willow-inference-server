@@ -120,6 +120,7 @@ def chunk_iter(inputs):
             yield (chunk, stride)
 
 # copied and modified from https://github.com/huggingface/transformers/blob/ae54e3c3b18bac0832ad62ea9b896dfd52a09850/src/transformers/pipelines/automatic_speech_recognition.py#L211
+# See https://github.com/huggingface/transformers/pull/20104 for limitations 
 def find_longest_common_sequence(sequences, tokenizer):
     sequence = [tok_id for tok_id in sequences[0][0] if tok_id not in tokenizer.all_special_ids]
     for new_seq in sequences[1:]:
