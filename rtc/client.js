@@ -181,7 +181,7 @@ function stop() {
     // close local audio
     console.log('STOP')
     stop_time = Date.now()
-    dc.send("stop:large:2:False");
+    dc.send("stop:large:5:False");
     //dc.send("stop")
     switchTrack(null)
     //muteMic(true)
