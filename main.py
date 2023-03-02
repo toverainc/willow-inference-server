@@ -54,7 +54,7 @@ RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
 #logging.basicConfig(level=logging.DEBUG) #very useful debugging aiortc issues
 
 # Monkey patch aiortc to control ephemeral ports
-local_ports = list(range(60000, 60000+3000)) # Allowed ephemeral port range
+local_ports = list(range(60000, 60000+100)) # Allowed ephemeral port range
 loop = asyncio.get_event_loop()
 old_create_datagram_endpoint = loop.create_datagram_endpoint
 async def create_datagram_endpoint(self, protocol_factory,
