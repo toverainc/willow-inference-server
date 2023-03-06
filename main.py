@@ -39,7 +39,7 @@ import datetime
 import logging
 import torch
 # Import audio stuff adapted from ref Whisper implementation
-from audio import log_mel_spectrogram, pad_or_trim
+from audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 # Configs
 
 # Monkey patch aiortc
@@ -189,16 +189,32 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     if audio_duration >= long_beam_size_threshold:
         print(f'Audio duration is {audio_duration} ms - activating long mode')
         beam_size = long_beam_size
+    use_chunking = False
+    if audio_duration > 30*1000:
+        print(f'Audio duration is > 30s - activating chunking')
+        use_chunking = True
+
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     print('Loading audio took ' + str(infer_time_milliseconds) + ' ms')
 
     time_start = datetime.datetime.now()
-    mel_audio = pad_or_trim(audio)
-    mel_features = log_mel_spectrogram(mel_audio).numpy()
-    # Ref Whisper returns shape (80, 3000) but model expects (1, 80, 3000)
-    mel_features = np.expand_dims(mel_features, axis=0)
+    if use_chunking:
+        chunks = []
+        strides = []
+        for chunk, stride in chunk_iter(audio):
+            chunk = pad_or_trim(chunk)
+            chunks.append(log_mel_spectrogram(chunk).numpy())
+            strides.append(stride)
+        mel_features = np.stack(chunks)
+        batch_size = len(chunks)
+    else:
+        mel_audio = pad_or_trim(audio)
+        mel_features = log_mel_spectrogram(mel_audio).numpy()
+        # Ref Whisper returns shape (80, 3000) but model expects (1, 80, 3000)
+        mel_features = np.expand_dims(mel_features, axis=0)
+        batch_size = 1
     features = ctranslate2.StorageView.from_array(mel_features)
 
     time_end = datetime.datetime.now()
@@ -236,14 +252,20 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     # Whisper STEP 3 - run model
     time_start = datetime.datetime.now()
     print(f'Using model {model} with beam size {beam_size}')
-    results = whisper_model.generate(features, [prompt], beam_size=beam_size, return_scores=False)
+    results = whisper_model.generate(features, [prompt]*batch_size, beam_size=beam_size, return_scores=False)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     print('Model took ' + str(infer_time_milliseconds) + ' ms')
     
     time_start = datetime.datetime.now()
-    results = processor.decode(results[0].sequences_ids[0])
+    if use_chunking:
+        assert strides, 'strides needed to compute final tokens when chunking'
+        tokens = [(results[i].sequences_ids[0], strides[i]) for i in range(batch_size)]
+        tokens = find_longest_common_sequence(tokens, processor.tokenizer)
+    else:
+        tokens = results[0].sequences_ids[0]
+    results = processor.decode(tokens)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -265,21 +287,12 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     # Remove trailing and leading spaces
     results = results.strip()
 
-    used_macros = None
-    try:
-        results.find('period')
-        macro_results = results.replace("period", "" )
-        macro_results = results.replace("PERIOD", "" )
-        #used_macros = 'format_period'
-    except:
-        pass
-
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     print('Inference took ' + str(infer_time_milliseconds) + ' ms')
 
-    return language, results, infer_time_milliseconds, translation, used_macros
+    return language, results, infer_time_milliseconds, translation
 
 # transformers
 def get_transform(img):
@@ -383,7 +396,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 # Finally call Whisper
                 recorder.file.seek(0)
                 print('Passed recoder')
-                language, results, infer_time, translation, used_macros = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
+                language, results, infer_time, translation = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
                 print("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
                 if translation:
@@ -466,7 +479,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
-    language, results, infer_time, translation, used_macros = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+    language, results, infer_time, translation = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
 
     # Create final response
     final_response = {"infer_time": infer_time, "language": language, "text": results}
@@ -474,10 +487,6 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     # Handle translation in one response
     if translation:
         final_response['translation']=translation
-
-    # If we detected a custom macro, tell them what it was
-    if used_macros:
-        final_response['used_macros']=used_macros
 
     json_compatible_item_data = jsonable_encoder(final_response)
     #prof.disable()

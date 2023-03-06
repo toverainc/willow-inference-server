@@ -93,3 +93,48 @@ def log_mel_spectrogram(audio: Union[str, np.ndarray, torch.Tensor], n_mels: int
     log_spec = torch.maximum(log_spec, log_spec.max() - 8.0)
     log_spec = (log_spec + 4.0) / 4.0
     return log_spec
+
+chunk_length_s = 22 # in seconds. See https://huggingface.co/blog/asr-chunking for context.
+stride_length_s = [4, 4] # in seconds [left, right]
+assert chunk_length_s + stride_length_s[0] + stride_length_s[1] == 30, 'Invalid chunk_length_s & stride_length_s config. Should use full 30 seconds'
+chunk_len = chunk_length_s * SAMPLE_RATE
+stride_left = stride_length_s[0] * SAMPLE_RATE
+stride_right = stride_length_s[1] * SAMPLE_RATE
+
+# chunk_iter() is modified/simplified version of https://github.com/huggingface/transformers/blob/ae54e3c3b18bac0832ad62ea9b896dfd52a09850/src/transformers/pipelines/automatic_speech_recognition.py#L59
+def chunk_iter(inputs):
+    assert not torch.is_tensor(inputs), 'chunk_iter only takes numpy array'
+    inputs_len = inputs.shape[0]
+    step = chunk_len - stride_left - stride_right
+    for i in range(0, inputs_len, step):
+        # add start and end paddings to the chunk
+        chunk = inputs[i : i + chunk_len]
+
+        #feature_extractor(chunk, sampling_rate=feature_extractor.sampling_rate, return_tensors="pt")
+        _stride_left = 0 if i == 0 else stride_left
+        is_last = i + step + stride_left >= inputs_len
+        _stride_right = 0 if is_last else stride_right
+
+        stride = (chunk.shape[0], _stride_left, _stride_right)
+        if chunk.shape[0] > _stride_left:
+            yield (chunk, stride)
+
+# copied and modified from https://github.com/huggingface/transformers/blob/ae54e3c3b18bac0832ad62ea9b896dfd52a09850/src/transformers/pipelines/automatic_speech_recognition.py#L211
+# See https://github.com/huggingface/transformers/pull/20104 for limitations 
+def find_longest_common_sequence(sequences, tokenizer):
+    sequence = [tok_id for tok_id in sequences[0][0] if tok_id not in tokenizer.all_special_ids]
+    for new_seq in sequences[1:]:
+        new_sequence = [tok_id for tok_id in new_seq[0] if tok_id not in tokenizer.all_special_ids]
+
+        index = 0
+        max_ = 0.0
+        for i in range(1, len(new_sequence) + 1):
+            # epsilon to favor long perfect matches
+            eps = i / 10000.0
+            matches = np.sum(np.array(sequence[-i:]) == np.array(new_sequence[:i]))
+            matching = matches / i + eps
+            if matches > 1 and matching > max_:
+                index = i
+                max_ = matching
+        sequence.extend(new_sequence[index:])
+    return np.array(sequence)
