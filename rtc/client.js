@@ -4,6 +4,73 @@ var dataChannelLog = document.getElementById('data-channel'),
     iceGatheringLog = document.getElementById('ice-gathering-state'),
     signalingLog = document.getElementById('signaling-state');
 
+
+class MicDevice {
+    constructor({ startRecording, stopRecording }) {
+        this.deviceManager = new DictationSupport.DictationDeviceManager();
+        this.mediaDevice = null;
+        this.dictDevice = null;
+        this.stream = null;
+        this.startRecording = startRecording
+        this.stopRecording = stopRecording
+        this.lastButton = null;
+        //handlers & logging
+        const dm = this.deviceManager
+        dm.addButtonEventListener(this.onButtonEvent.bind(this))
+        dm.addButtonEventListener(console.log.bind(console, 'onButtonEvent()'))
+        dm.addDeviceConnectedEventListener(console.log.bind(console, 'onDeviceConnected()'))
+        dm.addDeviceDisconnectedEventListener(console.log.bind(console, 'onDeviceDisconnected()'))
+        dm.addMotionEventListener(console.log.bind(console, 'onMotionEvent()'))
+    }
+
+    async initMediaDevice() {
+        if (this.stream) return this.stream; //ignore duplicate calls to init
+        //First ask for user media. Needed so we can get device names.
+        await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        //XXX: If two dictation devices are connected things can go poorly. Find a way to map deviceId to DictationDeviceManager better
+        //Next choose a dictation media device if one can be found otherwise fallback
+        const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+        this.mediaDevice = mediaDevices.find(d => /speech|nuance/i.test(d.label) && d.kind === 'audioinput') || null
+        const constraints = this.mediaDevice ? { audio: { deviceId: this.mediaDevice.deviceId }, video: false } : { audio: true, video: false }
+        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+        return this.stream
+    }
+
+    async initDictDevice() {
+        if (this.dictDevice) return; //ignore duplicate calls
+        //Next setup dict device for button support
+        if (!this.deviceManager.isInitialized) await this.deviceManager.init();
+        this.dictDevice = this.deviceManager.getDevices()[0] || null
+        if (this.dictDevice) return;
+        //if we don't have permission get it
+        await this.deviceManager.requestDevice();
+        this.dictDevice = this.deviceManager.getDevices()[0] || null
+    }
+
+    get hasDictDevice() {
+        return !!this.mediaDevice;
+    }
+
+    onButtonEvent(device, bitMask) {
+        let button = null;
+        for (const value of Object.values(DictationSupport.ButtonEvent)) {
+            const valueAsNumber = Number(value);
+            if (isNaN(valueAsNumber)) continue;
+            if (bitMask & valueAsNumber) {
+                button = DictationSupport.ButtonEvent[valueAsNumber];
+                break
+            }
+        }
+        const released = !button;
+        if (button === "RECORD") {
+            this.startRecording && this.startRecording();
+        } else if (this.lastButton === "RECORD" && released) {
+            this.stopRecording && this.stopRecording();
+        }
+        this.lastButton = button;
+    }
+}
+
 // peer connection
 var pc = null;
 
@@ -151,8 +218,11 @@ function init() {
         }
     };
 
+    //won't work in all contexts because of permissions but go ahead and try to init dict device
+    micDevice.initDictDevice().catch(e=>console.error('cant init dict device during load', e))
+
     if (constraints.audio) {
-        navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+        micDevice.initMediaDevice().then(function(stream) {
             stream.getTracks().forEach(function(track) {
                 pc.addTrack(track, stream);
                 asr_track = track
@@ -188,6 +258,9 @@ function stop() {
 }
 
 function start() {
+    if(micDevice.hasDictDevice) {
+        micDevice.initDictDevice() //We need interaction in chrome to init dict device so ask first time start is click
+    }
     console.log('START')
     //muteMic(false)
     switchTrack(asr_track)
@@ -290,3 +363,5 @@ function sdpFilterCodec(kind, codec, realSdp) {
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
+
+const micDevice = new MicDevice({ startRecording:start, stopRecording:stop })
