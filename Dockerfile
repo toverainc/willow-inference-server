@@ -12,5 +12,5 @@ RUN pip install aiortc
 RUN pip install pyston_lite_autoload
 RUN pip install uvloop httptools
 
-CMD uvicorn main:app --host 0.0.0.0 --port 8000 --log-level critical
+CMD uvicorn main:app --host 0.0.0.0 --port 8000 --log-level critical --loop uvloop --http httptools --ws websockets --proxy-headers --forwarded-allow-ips '*'
 EXPOSE 8000
