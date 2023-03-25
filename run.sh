@@ -12,7 +12,7 @@ else
 fi
 
 # Currently loads four copies of all models... Hopefully there's a better way.
-export WEB_CONCURRENCY="4"
+export WEB_CONCURRENCY="2"
 
 # TODO: Improve cmdline args
 if [ "$1" ]; then
@@ -28,8 +28,10 @@ else
 fi
 
 #     -p "$PORT":8000 -p 60000-60100:60000-60100/udp
+# --ssl-keyfile="/app/key.pem" --ssl-certfile="/app/cert.pem"
+# --loop uvloop --http httptools
 docker run --rm -it --gpus all --shm-size=1g --ipc=host \
-    -v $PWD:/app -v $PWD/cache:/root/.cache -e CUDA_VISIBLE_DEVICES -e WEB_CONCURRENCY \
+    -v $PWD:/app -v $PWD/cache:/root/.cache -e WEB_CONCURRENCY \
     --name air-infer-api \
     -p "$IP":"$PORT":"$PORT" -p 10000-10300:10000-10300/udp air-infer-api:"$TAG" \
-    uvicorn main:app --host 0.0.0.0 --port "$PORT" --reload --ssl-keyfile="/app/key.pem" --ssl-certfile="/app/cert.pem" --loop uvloop --http httptools --ws websockets --proxy-headers --forwarded-allow-ips '*'
+    uvicorn main:app --host 0.0.0.0 --port "$PORT" --ws websockets --proxy-headers --forwarded-allow-ips '*'
