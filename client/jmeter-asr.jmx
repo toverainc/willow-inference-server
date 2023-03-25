@@ -83,9 +83,9 @@
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" enabled="true">
             <collectionProp name="Arguments.arguments"/>
           </elementProp>
-          <stringProp name="HTTPSampler.domain">ainfer.tovera.io</stringProp>
+          <stringProp name="HTTPSampler.domain">${__P(host,ainfer.tovera.io)}</stringProp>
           <stringProp name="HTTPSampler.port"></stringProp>
-          <stringProp name="HTTPSampler.protocol">https</stringProp>
+          <stringProp name="HTTPSampler.protocol">${__P(protocol,https)}</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
           <stringProp name="HTTPSampler.path">/api/asr?task=transcribe&amp;output=json&amp;model=large&amp;beam_size=5&amp;detect_language=False</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
