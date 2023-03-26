@@ -183,7 +183,7 @@ def do_translate(features, language, beam_size=beam_size):
 
 def do_whisper(audio_file, model, beam_size, task, detect_language, return_language):
     if model != "large" and detect_language == True:
-        logger.warning(f'Language detection requested but not supported on model {model} - overriding with large')
+        logger.warning(f'WHISPER: Language detection requested but not supported on model {model} - overriding with large')
         model = "large"
         beam_size = 5
     # Point to model object depending on passed model string
@@ -202,17 +202,17 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     audio_duration = librosa.get_duration(audio, sr=audio_sr) * 1000
     audio_duration = int(audio_duration)
     if audio_duration >= long_beam_size_threshold:
-        logger.debug(f'Audio duration is {audio_duration} ms - activating long mode')
+        logger.debug(f'WHISPER: Audio duration is {audio_duration} ms - activating long mode')
         beam_size = long_beam_size
     use_chunking = False
     if audio_duration > 30*1000:
-        logger.debug(f'Audio duration is > 30s - activating chunking')
+        logger.debug(f'WHISPER: Audio duration is > 30s - activating chunking')
         use_chunking = True
 
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Loading audio took ' + str(infer_time_milliseconds) + ' ms')
+    logger.debug('WHISPER: Loading audio took ' + str(infer_time_milliseconds) + ' ms')
 
     time_start = datetime.datetime.now()
     if use_chunking:
@@ -235,17 +235,17 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
+    logger.debug('WHISPER: Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
 
     # Whisper STEP 2 - optionally actually detect the language or default to en
     time_start = datetime.datetime.now()
     if detect_language:
         results = whisper_model.detect_language(features)
         language, probability = results[0][0]
-        logger.debug("Detected language %s with probability %f" % (language, probability))
+        logger.debug("WHISPER: Detected language %s with probability %f" % (language, probability))
 
     else:
-        logger.debug('Hardcoding language to en')
+        logger.debug('WHISPER: Hardcoding language to en')
         # Hardcode language
         language = '<|en|>'
 
@@ -262,16 +262,16 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Language detection took ' + str(infer_time_milliseconds) + ' ms')
+    logger.debug('WHISPER: Language detection took ' + str(infer_time_milliseconds) + ' ms')
 
     # Whisper STEP 3 - run model
     time_start = datetime.datetime.now()
-    logger.debug(f'Using model {model} with beam size {beam_size}')
+    logger.debug(f'WHISPER: Using model {model} with beam size {beam_size}')
     results = whisper_model.generate(features, [prompt]*batch_size, beam_size=beam_size, return_scores=False)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Model took ' + str(infer_time_milliseconds) + ' ms')
+    logger.debug('WHISPER: Model took ' + str(infer_time_milliseconds) + ' ms')
     
     time_start = datetime.datetime.now()
     if use_chunking:
@@ -284,18 +284,18 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Decode took ' + str(infer_time_milliseconds) + ' ms')
-    logger.debug('ASR transcript: ' + results)
+    logger.debug('WHISPER: Decode took ' + str(infer_time_milliseconds) + ' ms')
+    logger.debug('WHISPER: ASR transcript: ' + results)
 
     # Strip out token stuff
     pattern = re.compile("[A-Za-z0-9]+", )
     language = pattern.findall(language)[0]
 
     if not language == return_language:
-        logger.debug(f'Detected non-preferred language {language}, translating to {return_language}')
+        logger.debug(f'WHISPER: Detected non-preferred language {language}, translating to {return_language}')
         translation = do_translate(features, language, beam_size=beam_size)
         translation = translation.strip()
-        logger.debug('ASR translation: ' + translation)
+        logger.debug('WHISPER: ASR translation: ' + translation)
     else:
         translation = None
 
@@ -305,9 +305,9 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Inference took ' + str(infer_time_milliseconds) + ' ms')
+    logger.debug('WHISPER: Inference took ' + str(infer_time_milliseconds) + ' ms')
     infer_speedup = math.floor(audio_duration / infer_time_milliseconds)
-    logger.debug('Inference speedup: ' + str(infer_speedup) + 'x')
+    logger.debug('WHISPER: Inference speedup: ' + str(infer_speedup) + 'x')
 
     return language, results, infer_time_milliseconds, translation, infer_speedup, audio_duration
 
@@ -472,7 +472,7 @@ app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
 @app.on_event('shutdown')
 def shutdown_event():
-    logger.info("Got shutdown - we should properly handle in progress recording")
+    logger.info("FASTAPI: Got shutdown - we should properly handle in progress recording")
 
 @app.get("/ping")
 async def ping():
@@ -497,7 +497,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     #prof = profile.Profile()
     #prof.enable()
 
-    logger.debug(f"Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
+    logger.debug(f"FASTAPI: Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
