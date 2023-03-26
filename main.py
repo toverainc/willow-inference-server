@@ -1,6 +1,8 @@
 # Profiling
 import cProfile as profile
 import pstats
+# Logging
+import logging
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
@@ -23,8 +25,8 @@ import re
 
 # WebRTC
 import asyncio
-import uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+#import uvloop
+#asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 import uuid
 
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
@@ -43,6 +45,10 @@ import torch
 # Import audio stuff adapted from ref Whisper implementation
 from audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 # Configs
+
+# Logging
+#log_level = os.environ.get('log_level', 'logging.DEBUG')
+logging.basicConfig(level = logging.INFO)
 
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
@@ -76,7 +82,7 @@ async def create_datagram_endpoint(self, protocol_factory,
             ret = await old_create_datagram_endpoint(
                 protocol_factory, local_addr=(local_addr[0], port), **kwargs
             )
-            print('create_datagram_endpoint chose port', port)
+            logging.debug('create_datagram_endpoint chose port', port)
             return ret
         except OSError as exc:
             if port == ports[-1]:
@@ -97,7 +103,7 @@ long_beam_size = 5
 long_beam_size_threshold = 12000
 
 # model threads
-model_threads = 12
+model_threads = 6
 # CUDA params
 device = "cuda"
 device_index = [0,1]
@@ -109,14 +115,14 @@ compute_type = "int8_float16"
 #compute_type = "auto"
 
 # Turn up log_level for ctranslate2
-ctranslate2.set_log_level(logging.INFO)
+#ctranslate2.set_log_level(logging.DEBUG)
 
 # Load processor from transformers
 processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-large-v2")
 
 # Show supported compute types
 compute_types = str(ctranslate2.get_supported_compute_types("cuda"))
-print("Supported compute types are: " + compute_types)
+logging.info("Supported compute types are: " + compute_types)
 
 # Load all models - thanks for quantization ctranslate2
 whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
@@ -134,7 +140,7 @@ triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
 triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
 
 def warm_models():
-    print("Warming models...")
+    logging.info("Warming models...")
     for x in range(5):
         do_whisper("3sec.flac", "base", beam_size, "transcribe", False, "en")
         do_whisper("3sec.flac", "medium", beam_size, "transcribe", False, "en")
@@ -162,15 +168,15 @@ def do_translate(features, language, beam_size=beam_size):
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Translate inference took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug('Translate inference took ' + str(infer_time_milliseconds) + ' ms')
     results = processor.decode(results[0].sequences_ids[0])
-    print(results)
+    logging.debug(results)
 
     return results
 
 def do_whisper(audio_file, model, beam_size, task, detect_language, return_language):
     if model != "large" and detect_language == True:
-        print(f'Language detection requested but not supported on model {model} - overriding with large')
+        logging.warning(f'Language detection requested but not supported on model {model} - overriding with large')
         model = "large"
         beam_size = 5
     # Point to model object depending on passed model string
@@ -189,17 +195,17 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     audio_duration = librosa.get_duration(audio, sr=audio_sr) * 1000
     audio_duration = int(audio_duration)
     if audio_duration >= long_beam_size_threshold:
-        print(f'Audio duration is {audio_duration} ms - activating long mode')
+        logging.debug(f'Audio duration is {audio_duration} ms - activating long mode')
         beam_size = long_beam_size
     use_chunking = False
     if audio_duration > 30*1000:
-        print(f'Audio duration is > 30s - activating chunking')
+        logging.debug(f'Audio duration is > 30s - activating chunking')
         use_chunking = True
 
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Loading audio took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug('Loading audio took ' + str(infer_time_milliseconds) + ' ms')
 
     time_start = datetime.datetime.now()
     if use_chunking:
@@ -222,17 +228,17 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug('Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
 
     # Whisper STEP 2 - optionally actually detect the language or default to en
     time_start = datetime.datetime.now()
     if detect_language:
         results = whisper_model.detect_language(features)
         language, probability = results[0][0]
-        print("Detected language %s with probability %f" % (language, probability))
+        logging.debug("Detected language %s with probability %f" % (language, probability))
 
     else:
-        print('Hardcoding language to en')
+        logging.debug('Hardcoding language to en')
         # Hardcode language
         language = '<|en|>'
 
@@ -249,16 +255,16 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Language detection took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug('Language detection took ' + str(infer_time_milliseconds) + ' ms')
 
     # Whisper STEP 3 - run model
     time_start = datetime.datetime.now()
-    print(f'Using model {model} with beam size {beam_size}')
+    logging.debug(f'Using model {model} with beam size {beam_size}')
     results = whisper_model.generate(features, [prompt]*batch_size, beam_size=beam_size, return_scores=False)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Model took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug('Model took ' + str(infer_time_milliseconds) + ' ms')
     
     time_start = datetime.datetime.now()
     if use_chunking:
@@ -271,18 +277,18 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Decode took ' + str(infer_time_milliseconds) + ' ms')
-    print(results)
+    logging.debug('Decode took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug(results)
 
     # Strip out token stuff
     pattern = re.compile("[A-Za-z0-9]+", )
     language = pattern.findall(language)[0]
 
     if not language == return_language:
-        print(f'Detected non-preferred language {language}, translating to {return_language}')
+        logging.debug(f'Detected non-preferred language {language}, translating to {return_language}')
         translation = do_translate(features, language, beam_size=beam_size)
         translation = translation.strip()
-        print('Translation: ' + translation)
+        logging.debug('Translation: ' + translation)
     else:
         translation = None
 
@@ -292,7 +298,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Inference took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug('Inference took ' + str(infer_time_milliseconds) + ' ms')
 
     return language, results, infer_time_milliseconds, translation
 
@@ -320,21 +326,21 @@ def do_infer(img, triton_model):
     outputs = grpcclient.InferRequestedOutput('output__0', class_count=10)
 
     # Send for inference
-    print('Doing triton inference with model ' + triton_model + " and url " + triton_url)
+    logging.debug('Doing triton inference with model ' + triton_model + " and url " + triton_url)
     time_start = datetime.datetime.now()
     results = client.infer(model_name=triton_model, inputs=[inputs], outputs=[outputs])
 
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    print('Inference took ' + str(infer_time_milliseconds) + ' ms')
+    logging.debug('Inference took ' + str(infer_time_milliseconds) + ' ms')
 
     inference_output = results.as_numpy('output__0')
 
     # Display and return full results
-    print(str(inference_output))
+    logging.debug(str(inference_output))
     inference_output_dict = dict(enumerate(inference_output.flatten(), 1))
-    print(inference_output_dict)
+    logging.debug(inference_output_dict)
     return inference_output_dict, infer_time_milliseconds
 
 # Function for WebRTC handling
@@ -346,19 +352,19 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     pc_id = "PeerConnection(%s)" % uuid.uuid4()
     pcs.add(pc)
 
-    print("RTC: Created for", request.client.host)
+    logging.debug("RTC: Created for", request.client.host)
 
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
         def on_message(message):
-            print("RTC DC message: " + message)
+            logging.debug("RTC DC message: " + message)
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
             if isinstance(message, str) and message.startswith("start"):
-                print("RTC: Recording started")
+                logging.debug("RTC: Recording started")
                 global recorder
-                print("RTC: Recording with track", global_track)
+                logging.debug("RTC: Recording with track", global_track)
                 recorder = MediaRecorderLite()
                 recorder.addTrack(global_track)
                 recorder.start()
@@ -366,40 +372,40 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
             if isinstance(message, str) and message.startswith("stop"):
                 try:
                     action_list = message.split(":")
-                    print(f'Debug action list {action_list}')
+                    logging.debug(f'Debug action list {action_list}')
                 except:
-                    print('Failed to get action list - setting to none')
+                    logging.debug('Failed to get action list - setting to none')
                     action_list = None
                 if action_list[1] is not None:
                     model = action_list[1]
-                    print(f'Got DC provided model {model}')
+                    logging.debug(f'Got DC provided model {model}')
                 else:
-                    print('Failed getting model from DC')
+                    logging.debug('Failed getting model from DC')
                 if action_list[2] is not None:
                     beam_size = int(action_list[2])
-                    print(f'Got DC provided beam size {beam_size}')
+                    logging.debug(f'Got DC provided beam size {beam_size}')
                 else:
-                    print('Failed getting beam size from DC')
+                    logging.debug('Failed getting beam size from DC')
                 if action_list[3] is not None:
                     detect_language = eval(action_list[3])
-                    print(f'Got DC provided detect language {detect_language}')
+                    logging.debug(f'Got DC provided detect language {detect_language}')
                 else:
-                    print('Failed getting detect language from DC')
-                print(f'Debug vars {model} {beam_size} {detect_language}')
-                print("RTC: Recording stopped")
+                    logging.debug('Failed getting detect language from DC')
+                logging.debug(f'Debug vars {model} {beam_size} {detect_language}')
+                logging.debug("RTC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
                 infer_time = time_end - time_start_base
                 infer_time_milliseconds = infer_time.total_seconds() * 1000
                 recorder.stop()
-                print('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
+                logging.debug('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 # Tell client what we are doing
                 channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
                 # Finally call Whisper
                 recorder.file.seek(0)
-                print('Passed recoder')
+                logging.debug('Passed recoder')
                 language, results, infer_time, translation = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
-                print("RTC: " + results)
+                logging.debug("RTC: " + results)
                 channel.send('ASR Transcript: ' + results)
                 if translation:
                     channel.send(f'ASR Translation from {language}:  {translation}')
@@ -409,30 +415,30 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
-        print("RTC: Connection state is", pc.connectionState)
+        logging.debug("RTC: Connection state is", pc.connectionState)
         if pc.connectionState == "failed" or pc.connectionState == "closed":
             try:
                 await recorder.stop()
             except:
                 pass
             else:
-                print("RTC: Recording stopped")
+                logging.debug("RTC: Recording stopped")
             await pc.close()
             pcs.discard(pc)
             #XXX: close recorders?
-            print("RTC: Connection ended")
+            logging.debug("RTC: Connection ended")
 
     @pc.on("track")
     def on_track(track):
-        print("RTC: Track received", track.kind)
+        logging.debug("RTC: Track received", track.kind)
         if track.kind == "audio":
-            print("Setting global track")
+            logging.debug("Setting global track")
             global global_track
             global_track = track
 
         @track.on("ended")
         async def on_ended():
-            print("RTC: Track ended", track.kind)
+            logging.debug("RTC: Track ended", track.kind)
 
     # handle offer
     await pc.setRemoteDescription(offer)
@@ -452,7 +458,7 @@ app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
 @app.on_event('shutdown')
 def shutdown_event():
-    print("Got shutdown - we should properly handle in progress recording")
+    logging.info("Got shutdown - we should properly handle in progress recording")
 
 @app.get("/ping")
 async def ping():
@@ -477,7 +483,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     #prof = profile.Profile()
     #prof.enable()
 
-    print(f"Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
+    logging.debug(f"Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper

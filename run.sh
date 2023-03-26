@@ -26,4 +26,4 @@ docker run --rm -it --gpus all --shm-size=64g --ipc=host \
     -v $PWD:/app -v $PWD/cache:/root/.cache -e WEB_CONCURRENCY \
     --name air-infer-api \
     -p "$IP":"$PORT":"$PORT" -p 10000-10300:10000-10300/udp air-infer-api:"$TAG" \
-    gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:"$PORT" --graceful-timeout 10 --forwarded-allow-ips '*'
+    gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:"$PORT" --graceful-timeout 10 --forwarded-allow-ips '*' --log-level info
