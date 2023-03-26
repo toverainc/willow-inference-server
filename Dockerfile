@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:22.12-py3
+FROM nvcr.io/nvidia/pytorch:23.01-py3
 
 WORKDIR /app
 
@@ -11,6 +11,7 @@ RUN pip install --upgrade numba
 RUN pip install aiortc
 RUN pip install pyston_lite_autoload
 RUN pip install uvloop httptools
+RUN pip install "uvicorn[standard]" gunicorn
 
 CMD uvicorn main:app --host 0.0.0.0 --port 8000 --log-level critical --loop uvloop --http httptools --ws websockets --proxy-headers --forwarded-allow-ips '*'
 EXPOSE 8000

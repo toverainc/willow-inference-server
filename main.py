@@ -89,7 +89,7 @@ loop.create_datagram_endpoint = types.MethodType(create_datagram_endpoint, loop)
 return_language = "en"
 
 # default beam_size - 5 is lib default, 1 for greedy
-beam_size = 5
+beam_size = 2
 
 # default beam size for longer transcriptions
 long_beam_size = 5
@@ -97,11 +97,11 @@ long_beam_size = 5
 long_beam_size_threshold = 12000
 
 # model threads
-model_threads = 2
+model_threads = 12
 # CUDA params
 device = "cuda"
 device_index = [0,1]
-compute_type = "float16"
+compute_type = "int8_float16"
 
 ## Testing CPU
 #device = "cpu"
