@@ -131,17 +131,17 @@ function init() {
     dc = pc.createDataChannel('chat', parameters);
     dc.onclose = function() {
         clearInterval(dcInterval);
-        dataChannelLog.textContent += 'Disconnected from AIR ASR Service\n';
+        dataChannelLog.textContent += 'Disconnected from ASR Service\n';
     };
     dc.onopen = function() {
-        dataChannelLog.textContent += 'Connected to AIR ASR Service\n';
+        dataChannelLog.textContent += 'Connected to ASR Service - start recording whenever you like\n';
     };
     dc.onmessage = function(evt) {
         dataChannelLog.textContent += evt.data + '\n';
         let data = evt.data
         if (data.includes('Infer')) {
             const end = Date.now();
-            let time_log = `Total time: ${end - stop_time} ms`
+            let time_log = `Total round-trip time with internet latency: ${end - stop_time} ms`
             dataChannelLog.textContent += time_log + '\n';
         }
 

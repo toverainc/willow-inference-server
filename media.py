@@ -13,6 +13,7 @@ import av
 from aiortc.mediastreams import AUDIO_PTIME, MediaStreamError, MediaStreamTrack
 
 logger = logging.getLogger(__name__)
+#logger = logging.getLogger()
 
 class MediaRecorderLiteContext:
     def __init__(self, stream):
@@ -43,7 +44,7 @@ class MediaRecorderLite:
         if file is None:
             file = io.BytesIO()
         self.file = file
-        print(f'MediaRecorderLite using file {file} format {format} options {options}')
+        logger.debug(f'RTC MEDIA: MediaRecorderLite using file {file} format {format} options {options}')
         self.__container = av.open(file=file, format=format, mode="w", options=options)
         self.__tracks = {}
 
@@ -59,7 +60,7 @@ class MediaRecorderLite:
         self.__tracks[track] = MediaRecorderLiteContext(stream)
 
     def start(self):
-        print('MEDIA: Called start')
+        logger.debug('RTC MEDIA: Called start')
         """
         Start recording.
         """
@@ -68,7 +69,7 @@ class MediaRecorderLite:
                 context.task = asyncio.ensure_future(self.__run_track(track, context))
 
     def stop(self):
-        print('MEDIA: Called stop')
+        logger.debug('RTC MEDIA: Called stop')
         """
         Stop recording.
         """
@@ -82,7 +83,7 @@ class MediaRecorderLite:
             self.__tracks = {}
 
             if self.__container:
-                print('Closing container')
+                logger.debug('RTC MEDIA: Closing container')
                 self.__container.close()
                 self.__container = None
 
@@ -91,7 +92,7 @@ class MediaRecorderLite:
             try:
                 frame = await track.recv()
             except MediaStreamError as e:
-                logger.error("MEDIA STREAM ERROR", e)
+                logger.error("RTC MEDIA: STREAM ERROR", e)
                 return
 
             if not context.started:

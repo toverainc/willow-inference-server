@@ -309,7 +309,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     infer_speedup = math.floor(audio_duration / infer_time_milliseconds)
     logger.debug('Inference speedup: ' + str(infer_speedup) + 'x')
 
-    return language, results, infer_time_milliseconds, translation, infer_speedup
+    return language, results, infer_time_milliseconds, translation, infer_speedup, audio_duration
 
 # transformers
 def get_transform(img):
@@ -407,20 +407,22 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 infer_time = time_end - time_start_base
                 infer_time_milliseconds = infer_time.total_seconds() * 1000
                 recorder.stop()
-                #logger.debug('RTC DC: Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
+                logger.debug('RTC DC: Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 # Tell client what we are doing
-                channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
+                channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language} - please wait')
                 # Finally call Whisper
                 recorder.file.seek(0)
-                language, results, infer_time, translation, infer_speedup = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
+                language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
                 logger.debug("RTC DC: " + results)
                 channel.send('ASR Transcript: ' + results)
                 if translation:
                     channel.send(f'ASR Translation from {language}:  {translation}')
                 infer_time = str(infer_time)
+                audio_duration = str(audio_duration)
                 infer_speedup = str(infer_speedup)
                 channel.send(f'ASR Infer time: {infer_time} ms')
-                channel.send(f'ASR Infer speedup: {infer_speedup}x faster than realtime')
+                channel.send(f'ASR Audio Duration: {audio_duration} ms')
+                channel.send(f'ASR Speedup: {infer_speedup}x faster than realtime')
 
                 #del recorder
 
@@ -499,10 +501,10 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
-    language, results, infer_time, translation, infer_speedup = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
 
     # Create final response
-    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "language": language, "text": results}
+    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
 
     # Handle translation in one response
     if translation:
