@@ -84,7 +84,7 @@ async def create_datagram_endpoint(self, protocol_factory,
             ret = await old_create_datagram_endpoint(
                 protocol_factory, local_addr=(local_addr[0], port), **kwargs
             )
-            logger.debug('create_datagram_endpoint chose port', port)
+            logger.debug(f'create_datagram_endpoint chose port {port}')
             return ret
         except OSError as exc:
             if port == ports[-1]:
@@ -127,8 +127,8 @@ compute_type = "int8_float16"
 processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-large-v2")
 
 # Show supported compute types
-compute_types = str(ctranslate2.get_supported_compute_types("cuda"))
-logger.info("Supported CUDA compute types are: " + compute_types)
+supported_compute_types = str(ctranslate2.get_supported_compute_types("cuda"))
+logger.info(f'Supported ctranslate CUDA compute types are {supported_compute_types} - using configured {compute_type}')
 
 # Load all models - thanks for quantization ctranslate2
 whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
@@ -358,7 +358,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     pc_id = "PeerConnection(%s)" % uuid.uuid4()
     pcs.add(pc)
 
-    logger.debug("RTC: Created for", request.client.host)
+    logger.debug(f'RTC: Created for {request.client.host}')
 
     @pc.on("datachannel")
     def on_datachannel(channel):
@@ -370,11 +370,11 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
             if isinstance(message, str) and message.startswith("start"):
                 logger.debug("RTC: Recording started")
                 global recorder
-                logger.debug("RTC: Recording with track", global_track)
+                logger.debug(f'RTC: Recording with track {global_track}')
                 recorder = MediaRecorderLite()
                 recorder.addTrack(global_track)
                 recorder.start()
-                channel.send('ASR Recording')
+                channel.send('ASR Recording - start talking and press stop when done')
             if isinstance(message, str) and message.startswith("stop"):
                 try:
                     action_list = message.split(":")
@@ -421,7 +421,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
-        logger.debug("RTC: Connection state is", pc.connectionState)
+        logger.debug(f'RTC: Connection state is {pc.connectionState}')
         if pc.connectionState == "failed" or pc.connectionState == "closed":
             try:
                 await recorder.stop()
@@ -436,7 +436,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     @pc.on("track")
     def on_track(track):
-        logger.debug("RTC: Track received", track.kind)
+        logger.debug(f'RTC: Track received {track.kind}')
         if track.kind == "audio":
             logger.debug("Setting global track")
             global global_track
@@ -444,7 +444,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
         @track.on("ended")
         async def on_ended():
-            logger.debug("RTC: Track ended", track.kind)
+            logger.debug(f'RTC: Track ended {track.kind}')
 
     # handle offer
     await pc.setRemoteDescription(offer)
