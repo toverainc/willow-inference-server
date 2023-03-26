@@ -103,7 +103,8 @@ long_beam_size = 5
 long_beam_size_threshold = 12000
 
 # model threads
-model_threads = 6
+model_threads = os.environ.get('MODEL_THREADS', 10)
+
 # CUDA params
 device = "cuda"
 device_index = [0,1]
