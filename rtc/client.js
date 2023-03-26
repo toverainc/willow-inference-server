@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
  }, false);
 
 function createPeerConnection() {
+    dataChannelLog.textContent += "Starting WebRTC. Only happens once but can take a while to negotiate, please wait...\n"
     var config = {
         sdpSemantics: 'unified-plan'
     };
