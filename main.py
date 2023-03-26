@@ -29,6 +29,7 @@ import tritonclient.grpc as grpcclient
 import json
 import io
 import re
+import math
 
 # WebRTC
 import asyncio
@@ -305,8 +306,10 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     infer_time = time_end - first_time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('Inference took ' + str(infer_time_milliseconds) + ' ms')
+    infer_speedup = math.floor(audio_duration / infer_time_milliseconds)
+    logger.debug('Inference speedup: ' + str(infer_speedup) + 'x')
 
-    return language, results, infer_time_milliseconds, translation
+    return language, results, infer_time_milliseconds, translation, infer_speedup
 
 # transformers
 def get_transform(img):
@@ -364,13 +367,13 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     def on_datachannel(channel):
         @channel.on("message")
         def on_message(message):
-            logger.debug("RTC DC message: " + message)
+            logger.debug("RTC DC: message: " + message)
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
             if isinstance(message, str) and message.startswith("start"):
-                logger.debug("RTC: Recording started")
+                logger.debug("RTC DC: Recording started")
                 global recorder
-                logger.debug(f'RTC: Recording with track {global_track}')
+                logger.debug(f'RTC DC: Recording with track {global_track}')
                 recorder = MediaRecorderLite()
                 recorder.addTrack(global_track)
                 recorder.start()
@@ -378,45 +381,47 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
             if isinstance(message, str) and message.startswith("stop"):
                 try:
                     action_list = message.split(":")
-                    logger.debug(f'Debug action list {action_list}')
+                    logger.debug(f'RTC DC: Got action list {action_list}')
                 except:
-                    logger.debug('Failed to get action list - setting to none')
+                    logger.debug('RTC DC: Failed to get action list - setting to none')
                     action_list = None
                 if action_list[1] is not None:
                     model = action_list[1]
-                    logger.debug(f'Got DC provided model {model}')
+                    logger.debug(f'RTC DC: Got DC provided model {model}')
                 else:
-                    logger.debug('Failed getting model from DC')
+                    logger.debug('RTC DC: Failed getting model from DC')
                 if action_list[2] is not None:
                     beam_size = int(action_list[2])
-                    logger.debug(f'Got DC provided beam size {beam_size}')
+                    logger.debug(f'RTC DC: Got DC provided beam size {beam_size}')
                 else:
-                    logger.debug('Failed getting beam size from DC')
+                    logger.debug('RTC DC: Failed getting beam size from DC')
                 if action_list[3] is not None:
                     detect_language = eval(action_list[3])
-                    logger.debug(f'Got DC provided detect language {detect_language}')
+                    logger.debug(f'RTC DC: Got DC provided detect language {detect_language}')
                 else:
-                    logger.debug('Failed getting detect language from DC')
-                logger.debug(f'Debug vars {model} {beam_size} {detect_language}')
-                logger.debug("RTC: Recording stopped")
+                    logger.debug('RTC DC: Failed getting detect language from DC')
+                logger.debug(f'RTC DC: Debug vars {model} {beam_size} {detect_language}')
+                logger.debug("RTC DC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
                 infer_time = time_end - time_start_base
                 infer_time_milliseconds = infer_time.total_seconds() * 1000
                 recorder.stop()
-                logger.debug('Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
+                #logger.debug('RTC DC: Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 # Tell client what we are doing
                 channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language}')
                 # Finally call Whisper
                 recorder.file.seek(0)
-                logger.debug('Passed recoder')
-                language, results, infer_time, translation = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
-                logger.debug("RTC: " + results)
+                language, results, infer_time, translation, infer_speedup = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
+                logger.debug("RTC DC: " + results)
                 channel.send('ASR Transcript: ' + results)
                 if translation:
                     channel.send(f'ASR Translation from {language}:  {translation}')
                 infer_time = str(infer_time)
+                infer_speedup = str(infer_speedup)
                 channel.send(f'ASR Infer time: {infer_time} ms')
+                channel.send(f'ASR Infer speedup: {infer_speedup}x faster than realtime')
+
                 #del recorder
 
     @pc.on("connectionstatechange")
@@ -438,7 +443,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     def on_track(track):
         logger.debug(f'RTC: Track received {track.kind}')
         if track.kind == "audio":
-            logger.debug("Setting global track")
+            logger.debug("RTC: Setting global track")
             global global_track
             global_track = track
 
@@ -494,10 +499,10 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
-    language, results, infer_time, translation = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+    language, results, infer_time, translation, infer_speedup = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
 
     # Create final response
-    final_response = {"infer_time": infer_time, "language": language, "text": results}
+    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "language": language, "text": results}
 
     # Handle translation in one response
     if translation:
