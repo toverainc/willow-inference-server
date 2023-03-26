@@ -2,7 +2,23 @@
 import cProfile as profile
 import pstats
 # Logging
+import os
+import sys
 import logging
+import colorlog
+logger = logging.getLogger("infer")
+logging.basicConfig(format="INFER: %(levelname)s | %(asctime)s | %(message)s")
+logging.basicConfig(level = logging.DEBUG)
+
+stdout = colorlog.StreamHandler(stream=sys.stdout)
+
+fmt = colorlog.ColoredFormatter(
+    "%(name)s: %(white)s%(asctime)s%(reset)s | %(log_color)s%(levelname)s%(reset)s | %(blue)s%(filename)s:%(lineno)s%(reset)s | %(process)d >>> %(log_color)s%(message)s%(reset)s"
+)
+
+stdout.setFormatter(fmt)
+logger.addHandler(stdout)
+
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
@@ -20,7 +36,6 @@ from transformers import AutoImageProcessor
 import tritonclient.grpc as grpcclient
 import json
 import io
-import os
 import re
 
 # WebRTC
@@ -40,15 +55,10 @@ import ctranslate2
 import librosa
 import transformers
 import datetime
-import logging
+
 import torch
 # Import audio stuff adapted from ref Whisper implementation
 from audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
-# Configs
-
-# Logging
-#log_level = os.environ.get('log_level', 'logging.DEBUG')
-logging.basicConfig(level = logging.INFO)
 
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
