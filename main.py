@@ -57,12 +57,19 @@ from audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_com
 
 # TTS
 import soundfile as sf
+import torchaudio
+from speechbrain.pretrained import Tacotron2
+from speechbrain.pretrained import HIFIGAN
 
 tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
 tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
 tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
 tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+
+# Intialize TTS (tacotron2) and Vocoder (HiFIGAN)
+tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="/root/.cache/tmpdir_tts")
+hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="/root/.cache/tmpdir_vocoder")
 
 def do_tts(text):
     time_start = datetime.datetime.now()
@@ -237,7 +244,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
     # Whisper STEP 1 - load audio and extract features
     audio, audio_sr = librosa.load(audio_file, sr=16000, mono=True)
-    audio_duration = librosa.get_duration(audio, sr=audio_sr) * 1000
+    audio_duration = librosa.get_duration(y=audio, sr=audio_sr) * 1000
     audio_duration = int(audio_duration)
     if audio_duration >= long_beam_size_threshold:
         logger.debug(f'WHISPER: Audio duration is {audio_duration} ms - activating long mode')
