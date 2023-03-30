@@ -70,22 +70,14 @@ def do_tts(text):
     spectrogram = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings)
     audio = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings, vocoder=tts_vocoder)
 
-    #with torch.no_grad():
-    #    audio = vocoder(spectrogram)
-    #audio = audio.to('cpu').numpy()
-    #audio = audio.to('cpu')
-    #audio = audio.detach().numpy()
-    #audio = audio[0]
     file = io.BytesIO()
-    file.filename = "output.wav"
-    file.name = "output.wav"
-    #sf.write('tts.wav', audio, samplerate=22050, format='WAV')
-    sf.write("tts.wav", audio.numpy(), samplerate=16000, format='WAV')
+    sf.write(file, audio.numpy(), samplerate=16000, format='WAV')
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS took ' + str(infer_time_milliseconds) + ' ms')
-    return
+    file.seek(0)
+    return file
 
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
@@ -564,6 +556,6 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.get("/api/tts")
-def tts(text: str):
+async def tts(text: str):
     response = do_tts(text)
-    return FileResponse("tts.wav", media_type="audio/wav")
+    return StreamingResponse(response, media_type="audio/wav")
