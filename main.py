@@ -112,6 +112,9 @@ model_threads = os.environ.get('MODEL_THREADS', 10)
 # Make sure model_threads is int
 model_threads = int(model_threads)
 
+# CUDA only for now
+device = "cuda"
+
 # Get CUDA device capability
 device_capability = torch.cuda.get_device_capability()
 device_capability = functools.reduce(lambda sub, ele: sub * 10 + ele, device_capability)
@@ -122,9 +125,11 @@ if device_capability >= 70:
     compute_type = "int8_float16"
 else:
     compute_type = "int8"
-device = "cuda"
-device_index = [0]
 
+# Set ctranslate device index based on number of supported devices
+num_devices = torch.cuda.device_count()
+logger.info(f'Detected {num_devices} CUDA devices')
+device_index = [*range(0, num_devices, 1)]
 
 # Turn up log_level for ctranslate2
 #ctranslate2.set_log_level(logger.DEBUG)
@@ -137,9 +142,9 @@ supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
 logger.info(f'Supported ctranslate compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
 
 # Load all models - thanks for quantization ctranslate2
-whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, inter_threads=model_threads)
-whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, inter_threads=model_threads)
-whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, inter_threads=model_threads)
+whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
+whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
+whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
 
 # Go big or go home by default
 whisper_model_default = 'large'
