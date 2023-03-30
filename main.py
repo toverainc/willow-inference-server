@@ -71,7 +71,7 @@ def do_tts(text):
     audio = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings, vocoder=tts_vocoder)
 
     file = io.BytesIO()
-    sf.write(file, audio.numpy(), samplerate=16000, format='WAV')
+    sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -558,4 +558,4 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
 @app.get("/api/tts")
 async def tts(text: str):
     response = do_tts(text)
-    return StreamingResponse(response, media_type="audio/wav")
+    return StreamingResponse(response, media_type="audio/flac")
