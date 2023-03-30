@@ -15,7 +15,7 @@ fi
 
 # Performance/load params
 # Gunicorn workers - unfortunately loads multiple copies of models
-export WEB_CONCURRENCY="6"
+export WEB_CONCURRENCY="1"
 
 # See inter_threads: https://opennmt.net/CTranslate2/python/ctranslate2.models.Whisper.html
 export MODEL_THREADS="10"
@@ -32,4 +32,4 @@ docker run --rm -it --gpus all --shm-size=64g --ipc=host \
     -v $PWD:/app -v $PWD/cache:/root/.cache -e WEB_CONCURRENCY -e MODEL_THREADS \
     --name air-infer-api \
     -p "$IP":"$PORT":"$PORT" -p 10000-10300:10000-10300/udp air-infer-api:"$TAG" \
-    gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:"$PORT" --graceful-timeout 10 --forwarded-allow-ips '*' --log-level debug
+    gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:"$PORT" --graceful-timeout 10 --forwarded-allow-ips '*' --log-level debug -t 0
