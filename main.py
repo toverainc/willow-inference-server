@@ -341,21 +341,24 @@ tts_speaker_embeddings = {
 tts_default_speaker = "CLB"
 
 tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
-tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
+tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts").to(device=device)
 # tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
 # tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
-tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").to(device=device)
 
 def do_tts(text, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for text {text} with speaker {speaker}')
     time_start = datetime.datetime.now()
     speaker = speaker.upper()
     speaker_embedding = np.load(tts_speaker_embeddings[speaker[:3]])
-    speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0)
+    speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(device=device)
 
-    inputs = tts_processor(text=text, return_tensors="pt")
-    spectrogram = tts_model.generate_speech(inputs["input_ids"], speaker_embedding)
-    audio = tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=tts_vocoder)
+    inputs = tts_processor(text=text, return_tensors="pt").to(device=device)
+    spectrogram = tts_model.generate_speech(inputs["input_ids"], speaker_embedding).to(device=device)
+    audio = tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=tts_vocoder).to(device=device)
+    
+    if device != "cpu":
+        audio = audio.cpu()
 
     file = io.BytesIO()
     sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
