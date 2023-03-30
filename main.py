@@ -348,25 +348,56 @@ tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").to(d
 
 def do_tts(text, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for text {text} with speaker {speaker}')
+
+    # Load speaker embedding
     time_start = datetime.datetime.now()
     speaker = speaker.upper()
     speaker_embedding = np.load(tts_speaker_embeddings[speaker[:3]])
     speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(device=device)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('TTS: Loading speaker embedding took ' + str(infer_time_milliseconds) + ' ms')
 
+    # Get inputs
+    time_start = datetime.datetime.now()
     inputs = tts_processor(text=text, return_tensors="pt").to(device=device)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('TTS: Getting inputs took ' + str(infer_time_milliseconds) + ' ms')
+
+    # Generate spectrogram - SLOW
+    time_start = datetime.datetime.now()
     spectrogram = tts_model.generate_speech(inputs["input_ids"], speaker_embedding).to(device=device)
-    audio = tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=tts_vocoder).to(device=device)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('TTS: Generating spectrogram took ' + str(infer_time_milliseconds) + ' ms')
     
+    # Generate audio - SLOW
+    time_start = datetime.datetime.now()
+    audio = tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=tts_vocoder).to(device=device)
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('TTS: Generating audio took ' + str(infer_time_milliseconds) + ' ms')
+
+    # Setup access to file and pass it back to calling function
+    time_start = datetime.datetime.now()
+
+    # If we're not running on CPU copy audio to CPU so we can write it out
     if device != "cpu":
         audio = audio.cpu()
 
     file = io.BytesIO()
     sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
+    file.seek(0)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS took ' + str(infer_time_milliseconds) + ' ms')
-    file.seek(0)
+    logger.debug('TTS: Generating file took ' + str(infer_time_milliseconds) + ' ms')
+
     return file
 
 # transformers
