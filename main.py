@@ -30,6 +30,7 @@ import json
 import io
 import re
 import math
+import functools
 
 # WebRTC
 import asyncio
@@ -111,15 +112,19 @@ model_threads = os.environ.get('MODEL_THREADS', 10)
 # Make sure model_threads is int
 model_threads = int(model_threads)
 
-# CUDA params
-device = "cuda"
-device_index = [0,1]
-compute_type = "int8_float16"
+# Get CUDA device capability
+device_capability = torch.cuda.get_device_capability()
+device_capability = functools.reduce(lambda sub, ele: sub * 10 + ele, device_capability)
+logger.info(f'CUDA Device capability {device_capability}')
 
-## Testing CPU
-#device = "cpu"
-#device_index = [0]
-#compute_type = "auto"
+# Use int8_float16 on Turing or higher - int8 on anything else
+if device_capability >= 70:
+    compute_type = "int8_float16"
+else:
+    compute_type = "int8"
+device = "cuda"
+device_index = [0]
+
 
 # Turn up log_level for ctranslate2
 #ctranslate2.set_log_level(logger.DEBUG)
@@ -128,13 +133,13 @@ compute_type = "int8_float16"
 processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-large-v2")
 
 # Show supported compute types
-supported_compute_types = str(ctranslate2.get_supported_compute_types("cuda"))
-logger.info(f'Supported ctranslate CUDA compute types are {supported_compute_types} - using configured {compute_type}')
+supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
+logger.info(f'Supported ctranslate compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
 
 # Load all models - thanks for quantization ctranslate2
-whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
-whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
-whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, device_index=device_index, compute_type=compute_type, inter_threads=model_threads)
+whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, inter_threads=model_threads)
+whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, inter_threads=model_threads)
+whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, inter_threads=model_threads)
 
 # Go big or go home by default
 whisper_model_default = 'large'
@@ -149,9 +154,12 @@ triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
 def warm_models():
     logger.info("Warming models...")
     for x in range(5):
-        do_whisper("3sec.flac", "base", beam_size, "transcribe", False, "en")
-        do_whisper("3sec.flac", "medium", beam_size, "transcribe", False, "en")
-        do_whisper("3sec.flac", "large", beam_size, "transcribe", False, "en")
+        if whisper_model_base is not None:
+            do_whisper("3sec.flac", "base", beam_size, "transcribe", False, "en")
+        if whisper_model_medium is not None:
+            do_whisper("3sec.flac", "medium", beam_size, "transcribe", False, "en")
+        if whisper_model_large is not None:
+            do_whisper("3sec.flac", "large", beam_size, "transcribe", False, "en")
 
 def do_translate(features, language, beam_size=beam_size):
     # Set task in token format for processor
