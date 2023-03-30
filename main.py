@@ -329,17 +329,30 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 import soundfile as sf
 import torchaudio
 
+tts_speaker_embeddings = {
+    "BDL": "spkemb/cmu_us_bdl_arctic-wav-arctic_a0009.npy",
+    "CLB": "spkemb/cmu_us_clb_arctic-wav-arctic_a0144.npy",
+    "KSP": "spkemb/cmu_us_ksp_arctic-wav-arctic_b0087.npy",
+    "RMS": "spkemb/cmu_us_rms_arctic-wav-arctic_b0353.npy",
+    "SLT": "spkemb/cmu_us_slt_arctic-wav-arctic_a0508.npy",
+}
+
 tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
 tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
-tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+# tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+# tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
 
-def do_tts(text):
+def do_tts(text, speaker = "CLB"):
+    logger.debug(f'TTS: Got request for text {text} with speaker {speaker}')
     time_start = datetime.datetime.now()
+    speaker = speaker.upper()
+    speaker_embedding = np.load(tts_speaker_embeddings[speaker[:3]])
+    speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0)
+
     inputs = tts_processor(text=text, return_tensors="pt")
-    spectrogram = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings)
-    audio = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings, vocoder=tts_vocoder)
+    spectrogram = tts_model.generate_speech(inputs["input_ids"], speaker_embedding)
+    audio = tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=tts_vocoder)
 
     file = io.BytesIO()
     sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
@@ -557,6 +570,6 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.get("/api/tts")
-async def tts(text: str):
-    response = do_tts(text)
+async def tts(text: str, speaker: str):
+    response = do_tts(text, speaker)
     return StreamingResponse(response, media_type="audio/flac")
