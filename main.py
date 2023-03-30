@@ -55,37 +55,6 @@ import torch
 # Import audio stuff adapted from ref Whisper implementation
 from audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 
-# TTS
-import soundfile as sf
-import torchaudio
-from speechbrain.pretrained import Tacotron2
-from speechbrain.pretrained import HIFIGAN
-
-tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
-tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
-tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
-tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
-
-# Intialize TTS (tacotron2) and Vocoder (HiFIGAN)
-tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="/root/.cache/tmpdir_tts")
-hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="/root/.cache/tmpdir_vocoder")
-
-def do_tts(text):
-    time_start = datetime.datetime.now()
-    inputs = tts_processor(text=text, return_tensors="pt")
-    spectrogram = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings)
-    audio = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings, vocoder=tts_vocoder)
-
-    file = io.BytesIO()
-    sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS took ' + str(infer_time_milliseconds) + ' ms')
-    file.seek(0)
-    return file
-
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
 # in this case and keep connection open. XXX: Are there other cases we want to close?
@@ -355,6 +324,31 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     logger.debug('WHISPER: Inference speedup: ' + str(infer_speedup) + 'x')
 
     return language, results, infer_time_milliseconds, translation, infer_speedup, audio_duration
+
+# TTS
+import soundfile as sf
+import torchaudio
+
+tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
+tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
+tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+
+def do_tts(text):
+    time_start = datetime.datetime.now()
+    inputs = tts_processor(text=text, return_tensors="pt")
+    spectrogram = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings)
+    audio = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings, vocoder=tts_vocoder)
+
+    file = io.BytesIO()
+    sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('TTS took ' + str(infer_time_milliseconds) + ' ms')
+    file.seek(0)
+    return file
 
 # transformers
 def get_transform(img):
