@@ -14,7 +14,7 @@ logger.setLevel(gunicorn_logger.level)
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from typing import List, Optional, Tuple
 import types
@@ -24,7 +24,8 @@ import numpy as np
 from PIL import Image
 import warnings
 warnings.simplefilter(action='ignore')
-from transformers import AutoImageProcessor
+from transformers import AutoImageProcessor, SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
+from datasets import load_dataset
 import tritonclient.grpc as grpcclient
 import json
 import io
@@ -212,7 +213,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
     # Whisper STEP 1 - load audio and extract features
     audio, audio_sr = librosa.load(audio_file, sr=16000, mono=True)
-    audio_duration = librosa.get_duration(audio, sr=audio_sr) * 1000
+    audio_duration = librosa.get_duration(y=audio, sr=audio_sr) * 1000
     audio_duration = int(audio_duration)
     if audio_duration >= long_beam_size_threshold:
         logger.debug(f'WHISPER: Audio duration is {audio_duration} ms - activating long mode')
@@ -323,6 +324,31 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     logger.debug('WHISPER: Inference speedup: ' + str(infer_speedup) + 'x')
 
     return language, results, infer_time_milliseconds, translation, infer_speedup, audio_duration
+
+# TTS
+import soundfile as sf
+import torchaudio
+
+tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
+tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
+tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+
+def do_tts(text):
+    time_start = datetime.datetime.now()
+    inputs = tts_processor(text=text, return_tensors="pt")
+    spectrogram = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings)
+    audio = tts_model.generate_speech(inputs["input_ids"], tts_speaker_embeddings, vocoder=tts_vocoder)
+
+    file = io.BytesIO()
+    sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('TTS took ' + str(infer_time_milliseconds) + ' ms')
+    file.seek(0)
+    return file
 
 # transformers
 def get_transform(img):
@@ -529,3 +555,8 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     #stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
     #stats.print_stats(10) # top 10 rows
     return JSONResponse(content=json_compatible_item_data)
+
+@app.get("/api/tts")
+async def tts(text: str):
+    response = do_tts(text)
+    return StreamingResponse(response, media_type="audio/flac")
