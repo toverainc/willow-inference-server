@@ -55,6 +55,21 @@ import torch
 # Import audio stuff adapted from ref Whisper implementation
 from audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 
+# Sallow
+import wave
+
+# Function to create a wav file from stream data
+def write_stream_wav(data, rates, bits, ch):
+    t = datetime.datetime.utcnow()
+    time = t.strftime('%Y%m%dT%H%M%SZ')
+    filename = str.format('{}_{}_{}_{}.wav', time, rates, bits, ch)
+
+    wavfile = wave.open(filename, 'wb')
+    wavfile.setparams((ch, int(bits/8), rates, 0, 'NONE', 'NONE'))
+    wavfile.writeframesraw(bytearray(data))
+    wavfile.close()
+    return filename
+
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
 # in this case and keep connection open. XXX: Are there other cases we want to close?
@@ -639,6 +654,42 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     #stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
     #stats.print_stats(10) # top 10 rows
     return JSONResponse(content=json_compatible_item_data)
+
+@app.post("/api/sallow")
+async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
+    logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
+
+    # Set defaults
+    sample_rates = 0
+    bits = 0
+    channel = 0
+
+    body = b''
+    sample_rates = request.headers.get('x-audio-sample-rates', '').lower()
+    bits = request.headers.get('x-audio-bits', '').lower()
+    channel = request.headers.get('x-audio-channel', '').lower()
+
+    audio_info = ("SALLOW: Audio information, sample rate: {}, bits: {}, channel(s): {}".format(sample_rates, bits, channel))
+    logger.debug(audio_info)
+
+    async for chunk in request.stream():
+        body += chunk
+
+    audio_file = write_stream_wav(body, int(sample_rates), int(bits), int(channel))
+
+    # Do Whisper
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+
+    # Create final response
+    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
+
+    # Handle translation in one response
+    if translation:
+        final_response['translation']=translation
+
+    json_compatible_item_data = jsonable_encoder(final_response)
+
+    return results
 
 @app.get("/api/tts")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
