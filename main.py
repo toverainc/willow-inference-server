@@ -658,7 +658,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/sallow")
-async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
+async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
     # Set defaults
@@ -696,7 +696,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
         # Copy the BytesIO stream to the output file
         outfile.write(response.getbuffer())
 
-    return audio_file
+    return results
 
 @app.get("/api/tts")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
