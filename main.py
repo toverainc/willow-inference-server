@@ -62,8 +62,8 @@ import wave
 def write_stream_wav(data, rates, bits, ch):
     t = datetime.datetime.utcnow()
     time = t.strftime('%Y%m%dT%H%M%SZ')
-    filename = str.format('{}_{}_{}_{}.wav', time, rates, bits, ch)
-
+    #filename = str.format('audio/{}_{}_{}_{}.wav', time, rates, bits, ch)
+    filename = 'audio/sallow.wav'
     wavfile = wave.open(filename, 'wb')
     wavfile.setparams((ch, int(bits/8), rates, 0, 'NONE', 'NONE'))
     wavfile.writeframesraw(bytearray(data))
@@ -373,7 +373,7 @@ tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts").to
 # tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").to(device=device)
 
-def do_tts(text, speaker = tts_default_speaker):
+def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for text {text} with speaker {speaker}')
 
     # Load speaker embedding
@@ -418,7 +418,7 @@ def do_tts(text, speaker = tts_default_speaker):
         audio = audio.cpu()
 
     file = io.BytesIO()
-    sf.write(file, audio.numpy(), samplerate=16000, format='FLAC')
+    sf.write(file, audio.numpy(), samplerate=16000, format=format)
     file.seek(0)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
@@ -608,6 +608,8 @@ async def do_auth(request: Request, response: Response, call_next):
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
+app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
+
 @app.on_event('shutdown')
 def shutdown_event():
     logger.info("FASTAPI: Got shutdown - we should properly handle in progress recording")
@@ -656,7 +658,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/sallow")
-async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
+async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
     # Set defaults
@@ -689,12 +691,17 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
     json_compatible_item_data = jsonable_encoder(final_response)
 
-    return results
+    response = do_tts(results, 'WAV', speaker)
+    with open("audio/sallow-tts.wav", "wb") as outfile:
+        # Copy the BytesIO stream to the output file
+        outfile.write(response.getbuffer())
+
+    return audio_file
 
 @app.get("/api/tts")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
     # Do TTS
-    response = do_tts(text, speaker)
+    response = do_tts(text, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
 
 @app.post("/api/sts")
@@ -709,5 +716,5 @@ async def sts(request: Request, audio_file: UploadFile, response: Response, mode
     language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
 
     # Do TTS
-    response = do_tts(results, speaker)
+    response = do_tts(results, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
