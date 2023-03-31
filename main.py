@@ -12,7 +12,7 @@ logger.handlers = gunicorn_logger.handlers
 logger.setLevel(gunicorn_logger.level)
 
 # FastAPI preprocessor
-from fastapi import FastAPI, File, Form, UploadFile, Request, Response
+from fastapi import FastAPI, File, Form, UploadFile, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -567,6 +567,28 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 warm_models()
 
 app = FastAPI()
+
+# BROKEN: Disable middleware for now
+#@app.middleware("http")
+async def do_auth(request: Request, response: Response, call_next):
+    api_key = os.environ.get('API_KEY')
+    auth_header = request.headers.get('X-API-Key')
+
+    logger.debug(f'FASTAPI: Got API key {api_key}')
+    logger.debug(f'FASTAPI: Got API key header {auth_header}')
+
+    if api_key is not None:
+        if auth_header == api_key:
+            logger.debug(f'FASTAPI: Request is authorized')
+        else:
+            logger.debug(f'FASTAPI: Request is unauthorized')
+            response =  {"result": "no_auth"}
+            response.status_code = status.HTTP_401_UNAUTHORIZED
+            return response
+    else:
+        # If we got here we either don't have auth or it's good
+        response = await call_next(request)
+        return response
 
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
