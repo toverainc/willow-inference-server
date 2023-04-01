@@ -376,7 +376,7 @@ tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts").to
 tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").to(device=device)
 
 def do_tts(text, format, speaker = tts_default_speaker):
-    logger.debug(f'TTS: Got request for text {text} with speaker {speaker}')
+    logger.debug(f'TTS: Got request for text: {text} with speaker {speaker}')
 
     # Load speaker embedding
     time_start = datetime.datetime.now()
