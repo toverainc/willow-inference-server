@@ -335,6 +335,8 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     if not language == return_language:
         logger.debug(f'WHISPER: Detected non-preferred language {language}, translating to {return_language}')
         translation = do_translate(features, language, beam_size=beam_size)
+        # Strip tokens from translation output - brittle but works right now
+        translation = translation.split('>')[2]
         translation = translation.strip()
         logger.debug('WHISPER: ASR translation: ' + translation)
     else:
@@ -658,7 +660,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/sallow")
-async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
+async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
     # Set defaults
@@ -688,6 +690,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     # Handle translation in one response
     if translation:
         final_response['translation']=translation
+        results = translation
 
     json_compatible_item_data = jsonable_encoder(final_response)
 
