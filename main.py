@@ -669,7 +669,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     channel = 0
 
     body = b''
-    sample_rates = request.headers.get('x-audio-sample-rates', '').lower()
+    sample_rates = request.headers.get('x-audio-sample-rate', '').lower()
     bits = request.headers.get('x-audio-bits', '').lower()
     channel = request.headers.get('x-audio-channel', '').lower()
 
