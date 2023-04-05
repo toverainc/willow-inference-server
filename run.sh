@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Which docker image to run
+IMAGE=${IMAGE:-air-infer-api}
+
 # Listen port
 LISTEN_PORT="19000"
 
