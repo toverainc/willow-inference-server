@@ -621,11 +621,19 @@ async def ping():
     return {"message": "Pong"}
 
 @app.post("/api/infer")
-async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = triton_model):
+async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
     # Setup access to file
     audio_file = io.BytesIO(await file.read())
-    response, infer_time = do_infer(img, model)
-    final_response = {"infer_time": infer_time, "results": [response]}
+
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+
+    # Create final response
+    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
+
+    # Handle translation in one response
+    if translation:
+        final_response['translation']=translation
+
     json_compatible_item_data = jsonable_encoder(final_response)
     return JSONResponse(content=json_compatible_item_data)
 
