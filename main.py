@@ -21,12 +21,10 @@ import types
 import random
 import datetime
 import numpy as np
-from PIL import Image
 import warnings
 warnings.simplefilter(action='ignore')
-from transformers import AutoImageProcessor, SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
+from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
 from datasets import load_dataset
-import tritonclient.grpc as grpcclient
 import json
 import io
 import re
@@ -179,10 +177,6 @@ else:
 
 # Default detect language?
 detect_language = False
-
-# Triton
-triton_url = os.environ.get('triton_url', 'hw0-mke.tovera.com:18001')
-triton_model = os.environ.get('triton_model', 'medvit-trt-fp32')
 
 def warm_models():
     logger.info("Warming models...")
@@ -429,47 +423,6 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     return file
 
-# transformers
-def get_transform(img):
-    processor = AutoImageProcessor.from_pretrained('preprocessor_config.json')
-    image = Image.open(img)
-    if not image.mode == "RGB":
-        image = image.convert("RGB")
-    processed_image = processor(image, return_tensors='np').pixel_values
-    return processed_image
-
-def do_infer(img, triton_model):
-    # Set up Triton GRPC inference client
-    client = grpcclient.InferenceServerClient(url=triton_url, verbose=False, ssl=False)
-
-    # Use transformers
-    input = get_transform(img)
-
-    # Hack shape for now - hopefully we can get it dynamically from transformers or something
-    shape=(1, 3, 224, 224)
-
-    inputs = grpcclient.InferInput('input__0', shape, datatype='FP32')
-    inputs.set_data_from_numpy(input)
-    outputs = grpcclient.InferRequestedOutput('output__0', class_count=10)
-
-    # Send for inference
-    logger.debug('Doing triton inference with model ' + triton_model + " and url " + triton_url)
-    time_start = datetime.datetime.now()
-    results = client.infer(model_name=triton_model, inputs=[inputs], outputs=[outputs])
-
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Inference took ' + str(infer_time_milliseconds) + ' ms')
-
-    inference_output = results.as_numpy('output__0')
-
-    # Display and return full results
-    logger.debug(str(inference_output))
-    inference_output_dict = dict(enumerate(inference_output.flatten(), 1))
-    logger.debug(inference_output_dict)
-    return inference_output_dict, infer_time_milliseconds
-
 # Function for WebRTC handling
 async def rtc_offer(request, model, beam_size, task, detect_language, return_language):
     params = await request.json()
@@ -619,23 +572,6 @@ def shutdown_event():
 @app.get("/ping")
 async def ping():
     return {"message": "Pong"}
-
-@app.post("/api/infer")
-async def infer(request: Request, file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
-    # Setup access to file
-    audio_file = io.BytesIO(await file.read())
-
-    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
-
-    # Create final response
-    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
-
-    # Handle translation in one response
-    if translation:
-        final_response['translation']=translation
-
-    json_compatible_item_data = jsonable_encoder(final_response)
-    return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/rtc/asr")
 async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
