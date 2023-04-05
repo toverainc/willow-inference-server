@@ -433,6 +433,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     pc_id = "PeerConnection(%s)" % uuid.uuid4()
     pcs.add(pc)
 
+    recorder = None
+    top_track = None
+
     logger.debug(f'RTC: Created for {request.client.host}')
 
     @pc.on("datachannel")
@@ -444,10 +447,11 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 channel.send("pong" + message[4:])
             if isinstance(message, str) and message.startswith("start"):
                 logger.debug("RTC DC: Recording started")
-                global recorder
-                logger.debug(f'RTC DC: Recording with track {global_track}')
+                nonlocal recorder
+                # XXX what if top_track is still None i.e. we got start before we got track?
+                logger.debug(f'RTC DC: Recording with track {top_track}')
                 recorder = MediaRecorderLite()
-                recorder.addTrack(global_track)
+                recorder.addTrack(top_track)
                 recorder.start()
                 channel.send('ASR Recording - start talking and press stop when done')
             if isinstance(message, str) and message.startswith("stop"):
@@ -517,9 +521,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     def on_track(track):
         logger.debug(f'RTC: Track received {track.kind}')
         if track.kind == "audio":
-            logger.debug("RTC: Setting global track")
-            global global_track
-            global_track = track
+            logger.debug("RTC: Setting top track")
+            nonlocal top_track
+            top_track = track
 
         @track.on("ended")
         async def on_ended():
