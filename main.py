@@ -16,7 +16,8 @@ from fastapi import FastAPI, File, Form, UploadFile, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set, Union
+from pydantic import BaseModel
 import types
 import random
 import datetime
@@ -569,16 +570,29 @@ app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_fil
 def shutdown_event():
     logger.info("FASTAPI: Got shutdown - we should properly handle in progress recording")
 
-@app.get("/ping")
-async def ping():
-    return {"message": "Pong"}
+class Ping(BaseModel):
+    message: str
 
-@app.post("/api/rtc/asr")
+@app.get("/ping", response_model=Ping, summary="Ping for connectivity check", response_description="pong")
+async def ping():
+    response = jsonable_encoder({"message": "pong"})
+    return JSONResponse(content=response)
+
+@app.post("/api/rtc/asr", summary="Return SDP for WebRTC clients", response_description="SDP for WebRTC clients")
 async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
     response = await rtc_offer(request, model, beam_size, task, detect_language, return_language)
     return JSONResponse(content=response)
 
-@app.post("/api/asr")
+class ASR(BaseModel):
+    language: str
+    results: str
+    infer_time: float
+    translation: Optional[str]
+    infer_speedup: int
+    audio_duration: int
+    text: str
+
+@app.post("/api/asr", response_model=ASR, summary="Submit audio file for ASR", response_description="ASR engine output")
 async def asr(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
     #prof = profile.Profile()
     #prof.enable()
@@ -603,7 +617,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     #stats.print_stats(10) # top 10 rows
     return JSONResponse(content=json_compatible_item_data)
 
-@app.post("/api/sallow")
+@app.post("/api/sallow", summary="Stream audio for ASR", response_description="Output as text")
 async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
@@ -645,13 +659,13 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
     return results
 
-@app.get("/api/tts")
+@app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
     # Do TTS
     response = do_tts(text, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
 
-@app.post("/api/sts")
+@app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
 async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
     #prof = profile.Profile()
     #prof.enable()
