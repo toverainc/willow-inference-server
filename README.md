@@ -24,3 +24,5 @@ mkdir audio
 # OR, run in prod
 ./run.sh
 ```
+
+You can view API documentation at http://[your host]/docs
