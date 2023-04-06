@@ -31,6 +31,8 @@ import io
 import re
 import math
 import functools
+from settings import get_api_settings
+settings = get_api_settings()
 
 # WebRTC
 import asyncio
@@ -110,22 +112,20 @@ async def create_datagram_endpoint(self, protocol_factory,
     raise ValueError("local_ports must not be empty")
 loop.create_datagram_endpoint = types.MethodType(create_datagram_endpoint, loop)
 
+#XXX: rm these globals and use settings directly
 # default return language
-return_language = "en"
+return_language = settings.return_language
 
 # default beam_size - 5 is lib default, 1 for greedy
-beam_size = 2
+beam_size = settings.beam_size
 
 # default beam size for longer transcriptions
-long_beam_size = 5
+long_beam_size = settings.long_beam_size
 # Audio duration in ms to activate "long" mode
-long_beam_size_threshold = 12000
+long_beam_size_threshold = settings.long_beam_size_threshold
 
 # model threads
-model_threads = os.environ.get('MODEL_THREADS', 10)
-
-# Make sure model_threads is int
-model_threads = int(model_threads)
+model_threads = settings.model_threads
 
 # Try CUDA
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -177,7 +177,7 @@ else:
     whisper_model_default = 'base'
 
 # Default detect language?
-detect_language = False
+detect_language = settings.detect_language
 
 def warm_models():
     logger.info("Warming models...")
