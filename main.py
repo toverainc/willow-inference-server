@@ -131,32 +131,35 @@ model_threads = settings.model_threads
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 if device == "cuda":
+    cuda_num_devices = torch.cuda.device_count()
+    logger.info(f'CUDA: Detected {cuda_num_devices} device(s)')
+
     # Get CUDA device capability
-    device_capability = torch.cuda.get_device_capability()
-    device_capability = functools.reduce(lambda sub, ele: sub * 10 + ele, device_capability)
-    logger.info(f'CUDA Device capability {device_capability}')
+    cuda_device_capability = torch.cuda.get_device_capability()
+    cuda_device_capability = functools.reduce(lambda sub, ele: sub * 10 + ele, cuda_device_capability)
+    logger.info(f'CUDA: Device capability: {cuda_device_capability}')
 
     # Get CUDA memory - returns in bytes
-    cuda_device_memory = torch.cuda.mem_get_info()
-    logger.info(f'CUDA Device memory {cuda_device_memory}')
+    cuda_total_memory = torch.cuda.mem_get_info()[1]
+    cuda_free_memory = torch.cuda.mem_get_info()[0]
+    logger.info(f'CUDA: Device total memory: {cuda_total_memory} bytes')
+    logger.info(f'CUDA: Device free memory: {cuda_free_memory} bytes')
 
     # Use int8_float16 on Turing or higher - int8 on anything else
-    if device_capability >= 70:
+    if cuda_device_capability >= 70:
         compute_type = "int8_float16"
     else:
         compute_type = "int8"
 
     # Set ctranslate device index based on number of supported devices
-    num_devices = torch.cuda.device_count()
-    logger.info(f'Detected {num_devices} CUDA devices')
-    device_index = [*range(0, num_devices, 1)]
+    device_index = [*range(0, cuda_num_devices, 1)]
 else:
     num_cpu_cores = os.cpu_count()
     compute_type = "int8"
     # Just kind of made these numbers up - needs testing
     intra_threads = num_cpu_cores // 2
     model_threads = num_cpu_cores // 2
-    logger.info(f'CUDA not found - using CPU with {num_cpu_cores} cores')
+    logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
 # Turn up log_level for ctranslate2
 #ctranslate2.set_log_level(logger.DEBUG)
@@ -166,7 +169,7 @@ processor = transformers.WhisperProcessor.from_pretrained("./models/openai-whisp
 
 # Show supported compute types
 supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
-logger.info(f'Supported ctranslate compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
+logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
 
 # Load all models - thanks for quantization ctranslate2
 if device == "cuda":
@@ -215,7 +218,7 @@ def do_translate(features, language, beam_size=beam_size):
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('Translate inference took ' + str(infer_time_milliseconds) + ' ms')
+    logger.debug('WHISPER: Translate inference took ' + str(infer_time_milliseconds) + ' ms')
     results = processor.decode(results[0].sequences_ids[0])
     logger.debug(results)
 
@@ -574,6 +577,7 @@ async def do_auth(request: Request, response: Response, call_next):
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
+# Temporary hack for the sallow stuff
 app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
 
 @app.on_event('shutdown')
