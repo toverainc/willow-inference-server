@@ -537,7 +537,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 # Warm models
 warm_models()
 
-app = FastAPI()
+app = FastAPI(title="AIR Infer API",
+    description="High performance speech API",
+    version="0.0.1")
 
 # BROKEN: Disable middleware for now
 #@app.middleware("http")
