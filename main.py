@@ -172,6 +172,7 @@ supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
 logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
 
 # Load all models - thanks for quantization ctranslate2
+logger.info("Loading Whisper models...")
 if device == "cuda":
     whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
     whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
@@ -188,7 +189,7 @@ detect_language = settings.detect_language
 
 def warm_models():
     logger.info("Warming models...")
-    for x in range(5):
+    for x in range(3):
         if whisper_model_base is not None:
             do_whisper("3sec.flac", "base", beam_size, "transcribe", False, "en")
         if whisper_model_medium is not None:
@@ -371,6 +372,7 @@ tts_speaker_embeddings = {
 # US female
 tts_default_speaker = "CLB"
 
+logger.info("Loading TTS models...")
 tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
 tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts").to(device=device)
 tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").to(device=device)
@@ -556,6 +558,14 @@ app = FastAPI(title="AIR Infer API",
     description="High performance speech API",
     version="0.0.1")
 
+@app.on_event("startup")
+def startup_event():
+    logger.info("AIR Infer API is ready for requests!")
+
+@app.on_event("shutdown")
+def shutdown_event():
+    logger.info("AIR Infer API is stopping (this can take a while)...")
+
 # BROKEN: Disable middleware for now
 #@app.middleware("http")
 async def do_auth(request: Request, response: Response, call_next):
@@ -583,10 +593,6 @@ app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
 # Temporary hack for the sallow stuff
 app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
-
-@app.on_event('shutdown')
-def shutdown_event():
-    logger.info("FASTAPI: Got shutdown - we should properly handle in progress recording")
 
 class Ping(BaseModel):
     message: str
