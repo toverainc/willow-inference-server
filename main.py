@@ -42,7 +42,7 @@ import uuid
 
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
 from aiortc.rtp import RtcpByePacket
-from media import MediaRecorderLite
+from aia.media import MediaRecorderLite
 
 pcs = set()
 
@@ -54,7 +54,7 @@ import datetime
 
 import torch
 # Import audio stuff adapted from ref Whisper implementation
-from audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
+from aia.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 
 # Sallow
 import wave
