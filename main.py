@@ -158,7 +158,7 @@ else:
 #ctranslate2.set_log_level(logger.DEBUG)
 
 # Load processor from transformers
-processor = transformers.WhisperProcessor.from_pretrained("openai/whisper-large-v2")
+processor = transformers.WhisperProcessor.from_pretrained("./models/openai-whisper-base")
 
 # Show supported compute types
 supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
