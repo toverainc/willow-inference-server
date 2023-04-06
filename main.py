@@ -379,12 +379,12 @@ def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
 
     # Load speaker embedding
-    time_start = datetime.datetime.now()
+    time_initial_start = datetime.datetime.now()
     speaker = speaker.upper()
     speaker_embedding = np.load(tts_speaker_embeddings[speaker[:3]])
     speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(device=device)
     time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
+    infer_time = time_end - time_initial_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS: Loading speaker embedding took ' + str(infer_time_milliseconds) + ' ms')
 
@@ -426,6 +426,12 @@ def do_tts(text, format, speaker = tts_default_speaker):
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS: Generating file took ' + str(infer_time_milliseconds) + ' ms')
+
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_initial_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('TTS: Total time took ' + str(infer_time_milliseconds) + ' ms')
+
 
     return file
 
