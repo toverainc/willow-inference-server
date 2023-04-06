@@ -168,7 +168,7 @@ else:
 #ctranslate2.set_log_level(logger.DEBUG)
 
 # Load processor from transformers
-processor = transformers.WhisperProcessor.from_pretrained("./models/openai-whisper-base")
+whisper_processor = transformers.WhisperProcessor.from_pretrained("./models/openai-whisper-base")
 
 # Show supported compute types
 supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
@@ -298,7 +298,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
-    prompt = processor.tokenizer.convert_tokens_to_ids(
+    prompt = whisper_processor.tokenizer.convert_tokens_to_ids(
         [
             "<|startoftranscript|>",
             language,
@@ -324,10 +324,10 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     if use_chunking:
         assert strides, 'strides needed to compute final tokens when chunking'
         tokens = [(results[i].sequences_ids[0], strides[i]) for i in range(batch_size)]
-        tokens = find_longest_common_sequence(tokens, processor.tokenizer)
+        tokens = find_longest_common_sequence(tokens, whisper_processor.tokenizer)
     else:
         tokens = results[0].sequences_ids[0]
-    results = processor.decode(tokens)
+    results = whisper_processor.decode(tokens)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
