@@ -5,3 +5,4 @@ acme.json
 models
 .env
 audio
+*.pem

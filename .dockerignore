@@ -6,3 +6,4 @@ models
 acme.json
 audio
 .git
+*.pem
