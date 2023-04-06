@@ -340,7 +340,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
         # Strip tokens from translation output - brittle but works right now
         translation = translation.split('>')[2]
         translation = translation.strip()
-        logger.debug('WHISPER: ASR translation: ' + translation)
+        logger.debug('WHISPER: ASR translation: {translation}')
     else:
         translation = None
 
@@ -373,8 +373,6 @@ tts_default_speaker = "CLB"
 
 tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
 tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts").to(device=device)
-# tts_embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-# tts_speaker_embeddings = torch.tensor(tts_embeddings_dataset[7306]["xvector"]).unsqueeze(0)
 tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").to(device=device)
 
 def do_tts(text, format, speaker = tts_default_speaker):
@@ -681,9 +679,6 @@ async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
 
 @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
 async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
-    #prof = profile.Profile()
-    #prof.enable()
-
     logger.debug(f"FASTAPI: Got STS request for model {model} beam size {beam_size} language detection {detect_language}")
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
