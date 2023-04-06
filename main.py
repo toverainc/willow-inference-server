@@ -136,6 +136,10 @@ if device == "cuda":
     device_capability = functools.reduce(lambda sub, ele: sub * 10 + ele, device_capability)
     logger.info(f'CUDA Device capability {device_capability}')
 
+    # Get CUDA memory - returns in bytes
+    cuda_device_memory = torch.cuda.mem_get_info()
+    logger.info(f'CUDA Device memory {cuda_device_memory}')
+
     # Use int8_float16 on Turing or higher - int8 on anything else
     if device_capability >= 70:
         compute_type = "int8_float16"

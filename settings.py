@@ -14,6 +14,9 @@ class APISettings(BaseSettings):
     # Default detect language?
     detect_language: bool = False
 
+    # TTS CUDA memory threshold - equivalent of 6GB GPUs
+    tts_memory_threshold = 5798205849
+
     class Config:
         env_prefix = ""
         case_sensitive = False
