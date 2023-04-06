@@ -11,6 +11,9 @@ gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
 logger.setLevel(gunicorn_logger.level)
 
+# Tell the user we're starting ASAP
+logger.info("AIR Infer API is starting... Please wait.")
+
 # FastAPI preprocessor
 from fastapi import FastAPI, File, Form, UploadFile, Request, Response, status
 from fastapi.encoders import jsonable_encoder
