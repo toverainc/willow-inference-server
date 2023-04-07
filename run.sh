@@ -6,7 +6,7 @@ IMAGE=${IMAGE:-air-infer-api}
 # Listen port
 LISTEN_PORT="19000"
 
-# Log level
+# Log level - acceptable values are debug, info, warning, error, critical. Suggest info or debug.
 LOG_LEVEL="info"
 
 # Media port range
@@ -28,6 +28,7 @@ if [ -r .api_key ]; then
     API_KEY=$(cat .api_key)
 fi
 
+# Test for local environment file and use any overrides
 if [ -r .env ]; then
     echo "Startup - using configuration overrides from .env file"
     . .env
