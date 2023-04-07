@@ -12,9 +12,6 @@ yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit
 # Download and quantize the models
 ./download_models.sh
 
-# Make a directory?
-mkdir audio
-
 # Define your .env file with API keys?
 # TODO!
 
