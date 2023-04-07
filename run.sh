@@ -10,8 +10,8 @@ LISTEN_PORT="19000"
 LOG_LEVEL="info"
 
 # Media port range
-# WebRTC dynamically negotiates UDP ports to for each session
-# You should keep this as small as possible for WebRTC connections
+# WebRTC dynamically negotiates UDP ports for each session
+# You should keep this as small as possible for expected WebRTC connections
 MEDIA_PORT_RANGE="10000-10300"
 
 # Listen IP
