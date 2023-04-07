@@ -6,14 +6,13 @@ Getting started:
 # On Arch Linux:
 yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit
 
+# Ubuntu/Debian/Fedora/etc: TO-DO
+
 # Build docker container
 ./build.sh
 
 # Download and quantize the models
 ./download_models.sh
-
-# Make a directory?
-mkdir audio
 
 # Define your .env file with API keys?
 # TODO!
