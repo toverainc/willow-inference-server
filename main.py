@@ -17,7 +17,7 @@ from fastapi import FastAPI, File, Form, UploadFile, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from typing import List, Optional, Tuple, Set, Union
+from typing import Optional, Tuple
 from pydantic import BaseModel
 import types
 import random
@@ -359,7 +359,6 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
 # TTS
 import soundfile as sf
-import torchaudio
 
 tts_speaker_embeddings = {
     "BDL": "aia/assets/spkemb/cmu_us_bdl_arctic-wav-arctic_a0009.npy",
