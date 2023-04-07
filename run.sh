@@ -29,9 +29,10 @@ if [ -r .api_key ]; then
 fi
 
 if [ -r .env ]; then
-    echo "Using environment variables from env file"
+    echo "Startup - using configuration overrides from .env file"
     . .env
 else
+    echo "Startup - using default configuration values"
     touch .env
 fi
 

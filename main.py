@@ -437,7 +437,6 @@ def do_tts(text, format, speaker = tts_default_speaker):
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS: Total time took ' + str(infer_time_milliseconds) + ' ms')
 
-
     return file
 
 # Function for WebRTC handling
