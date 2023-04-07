@@ -18,10 +18,7 @@ mkdir audio
 # Define your .env file with API keys?
 # TODO!
 
-# Run as a developer
-./dev.sh
-
-# OR, run in prod
+# Run
 ./run.sh
 ```
 
