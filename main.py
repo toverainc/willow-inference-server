@@ -688,7 +688,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
 @app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
-    logger.debug("FASTAPI: Got TTS request for speaker {speaker} and text: {text}")
+    logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} and text: {text}")
     # Do TTS
     response = do_tts(text, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
