@@ -365,11 +365,11 @@ import soundfile as sf
 import torchaudio
 
 tts_speaker_embeddings = {
-    "BDL": "spkemb/cmu_us_bdl_arctic-wav-arctic_a0009.npy",
-    "CLB": "spkemb/cmu_us_clb_arctic-wav-arctic_a0144.npy",
-    "KSP": "spkemb/cmu_us_ksp_arctic-wav-arctic_b0087.npy",
-    "RMS": "spkemb/cmu_us_rms_arctic-wav-arctic_b0353.npy",
-    "SLT": "spkemb/cmu_us_slt_arctic-wav-arctic_a0508.npy",
+    "BDL": "aia/assets/spkemb/cmu_us_bdl_arctic-wav-arctic_a0009.npy",
+    "CLB": "aia/assets/spkemb/cmu_us_clb_arctic-wav-arctic_a0144.npy",
+    "KSP": "aia/assets/spkemb/cmu_us_ksp_arctic-wav-arctic_b0087.npy",
+    "RMS": "aia/assets/spkemb/cmu_us_rms_arctic-wav-arctic_b0353.npy",
+    "SLT": "aia/assets/spkemb/cmu_us_slt_arctic-wav-arctic_a0508.npy",
 }
 
 # US female
