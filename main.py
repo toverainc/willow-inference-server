@@ -194,11 +194,11 @@ def warm_models():
     logger.info("Warming models...")
     for x in range(3):
         if whisper_model_base is not None:
-            do_whisper("3sec.flac", "base", beam_size, "transcribe", False, "en")
+            do_whisper("client/3sec.flac", "base", beam_size, "transcribe", False, "en")
         if whisper_model_medium is not None:
-            do_whisper("3sec.flac", "medium", beam_size, "transcribe", False, "en")
+            do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
         if whisper_model_large is not None:
-            do_whisper("3sec.flac", "large", beam_size, "transcribe", False, "en")
+            do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
 
 def do_translate(features, language, beam_size=beam_size):
     # Set task in token format for processor
