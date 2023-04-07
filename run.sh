@@ -44,6 +44,9 @@ else
     TAG="latest"
 fi
 
+# Temp for hacky sallow config
+mkdir -p audio
+
 docker run --rm -it --gpus "$GPUS" --shm-size=64g --ipc=host \
     --ulimit memlock=-1 --ulimit stack=67108864 \
     -v $PWD:/app -v $PWD/cache:/root/.cache  --env-file .env \
