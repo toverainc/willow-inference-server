@@ -3,9 +3,7 @@ import cProfile as profile
 import pstats
 # Logging
 import os
-import sys
 import logging
-import colorlog
 logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
@@ -29,7 +27,6 @@ import warnings
 warnings.simplefilter(action='ignore')
 from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
 from datasets import load_dataset
-import json
 import io
 import re
 import math
