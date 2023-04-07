@@ -25,8 +25,6 @@ import datetime
 import numpy as np
 import warnings
 warnings.simplefilter(action='ignore')
-from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
-from datasets import load_dataset
 import io
 import re
 import math
@@ -372,9 +370,9 @@ tts_speaker_embeddings = {
 tts_default_speaker = "CLB"
 
 logger.info("Loading TTS models...")
-tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
-tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts").to(device=device)
-tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan").to(device=device)
+tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
+tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
+tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
 
 def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
