@@ -370,7 +370,7 @@ tts_speaker_embeddings = {
     "KSP": "aia/assets/spkemb/cmu_us_ksp_arctic-wav-arctic_b0087.npy",
     "RMS": "aia/assets/spkemb/cmu_us_rms_arctic-wav-arctic_b0353.npy",
     "SLT": "aia/assets/spkemb/cmu_us_slt_arctic-wav-arctic_a0508.npy",
-    "CUS": "custom_voice.npy",
+    "CUSTOM": "custom_voice.npy",
 }
 
 # US female
@@ -387,7 +387,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
     # Load speaker embedding
     time_initial_start = datetime.datetime.now()
     speaker = speaker.upper()
-    speaker_embedding = np.load(tts_speaker_embeddings[speaker[:3]])
+    speaker_embedding = np.load(tts_speaker_embeddings[speaker])
     speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_initial_start
@@ -746,7 +746,8 @@ async def embed(request: Request, audio_file: UploadFile):
     audio_file = io.BytesIO(await audio_file.read())
     # Do embed but don't do anything with the output other than save in do_embed
     embedding = do_embed(audio_file)
-    logger.debug(f"FASTAPI: Embed successful - you can now use the CUS voice for TTS")
+    status_text = "Embed successful - you can now use the CUSTOM voice for TTS"
+    logger.debug(f"FASTAPI: {status_text}")
 
-    response = jsonable_encoder({"message": "success"})
+    response = jsonable_encoder({"message": status_text})
     return JSONResponse(content=response)
