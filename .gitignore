@@ -6,3 +6,4 @@ models
 .env
 audio
 *.pem
+custom_voice.npy

@@ -357,13 +357,20 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
 # TTS
 import soundfile as sf
+from speechbrain.pretrained import EncoderClassifier
+import torchaudio
+import torch.nn.functional as F
+import tempfile
+import shutil
 
+# CUS will fail if it hasn't been created
 tts_speaker_embeddings = {
     "BDL": "aia/assets/spkemb/cmu_us_bdl_arctic-wav-arctic_a0009.npy",
     "CLB": "aia/assets/spkemb/cmu_us_clb_arctic-wav-arctic_a0144.npy",
     "KSP": "aia/assets/spkemb/cmu_us_ksp_arctic-wav-arctic_b0087.npy",
     "RMS": "aia/assets/spkemb/cmu_us_rms_arctic-wav-arctic_b0353.npy",
     "SLT": "aia/assets/spkemb/cmu_us_slt_arctic-wav-arctic_a0508.npy",
+    "CUS": "custom_voice.npy",
 }
 
 # US female
@@ -432,6 +439,37 @@ def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug('TTS: Total time took ' + str(infer_time_milliseconds) + ' ms')
 
     return file
+
+# Adapted from https://github.com/thingless/t5voice
+def do_embed(fobj):
+    spk_model = "speechbrain/spkrec-xvect-voxceleb"
+    size_embed = 512
+    # Override to CPU for now
+    device = "cpu"
+
+    tmpdir = tempfile.mkdtemp()
+    try:
+        classifier = EncoderClassifier.from_hparams(source=spk_model, run_opts={"device": device}, savedir=tmpdir)
+
+        signal, fs = torchaudio.load(fobj)
+        if len(signal.shape) > 1 and signal.shape[0] > 1:
+            signal = signal[0]  # left channel only
+        if fs != 16000:
+            # resample
+            resampler = torchaudio.transforms.Resample(fs, 16000, dtype=signal.dtype)
+            signal = resampler(signal)
+        #assert fs == 16000, fs
+        with torch.no_grad():
+            embeddings = classifier.encode_batch(signal)
+            embeddings = F.normalize(embeddings, dim=2)
+            np.save("custom_voice.npy", embeddings.squeeze())
+            embeddings = embeddings.squeeze().cpu().numpy()
+        assert embeddings.shape[0] == size_embed, embeddings.shape[0]
+    finally:
+        assert len(tmpdir) > 3
+        shutil.rmtree(tmpdir)
+
+    return embeddings
 
 # Function for WebRTC handling
 async def rtc_offer(request, model, beam_size, task, detect_language, return_language):
@@ -697,3 +735,18 @@ async def sts(request: Request, audio_file: UploadFile, response: Response, mode
     # Do TTS
     response = do_tts(results, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
+
+class Embed(BaseModel):
+    message: str
+
+@app.post("/api/embed", response_model=Embed, summary="Submit audio file for custom embedding", response_description="Embedding creation status")
+async def embed(request: Request, audio_file: UploadFile):
+    logger.debug(f"FASTAPI: Got custom embedding request")
+    # Setup access to file
+    audio_file = io.BytesIO(await audio_file.read())
+    # Do embed but don't do anything with the output other than save in do_embed
+    embedding = do_embed(audio_file)
+    logger.debug(f"FASTAPI: Embed successful - you can now use the CUS voice for TTS")
+
+    response = jsonable_encoder({"message": "success"})
+    return JSONResponse(content=response)
