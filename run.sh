@@ -1,4 +1,7 @@
 #!/bin/bash
+set -e
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd "$SCRIPT_DIR"
 
 # Which docker image to run
 IMAGE=${IMAGE:-air-infer-api}
@@ -46,6 +49,11 @@ fi
 
 # Temp for hacky sallow config
 mkdir -p audio
+
+if [ ! -d models ]; then
+    echo "Models not found. Downloading, please wait..."
+    ./download_models.sh
+fi
 
 docker run --rm -it --gpus "$GPUS" --shm-size=64g --ipc=host \
     --ulimit memlock=-1 --ulimit stack=67108864 \
