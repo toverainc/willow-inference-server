@@ -370,7 +370,7 @@ tts_speaker_embeddings = {
     "KSP": "aia/assets/spkemb/cmu_us_ksp_arctic-wav-arctic_b0087.npy",
     "RMS": "aia/assets/spkemb/cmu_us_rms_arctic-wav-arctic_b0353.npy",
     "SLT": "aia/assets/spkemb/cmu_us_slt_arctic-wav-arctic_a0508.npy",
-    "CUSTOM": "custom_voice.npy",
+    "CUSTOM": "custom_voices/CUSTOM.npy",
 }
 
 # US female
@@ -441,7 +441,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
     return file
 
 # Adapted from https://github.com/thingless/t5voice
-def do_embed(fobj):
+def do_embed(fobj, voice_name):
     spk_model = "speechbrain/spkrec-xvect-voxceleb"
     size_embed = 512
     # Override to CPU for now
@@ -462,14 +462,15 @@ def do_embed(fobj):
         with torch.no_grad():
             embeddings = classifier.encode_batch(signal)
             embeddings = F.normalize(embeddings, dim=2)
-            np.save("custom_voice.npy", embeddings.squeeze())
+            save_path = f"custom_voices/{voice_name}.npy"
+            np.save(save_path, embeddings.squeeze())
             embeddings = embeddings.squeeze().cpu().numpy()
         assert embeddings.shape[0] == size_embed, embeddings.shape[0]
     finally:
         assert len(tmpdir) > 3
         shutil.rmtree(tmpdir)
 
-    return embeddings
+    return embeddings, save_path
 
 # Function for WebRTC handling
 async def rtc_offer(request, model, beam_size, task, detect_language, return_language):
@@ -740,13 +741,13 @@ class Embed(BaseModel):
     message: str
 
 @app.post("/api/embed", response_model=Embed, summary="Submit audio file for custom embedding", response_description="Embedding creation status")
-async def embed(request: Request, audio_file: UploadFile):
+async def embed(request: Request, audio_file: UploadFile, voice_name: Optional[str] = "CUSTOM"):
     logger.debug(f"FASTAPI: Got custom embedding request")
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do embed but don't do anything with the output other than save in do_embed
-    embedding = do_embed(audio_file)
-    status_text = "Embed successful - you can now use the CUSTOM voice for TTS"
+    embedding, save_path = do_embed(audio_file, voice_name)
+    status_text = f"Embed successful - you can now use the {voice_name} voice for TTS"
     logger.debug(f"FASTAPI: {status_text}")
 
     response = jsonable_encoder({"message": status_text})

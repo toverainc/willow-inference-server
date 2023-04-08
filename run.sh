@@ -55,6 +55,9 @@ if [ ! -d models ]; then
     ./download_models.sh
 fi
 
+# Make sure we have it just in case
+mkdir -p custom_voices
+
 docker run --rm -it --gpus "$GPUS" --shm-size=64g --ipc=host \
     --ulimit memlock=-1 --ulimit stack=67108864 \
     -v $PWD:/app -v $PWD/cache:/root/.cache  --env-file .env \
