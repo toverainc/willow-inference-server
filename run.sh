@@ -56,7 +56,7 @@ if [ ! -d models ]; then
 fi
 
 # Make sure we have it just in case
-mkdir -p custom_voices
+mkdir -p custom_speakers
 
 docker run --rm -it --gpus "$GPUS" --shm-size=64g --ipc=host \
     --ulimit memlock=-1 --ulimit stack=67108864 \

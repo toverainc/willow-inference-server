@@ -6,4 +6,4 @@ models
 .env
 audio
 *.pem
-custom_voices
+custom_speakers
