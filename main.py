@@ -13,9 +13,9 @@ logger.setLevel(gunicorn_logger.level)
 logger.info("AIR Infer API is starting... Please wait.")
 
 # FastAPI preprocessor
-from fastapi import FastAPI, File, Form, UploadFile, Request, Response, status
+from fastapi import FastAPI, UploadFile, Request, Response, status
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Optional, Tuple
 from pydantic import BaseModel
@@ -38,7 +38,7 @@ import asyncio
 #asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 import uuid
 
-from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
 from aiortc.rtp import RtcpByePacket
 from aia.media import MediaRecorderLite
 
@@ -741,14 +741,24 @@ async def sts(request: Request, audio_file: UploadFile, response: Response, mode
 class Speaker(BaseModel):
     message: str
 
-@app.post("/api/speaker", response_model=Speaker, summary="Manage custom speakers", response_description="Embedding creation status")
-async def embed(request: Request, audio_file: UploadFile, speaker_name: Optional[str] = "CUSTOM"):
-    logger.debug(f"FASTAPI: Got custom embedding request")
+@app.post("/api/speaker", response_model=Speaker, summary="Add custom speaker", response_description="Speaker creation status")
+async def speaker_create(request: Request, audio_file: UploadFile, speaker_name: Optional[str] = "CUSTOM"):
+    logger.debug(f"FASTAPI: Got new speaker request")
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do embed but don't do anything with the output other than save in do_speaker_embed
     embedding, save_path = do_speaker_embed(audio_file, speaker_name)
     status_text = f"Created custom speaker successfully - you can now use the {speaker_name} speaker for TTS"
+    logger.debug(f"FASTAPI: {status_text}")
+
+    response = jsonable_encoder({"message": status_text})
+    return JSONResponse(content=response)
+
+@app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker", response_description="Speaker deletion status")
+async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM"):
+    logger.debug(f"FASTAPI: Got delete speaker request")
+    os.remove(f'custom_speakers/{speaker_name}.npy')
+    status_text = f"Deleted custom speaker {speaker_name} successfully"
     logger.debug(f"FASTAPI: {status_text}")
 
     response = jsonable_encoder({"message": status_text})
