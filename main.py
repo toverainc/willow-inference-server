@@ -363,16 +363,6 @@ import torch.nn.functional as F
 import tempfile
 import shutil
 
-# CUS will fail if it hasn't been created
-tts_speaker_embeddings = {
-    "BDL": "aia/assets/spkemb/cmu_us_bdl_arctic-wav-arctic_a0009.npy",
-    "CLB": "aia/assets/spkemb/cmu_us_clb_arctic-wav-arctic_a0144.npy",
-    "KSP": "aia/assets/spkemb/cmu_us_ksp_arctic-wav-arctic_b0087.npy",
-    "RMS": "aia/assets/spkemb/cmu_us_rms_arctic-wav-arctic_b0353.npy",
-    "SLT": "aia/assets/spkemb/cmu_us_slt_arctic-wav-arctic_a0508.npy",
-    "CUSTOM": "custom_voices/CUSTOM.npy",
-}
-
 # US female
 tts_default_speaker = "CLB"
 
@@ -386,8 +376,19 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     # Load speaker embedding
     time_initial_start = datetime.datetime.now()
-    speaker = speaker.upper()
-    speaker_embedding = np.load(tts_speaker_embeddings[speaker])
+
+    file_path = f"aia/assets/spkemb/{speaker}.npy"
+    if os.path.isfile(file_path):
+        voice_numpy = f"aia/assets/spkemb/{speaker}.npy"
+        logger.debug(f'TTS: Loaded included voice {speaker}')
+
+    # Try and potentially override with a custom speaker
+    file_path = f"custom_voices/{speaker}.npy"
+    if os.path.isfile(file_path):
+        voice_numpy = f"custom_voices/{speaker}.npy"
+        logger.debug(f'TTS: Loaded custom voice {speaker}')
+
+    speaker_embedding = np.load(voice_numpy)
     speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_initial_start
@@ -462,7 +463,7 @@ def do_embed(fobj, voice_name):
         with torch.no_grad():
             embeddings = classifier.encode_batch(signal)
             embeddings = F.normalize(embeddings, dim=2)
-            save_path = f"custom_voices/{voice_name}.npy"
+            save_path = f"custom_voices/{voice_name}"
             np.save(save_path, embeddings.squeeze())
             embeddings = embeddings.squeeze().cpu().numpy()
         assert embeddings.shape[0] == size_embed, embeddings.shape[0]
