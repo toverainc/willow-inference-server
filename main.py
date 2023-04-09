@@ -359,6 +359,8 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 import soundfile as sf
 from speechbrain.pretrained import EncoderClassifier
 import torchaudio
+# Use soundfile so we can support WAV, FLAC, etc
+torchaudio.set_audio_backend('soundfile')
 import torch.nn.functional as F
 import tempfile
 import shutil
@@ -442,7 +444,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
     return file
 
 # Adapted from https://github.com/thingless/t5voice
-def do_speaker_embed(fobj, speaker_name):
+def do_speaker_embed(audio_file, speaker_name):
     spk_model = "speechbrain/spkrec-xvect-voxceleb"
     size_embed = 512
     # Override to CPU for now
@@ -452,7 +454,7 @@ def do_speaker_embed(fobj, speaker_name):
     try:
         classifier = EncoderClassifier.from_hparams(source=spk_model, run_opts={"device": device}, savedir=tmpdir)
 
-        signal, fs = torchaudio.load(fobj)
+        signal, fs = torchaudio.load(audio_file)
         if len(signal.shape) > 1 and signal.shape[0] > 1:
             signal = signal[0]  # left channel only
         if fs != 16000:
