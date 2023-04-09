@@ -202,7 +202,7 @@ def do_translate(features, language, beam_size=beam_size):
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
-    prompt = processor.tokenizer.convert_tokens_to_ids(
+    prompt = whisper_processor.tokenizer.convert_tokens_to_ids(
         [
             "<|startoftranscript|>",
             language,
@@ -218,7 +218,7 @@ def do_translate(features, language, beam_size=beam_size):
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('WHISPER: Translate inference took ' + str(infer_time_milliseconds) + ' ms')
-    results = processor.decode(results[0].sequences_ids[0])
+    results = whisper_processor.decode(results[0].sequences_ids[0])
     logger.debug(results)
 
     return results
