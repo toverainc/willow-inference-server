@@ -26,6 +26,9 @@ GPUS="all"
 # Allow forwarded IPs. This is a list of hosts to allow parsing of X-Forwarded headers from
 FORWARDED_ALLOW_IPS="127.0.0.1"
 
+# Shared memory size for docker
+SHM_SIZE="1gb"
+
 # API Key - if defined all requests will require the X-Api-Key header with the configured value
 if [ -r .api_key ]; then
     API_KEY=$(cat .api_key)
@@ -58,7 +61,7 @@ fi
 # Make sure we have it just in case
 mkdir -p custom_speakers
 
-docker run --rm -it --gpus "$GPUS" --shm-size=64g --ipc=host \
+docker run --rm -it --gpus "$GPUS" --shm-size="$SHM_SIZE" --ipc=host \
     --ulimit memlock=-1 --ulimit stack=67108864 \
     -v $PWD:/app -v $PWD/cache:/root/.cache  --env-file .env \
     --name air-infer-api \
