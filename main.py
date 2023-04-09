@@ -748,7 +748,7 @@ async def embed(request: Request, audio_file: UploadFile, voice_name: Optional[s
     audio_file = io.BytesIO(await audio_file.read())
     # Do embed but don't do anything with the output other than save in do_embed
     embedding, save_path = do_embed(audio_file, voice_name)
-    status_text = f"Embed successful - you can now use the {voice_name} voice for TTS"
+    status_text = f"Embed successful - you can now use the {voice_name} speaker for TTS"
     logger.debug(f"FASTAPI: {status_text}")
 
     response = jsonable_encoder({"message": status_text})
