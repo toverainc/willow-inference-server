@@ -361,7 +361,6 @@ from speechbrain.pretrained import EncoderClassifier
 import torchaudio
 # Use soundfile so we can support WAV, FLAC, etc
 torchaudio.set_audio_backend('soundfile')
-import torch.nn.functional as F
 import tempfile
 import shutil
 
@@ -464,7 +463,7 @@ def do_speaker_embed(audio_file, speaker_name):
         #assert fs == 16000, fs
         with torch.no_grad():
             embeddings = classifier.encode_batch(signal)
-            embeddings = F.normalize(embeddings, dim=2)
+            embeddings = torch.nn.functional.normalize(embeddings, dim=2)
             save_path = f"custom_speakers/{speaker_name}"
             np.save(save_path, embeddings.squeeze())
             embeddings = embeddings.squeeze().cpu().numpy()
