@@ -379,13 +379,13 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     file_path = f"aia/assets/spkemb/{speaker}.npy"
     if os.path.isfile(file_path):
-        voice_numpy = f"aia/assets/spkemb/{speaker}.npy"
+        voice_numpy = file_path
         logger.debug(f'TTS: Loaded included voice {speaker}')
 
     # Try and potentially override with a custom speaker
     file_path = f"custom_voices/{speaker}.npy"
     if os.path.isfile(file_path):
-        voice_numpy = f"custom_voices/{speaker}.npy"
+        voice_numpy = file_path
         logger.debug(f'TTS: Loaded custom voice {speaker}')
 
     speaker_embedding = np.load(voice_numpy)
