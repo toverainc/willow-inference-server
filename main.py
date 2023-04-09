@@ -763,3 +763,23 @@ async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM
 
     response = jsonable_encoder({"message": status_text})
     return JSONResponse(content=response)
+
+class SpeakersList(BaseModel):
+    speakers: list
+
+@app.get("/api/speaker", response_model=SpeakersList, summary="Show supported speakers", response_description="Speakers list")
+async def speaker_delete(request: Request):
+    logger.debug(f"FASTAPI: Got list speakers request")
+    speakers = []
+    dirs = [ "aia/assets/spkemb", "custom_speakers" ]
+    for dir in dirs:
+        logger.debug(f"FASTAPI: Getting speakers for directory {dir}")
+        for (root, dirs, file) in os.walk(dir):
+            for f in file:
+                if '.npy' in f:
+                    name = f.replace(".npy", "")
+                    logger.debug(f"FASTAPI: Getting speakers found speaker {name}")
+                    speakers.append(name)
+
+    response = jsonable_encoder({"speakers": speakers})
+    return JSONResponse(content=response)
