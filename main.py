@@ -379,16 +379,16 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     file_path = f"aia/assets/spkemb/{speaker}.npy"
     if os.path.isfile(file_path):
-        voice_numpy = file_path
-        logger.debug(f'TTS: Loaded included voice {speaker}')
+        speaker_numpy = file_path
+        logger.debug(f'TTS: Loaded included speaker {speaker}')
 
     # Try and potentially override with a custom speaker
     file_path = f"custom_speakers/{speaker}.npy"
     if os.path.isfile(file_path):
-        voice_numpy = file_path
-        logger.debug(f'TTS: Loaded custom voice {speaker}')
+        speaker_numpy = file_path
+        logger.debug(f'TTS: Loaded custom speaker {speaker}')
 
-    speaker_embedding = np.load(voice_numpy)
+    speaker_embedding = np.load(speaker_numpy)
     speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_initial_start
@@ -442,7 +442,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
     return file
 
 # Adapted from https://github.com/thingless/t5voice
-def do_embed(fobj, speaker_name):
+def do_speaker_embed(fobj, speaker_name):
     spk_model = "speechbrain/spkrec-xvect-voxceleb"
     size_embed = 512
     # Override to CPU for now
@@ -738,17 +738,17 @@ async def sts(request: Request, audio_file: UploadFile, response: Response, mode
     response = do_tts(results, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
 
-class Embed(BaseModel):
+class Speaker(BaseModel):
     message: str
 
-@app.post("/api/embed", response_model=Embed, summary="Submit audio file for custom embedding", response_description="Embedding creation status")
+@app.post("/api/speaker", response_model=Speaker, summary="Manage custom speakers", response_description="Embedding creation status")
 async def embed(request: Request, audio_file: UploadFile, speaker_name: Optional[str] = "CUSTOM"):
     logger.debug(f"FASTAPI: Got custom embedding request")
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
-    # Do embed but don't do anything with the output other than save in do_embed
-    embedding, save_path = do_embed(audio_file, speaker_name)
-    status_text = f"Embed successful - you can now use the {speaker_name} speaker for TTS"
+    # Do embed but don't do anything with the output other than save in do_speaker_embed
+    embedding, save_path = do_speaker_embed(audio_file, speaker_name)
+    status_text = f"Created custom speaker successfully - you can now use the {speaker_name} speaker for TTS"
     logger.debug(f"FASTAPI: {status_text}")
 
     response = jsonable_encoder({"message": status_text})
