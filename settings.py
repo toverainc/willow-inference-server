@@ -17,6 +17,9 @@ class APISettings(BaseSettings):
     # TTS CUDA memory threshold - equivalent of 6GB GPUs
     tts_memory_threshold = 5798205849
 
+    # Enable chunking support
+    support_chunking = True
+
     class Config:
         env_prefix = ""
         case_sensitive = False

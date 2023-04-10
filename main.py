@@ -125,8 +125,8 @@ long_beam_size_threshold = settings.long_beam_size_threshold
 # model threads
 model_threads = settings.model_threads
 
-# Default to supporting chunking
-has_chunking = True
+# Support for chunking
+support_chunking = settings.support_chunking
 
 # Try CUDA
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -158,7 +158,7 @@ if device == "cuda":
         # This can still encounter out of memory errors depending on audio length
         if cuda_free_memory <= 10000000000:
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling chunking support')
-            has_chunking = False
+            support_chunking = False
 
         # Override compute_type if at least one non-Turing card
         if cuda_device_capability <= 70:
@@ -264,7 +264,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
         beam_size = long_beam_size
     use_chunking = False
     if audio_duration > 30*1000:
-        if has_chunking:
+        if support_chunking:
             logger.debug(f'WHISPER: Audio duration is > 30s - activating chunking')
             use_chunking = True
         else:
