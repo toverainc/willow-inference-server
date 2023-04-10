@@ -153,7 +153,7 @@ if device == "cuda":
 
         # Override compute_type if at least one non-Turing card
         if cuda_device_capability <= 70:
-            logger.info(f'CUDA: Device {cuda_dev_num} is pre-Turing, forcing int8')
+            logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Turing, forcing int8')
             compute_type = "int8"
 
     # Set ctranslate device index based on number of supported devices
