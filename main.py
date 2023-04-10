@@ -132,22 +132,27 @@ if device == "cuda":
     cuda_num_devices = torch.cuda.device_count()
     logger.info(f'CUDA: Detected {cuda_num_devices} device(s)')
 
-    # Get CUDA device capability
-    cuda_device_capability = torch.cuda.get_device_capability()
-    cuda_device_capability = functools.reduce(lambda sub, ele: sub * 10 + ele, cuda_device_capability)
-    logger.info(f'CUDA: Device capability: {cuda_device_capability}')
+    for cuda_dev_num in range(0, cuda_num_devices, 1):
+        # Print CUDA device name
+        cuda_device_name = torch.cuda.get_device_name(cuda_dev_num)
+        logger.info(f'CUDA: Device {cuda_dev_num} name: {cuda_device_name}')
 
-    # Get CUDA memory - returns in bytes
-    cuda_total_memory = torch.cuda.mem_get_info()[1]
-    cuda_free_memory = torch.cuda.mem_get_info()[0]
-    logger.info(f'CUDA: Device total memory: {cuda_total_memory} bytes')
-    logger.info(f'CUDA: Device free memory: {cuda_free_memory} bytes')
+        # Get CUDA device capability
+        cuda_device_capability = torch.cuda.get_device_capability(cuda_dev_num)
+        cuda_device_capability = functools.reduce(lambda sub, ele: sub * 10 + ele, cuda_device_capability)
+        logger.info(f'CUDA: Device {cuda_dev_num} capability: {cuda_device_capability}')
 
-    # Use int8_float16 on Turing or higher - int8 on anything else
-    if cuda_device_capability >= 70:
-        compute_type = "int8_float16"
-    else:
-        compute_type = "int8"
+        # Get CUDA memory - returns in bytes
+        cuda_total_memory = torch.cuda.mem_get_info(cuda_dev_num)[1]
+        cuda_free_memory = torch.cuda.mem_get_info(cuda_dev_num)[0]
+        logger.info(f'CUDA: Device {cuda_dev_num} total memory: {cuda_total_memory} bytes')
+        logger.info(f'CUDA: Device {cuda_dev_num} free memory: {cuda_free_memory} bytes')
+
+        # Use int8_float16 on Turing or higher - int8 on anything else
+        if cuda_device_capability >= 70:
+            compute_type = "int8_float16"
+        else:
+            compute_type = "int8"
 
     # Set ctranslate device index based on number of supported devices
     device_index = [*range(0, cuda_num_devices, 1)]
