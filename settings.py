@@ -15,10 +15,16 @@ class APISettings(BaseSettings):
     detect_language: bool = False
 
     # TTS CUDA memory threshold - equivalent of 6GB GPUs
-    tts_memory_threshold = 5798205849
+    tts_memory_threshold: int = 5798205849
 
     # Enable chunking support
-    support_chunking = True
+    support_chunking: bool = True
+
+    # The default whisper model to use
+    whisper_model_default: str = 'large'
+
+    # Default TTS speaker to use. CLB is US female
+    tts_default_speaker: str = "CLB"
 
     class Config:
         env_prefix = ""
