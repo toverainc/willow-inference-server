@@ -29,6 +29,7 @@ import io
 import re
 import math
 import functools
+from typing import NamedTuple
 from settings import get_api_settings
 settings = get_api_settings()
 
@@ -49,6 +50,15 @@ import ctranslate2
 import librosa
 import transformers
 import datetime
+
+# TTS
+import soundfile as sf
+from speechbrain.pretrained import EncoderClassifier
+import torchaudio
+# Use soundfile so we can support WAV, FLAC, etc
+torchaudio.set_audio_backend('soundfile')
+import tempfile
+import shutil
 
 import torch
 # Import audio stuff adapted from ref Whisper implementation
@@ -128,6 +138,13 @@ model_threads = settings.model_threads
 # Support for chunking
 support_chunking = settings.support_chunking
 
+whisper_model_default = settings.whisper_model_default
+
+tts_default_speaker = settings.tts_default_speaker
+
+# Default detect language?
+detect_language = settings.detect_language
+
 # Try CUDA
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -175,40 +192,55 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
-# Turn up log_level for ctranslate2
-#ctranslate2.set_log_level(logger.DEBUG)
 
-# Load processor from transformers
-whisper_processor = transformers.WhisperProcessor.from_pretrained("./models/openai-whisper-base")
+class Models(NamedTuple):
+    whisper_processor: any
+    whisper_model_base: any
+    whisper_model_medium: any
+    whisper_model_large: any
 
-# Show supported compute types
-supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
-logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
+    tts_processor: any
+    tts_model: any
+    tts_vocoder: any
 
-# Load all models - thanks for quantization ctranslate2
-logger.info("Loading Whisper models...")
-if device == "cuda":
-    whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
-    whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
-    whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
-    whisper_model_default = 'large'
-else:
-    whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
-    whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
-    whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
-    whisper_model_default = 'base'
+models:Models = None
 
-# Default detect language?
-detect_language = settings.detect_language
+def load_models() -> Models:
+    global models
+    # Turn up log_level for ctranslate2
+    #ctranslate2.set_log_level(logger.DEBUG)
+    # Load processor from transformers
+    whisper_processor = transformers.WhisperProcessor.from_pretrained("./models/openai-whisper-base")
+    # Show supported compute types
+    supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
+    logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
+
+    # Load all models - thanks for quantization ctranslate2
+    logger.info("Loading Whisper models...")
+    if device == "cuda":
+        whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
+        whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
+        whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
+    else:
+        whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
+        whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
+        whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
+
+    logger.info("Loading TTS models...")
+    tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
+    tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
+    tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
+    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder)
+    return models
 
 def warm_models():
     logger.info("Warming models...")
     for x in range(3):
-        if whisper_model_base is not None:
+        if models.whisper_model_base is not None:
             do_whisper("client/3sec.flac", "base", beam_size, "transcribe", False, "en")
-        if whisper_model_medium is not None:
+        if models.whisper_model_medium is not None:
             do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
-        if whisper_model_large is not None:
+        if models.whisper_model_large is not None:
             do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
 
 def do_translate(features, language, beam_size=beam_size):
@@ -218,7 +250,7 @@ def do_translate(features, language, beam_size=beam_size):
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
-    prompt = whisper_processor.tokenizer.convert_tokens_to_ids(
+    prompt = models.whisper_processor.tokenizer.convert_tokens_to_ids(
         [
             "<|startoftranscript|>",
             language,
@@ -229,28 +261,28 @@ def do_translate(features, language, beam_size=beam_size):
 
     # Run generation for the 30-second window.
     time_start = datetime.datetime.now()
-    results = whisper_model_large.generate(features, [prompt], beam_size=beam_size)
+    results = models.whisper_model_large.generate(features, [prompt], beam_size=beam_size)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('WHISPER: Translate inference took ' + str(infer_time_milliseconds) + ' ms')
-    results = whisper_processor.decode(results[0].sequences_ids[0])
+    results = models.whisper_processor.decode(results[0].sequences_ids[0])
     logger.debug(results)
 
     return results
 
-def do_whisper(audio_file, model, beam_size, task, detect_language, return_language):
+def do_whisper(audio_file, model:str, beam_size:int, task:str, detect_language:bool, return_language:str):
     if model != "large" and detect_language == True:
         logger.warning(f'WHISPER: Language detection requested but not supported on model {model} - overriding with large')
         model = "large"
         beam_size = 5
     # Point to model object depending on passed model string
     if model == "large":
-        whisper_model = whisper_model_large
+        whisper_model = models.whisper_model_large
     elif model == "medium":
-        whisper_model = whisper_model_medium
+        whisper_model = models.whisper_model_medium
     elif model == "base":
-        whisper_model = whisper_model_base
+        whisper_model = models.whisper_model_base
 
     processor_task = f'<|{task}|>'
     first_time_start = datetime.datetime.now()
@@ -312,7 +344,7 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
-    prompt = whisper_processor.tokenizer.convert_tokens_to_ids(
+    prompt = models.whisper_processor.tokenizer.convert_tokens_to_ids(
         [
             "<|startoftranscript|>",
             language,
@@ -338,10 +370,10 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
     if use_chunking:
         assert strides, 'strides needed to compute final tokens when chunking'
         tokens = [(results[i].sequences_ids[0], strides[i]) for i in range(batch_size)]
-        tokens = find_longest_common_sequence(tokens, whisper_processor.tokenizer)
+        tokens = find_longest_common_sequence(tokens, models.whisper_processor.tokenizer)
     else:
         tokens = results[0].sequences_ids[0]
-    results = whisper_processor.decode(tokens)
+    results = models.whisper_processor.decode(tokens)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -374,22 +406,6 @@ def do_whisper(audio_file, model, beam_size, task, detect_language, return_langu
 
     return language, results, infer_time_milliseconds, translation, infer_speedup, audio_duration
 
-# TTS
-import soundfile as sf
-from speechbrain.pretrained import EncoderClassifier
-import torchaudio
-# Use soundfile so we can support WAV, FLAC, etc
-torchaudio.set_audio_backend('soundfile')
-import tempfile
-import shutil
-
-# US female
-tts_default_speaker = "CLB"
-
-logger.info("Loading TTS models...")
-tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
-tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
 
 def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
@@ -417,7 +433,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     # Get inputs
     time_start = datetime.datetime.now()
-    inputs = tts_processor(text=text, return_tensors="pt").to(device=device)
+    inputs = models.tts_processor(text=text, return_tensors="pt").to(device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -425,7 +441,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     # Generate spectrogram - SLOW
     time_start = datetime.datetime.now()
-    spectrogram = tts_model.generate_speech(inputs["input_ids"], speaker_embedding).to(device=device)
+    spectrogram = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding).to(device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -433,7 +449,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
     
     # Generate audio - SLOW
     time_start = datetime.datetime.now()
-    audio = tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=tts_vocoder).to(device=device)
+    audio = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=models.tts_vocoder).to(device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -498,7 +514,6 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
     pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
     pcs.add(pc)
 
     recorder = None
@@ -606,15 +621,14 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
-# Warm models
-warm_models()
-
 app = FastAPI(title="AIR Infer API",
     description="High performance speech API",
     version="0.0.1")
 
 @app.on_event("startup")
 def startup_event():
+    load_models()
+    warm_models()
     logger.info("AIR Infer API is ready for requests!")
 
 @app.on_event("shutdown")
