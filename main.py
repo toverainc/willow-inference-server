@@ -202,6 +202,7 @@ class Models(NamedTuple):
     tts_processor: any
     tts_model: any
     tts_vocoder: any
+    dolly_pipeline: any
 
 models:Models = None
 
@@ -230,7 +231,10 @@ def load_models() -> Models:
     tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
     tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
     tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
-    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder)
+    logger.info("Loading Dolly models...")
+    dolly_pipeline = transformers.pipeline(model="databricks/dolly-v2-12b", torch_dtype=torch.bfloat16, trust_remote_code=True, device_map="auto")
+
+    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, dolly_pipeline)
     return models
 
 def warm_models():
@@ -758,6 +762,13 @@ async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
     # Do TTS
     response = do_tts(text, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
+
+@app.get("/api/dolly", summary="Submit question for Dolly", response_description="Dolly answer")
+async def dolly(text: str):
+    logger.debug(f"FASTAPI: Got Dolly request with text: {text}")
+    # Do Dolly
+    response = models.dolly_pipeline(text)
+    return response
 
 @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
 async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
