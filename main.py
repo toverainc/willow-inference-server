@@ -197,6 +197,7 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
+toucan_tts = ToucanTTSInterface(device=device, tts_model_path=toucan_model_id, faster_vocoder=False)
 
 class Models(NamedTuple):
     whisper_processor: any
@@ -207,7 +208,6 @@ class Models(NamedTuple):
     tts_processor: any
     tts_model: any
     tts_vocoder: any
-    toucan_tts: any
 
 models:Models = None
 
@@ -236,8 +236,8 @@ def load_models() -> Models:
     tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
     tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
     tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
-    toucan_tts = ToucanTTSInterface(device=device, tts_model_path=toucan_model_id, faster_vocoder=False)
-    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, toucan_tts)
+    
+    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder)
     return models
 
 def warm_models():
@@ -413,6 +413,16 @@ def do_whisper(audio_file, model:str, beam_size:int, task:str, detect_language:b
 
     return language, results, infer_time_milliseconds, translation, infer_speedup, audio_duration
 
+
+def do_ttts(text, format, speaker = tts_default_speaker):
+    audio_file = io.BytesIO()
+    speech = toucan_tts.do_tts(text_list=[text], language="en")
+    print(sys.getsizeof(speech))
+    logger.debug(f"TTTS calling soundfile")
+    sf.write(file=audio_file, data=speech, format=format, samplerate=24000)
+    response = audio_file.seek(0)
+    print(sys.getsizeof(response))
+    return response
 
 def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
@@ -767,15 +777,12 @@ async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
     return StreamingResponse(response, media_type="audio/flac")
 
 @app.get("/api/ttts", summary="Submit text for text to speech to toucan", response_description="Audio file of generated speech")
-def ttts(text: str, speaker: Optional[str] = tts_default_speaker):
+async def ttts(text: str, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got TTTS request for speaker {speaker} and text: {text}")
     # Do TTS
-    models.toucan_tts.set_language("en")
-    audio_file = io.BytesIO()
-    response = models.toucan_tts.do_tts(text_list=[text])
-    sf.write(file=audio_file, data=response, format='FLAC', samplerate=24000)
-    response_file = audio_file.seek(0)
-    return StreamingResponse(response_file, media_type="audio/flac")
+    response = do_ttts(text, 'FLAC', speaker)
+    logger.debug(f"FASTAPI: TTTS return")
+    return StreamingResponse(response, media_type="audio/flac")
 
 @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
 async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
