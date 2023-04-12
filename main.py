@@ -197,8 +197,6 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
-toucan_tts = ToucanTTSInterface(device=device, tts_model_path=toucan_model_id, faster_vocoder=False)
-
 class Models(NamedTuple):
     whisper_processor: any
     whisper_model_base: any
@@ -208,6 +206,7 @@ class Models(NamedTuple):
     tts_processor: any
     tts_model: any
     tts_vocoder: any
+    toucan_tts: any
 
 models:Models = None
 
@@ -237,7 +236,9 @@ def load_models() -> Models:
     tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
     tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
     
-    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder)
+    toucan_tts = ToucanTTSInterface(device=device, tts_model_path=toucan_model_id, faster_vocoder=False)
+
+    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, toucan_tts)
     return models
 
 def warm_models():
@@ -416,7 +417,7 @@ def do_whisper(audio_file, model:str, beam_size:int, task:str, detect_language:b
 
 def do_ttts(text, format, speaker = tts_default_speaker):
     audio_file = io.BytesIO()
-    speech = toucan_tts.do_tts(text_list=[text], language="en")
+    speech = models.toucan_tts.do_tts(text_list=[text], language="en")
     print(sys.getsizeof(speech))
     logger.debug(f"TTTS calling soundfile")
     sf.write(file=audio_file, data=speech, format=format, samplerate=24000)
