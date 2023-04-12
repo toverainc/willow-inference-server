@@ -2,8 +2,9 @@ import os
 
 import torch
 
-from InferenceInterfaces.ToucanTTSInterface import ToucanTTSInterface
-
+import sys
+sys.path.append("../deps/toucan")
+from toucanTTSInferface import ToucanTTSInterface
 
 def read_texts(model_id, sentence, filename, device="cpu", language="en", speaker_reference=None, faster_vocoder=False):
     tts = ToucanTTSInterface(device=device, tts_model_path=model_id, faster_vocoder=faster_vocoder)
@@ -20,21 +21,8 @@ def the_raven(version, model_id="Meta", exec_device="cpu", speed_over_quality=Tr
     os.makedirs("audios", exist_ok=True)
 
     read_texts(model_id=model_id,
-               sentence=['Once upon a midnight dreary, while I pondered, weak, and weary,',
-                         'Over many a quaint, and curious volume of forgotten lore,',
-                         'While I nodded, nearly napping, suddenly, there came a tapping,',
-                         'As of someone gently rapping, rapping at my chamber door.',
-                         'Tis some visitor, I muttered, tapping at my chamber door,',
-                         'Only this, and nothing more.',
-                         'Ah, distinctly, I remember, it was in the bleak December,',
-                         'And each separate dying ember, wrought its ghost upon the floor.',
-                         'Eagerly, I wished the morrow, vainly, I had sought to borrow',
-                         'From my books surcease of sorrow, sorrow, for the lost Lenore,',
-                         'For the rare and radiant maiden, whom the angels name Lenore,',
-                         'Nameless here, for evermore.',
-                         'And the silken, sad, uncertain, rustling of each purple curtain',
-                         'Thrilled me, filled me, with fantastic terrors, never felt before.'],
-               filename=f"audios/the_raven_{version}.wav",
+               sentence="Welcome to Willow. Willow is a high-performance and flexible engine for voice interactivity with various integrations, including home assistant and devices.",
+               filename=f"audios/output.wav",
                device=exec_device,
                language="en",
                speaker_reference=None,

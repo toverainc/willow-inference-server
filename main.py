@@ -3,6 +3,7 @@ import cProfile as profile
 import pstats
 # Logging
 import os
+import sys
 import logging
 logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
@@ -59,6 +60,10 @@ import torchaudio
 torchaudio.set_audio_backend('soundfile')
 import tempfile
 import shutil
+
+sys.path.append("deps/toucan")
+from aia.toucanTTSInferface import ToucanTTSInterface
+toucan_model_id = "Meta"
 
 import torch
 # Import audio stuff adapted from ref Whisper implementation
@@ -202,6 +207,7 @@ class Models(NamedTuple):
     tts_processor: any
     tts_model: any
     tts_vocoder: any
+    toucan_tts: any
 
 models:Models = None
 
@@ -230,7 +236,8 @@ def load_models() -> Models:
     tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
     tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
     tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
-    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder)
+    toucan_tts = ToucanTTSInterface(device=device, tts_model_path=toucan_model_id, faster_vocoder=False)
+    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, toucan_tts)
     return models
 
 def warm_models():
@@ -758,6 +765,17 @@ async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
     # Do TTS
     response = do_tts(text, 'FLAC', speaker)
     return StreamingResponse(response, media_type="audio/flac")
+
+@app.get("/api/ttts", summary="Submit text for text to speech to toucan", response_description="Audio file of generated speech")
+def ttts(text: str, speaker: Optional[str] = tts_default_speaker):
+    logger.debug(f"FASTAPI: Got TTTS request for speaker {speaker} and text: {text}")
+    # Do TTS
+    models.toucan_tts.set_language("en")
+    audio_file = io.BytesIO()
+    response = models.toucan_tts.do_tts(text_list=[text])
+    sf.write(file=audio_file, data=response, format='FLAC', samplerate=24000)
+    response_file = audio_file.seek(0)
+    return StreamingResponse(response_file, media_type="audio/flac")
 
 @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
 async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
