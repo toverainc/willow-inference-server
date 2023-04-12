@@ -21,4 +21,4 @@ yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit
 ./run.sh
 ```
 
-You can view API documentation at http://[your host]/docs
+You can view API documentation at http://[your host]:19000/docs
