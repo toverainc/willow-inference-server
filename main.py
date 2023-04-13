@@ -768,7 +768,9 @@ async def dolly(text: str):
     logger.debug(f"FASTAPI: Got Dolly request with text: {text}")
     # Do Dolly
     response = models.dolly_pipeline(text)
-    return response
+    logger.debug(f"FASTAPI: Got Dolly response with text: {response}")
+    final_response = {"response": response}
+    return JSONResponse(content=final_response)
 
 @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
 async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
