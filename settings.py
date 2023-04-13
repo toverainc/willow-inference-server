@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pydantic import BaseSettings
+from typing import List
 
 class APISettings(BaseSettings):
     # default return language
@@ -25,6 +26,9 @@ class APISettings(BaseSettings):
 
     # Default TTS speaker to use. CLB is US female
     tts_default_speaker: str = "CLB"
+
+    # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
+    cors_allowed_origins: List[str] = []
 
     class Config:
         env_prefix = ""

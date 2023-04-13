@@ -17,6 +17,7 @@ from fastapi import FastAPI, UploadFile, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, Tuple
 from pydantic import BaseModel
 import types
@@ -624,6 +625,15 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 app = FastAPI(title="AIR Infer API",
     description="High performance speech API",
     version="0.0.1")
+
+if settings.cors_allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 @app.on_event("startup")
 def startup_event():
