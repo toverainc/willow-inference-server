@@ -26,6 +26,9 @@ class APISettings(BaseSettings):
     # Default TTS speaker to use. CLB is US female
     tts_default_speaker: str = "CLB"
 
+    # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
+    cors_allowed_origins: list[str] = []
+
     class Config:
         env_prefix = ""
         case_sensitive = False
