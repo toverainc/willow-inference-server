@@ -196,11 +196,12 @@ else:
 # Hack to load vicuna if you have the models
 chatbot_model_path = 'vicuna'
 do_chatbot = None
-if os.path.exists(chatbot_model_path):
-    logger.info(f'VICUNA: Found path, attempting load...')
+if os.path.exists(chatbot_model_path) and device == "cuda":
+    logger.info(f'VICUNA: Found path and CUDA, attempting load...')
     from fastchat.conversation import get_default_conv_template
     from fastchat.serve.inference import load_model as fastchat_load_model
 
+    # Use 8bit by default
     chatbot_model, chatbot_tokenizer = fastchat_load_model(chatbot_model_path, device,
         cuda_dev_num, True, debug=False)
 
