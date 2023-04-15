@@ -205,7 +205,8 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
     chatbot_model, chatbot_tokenizer = fastchat_load_model(chatbot_model_path, device,
         cuda_dev_num, True, debug=False)
 
-    def do_chatbot(text):
+    def do_chatbot(text, temperature=0.7):
+        first_time_start = datetime.datetime.now()
         conv = get_default_conv_template(chatbot_model_path).copy()
         conv.append_message(conv.roles[0], text)
         conv.append_message(conv.roles[1], None)
@@ -215,11 +216,16 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
         output_ids = chatbot_model.generate(
             torch.as_tensor(inputs.input_ids).cuda(),
             do_sample=True,
-            temperature=0.7,
+            temperature=temperature,
             max_new_tokens=1024)
         outputs = chatbot_tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
         skip_echo_len = len(prompt.replace("</s>", " ")) + 1
         outputs = outputs[skip_echo_len:]
+
+        time_end = datetime.datetime.now()
+        infer_time = time_end - first_time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug('VICUNA: Response took ' + str(infer_time_milliseconds) + ' ms')
 
         return outputs
 
@@ -793,19 +799,19 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
 if do_chatbot is not None:
     @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str):
+    async def chatbot(text: str, temperature: Optional[float] = 0.7):
         logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
         # Do Chatbot
-        response = do_chatbot(text)
+        response = do_chatbot(text, temperature)
         logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
         final_response = {"response": response}
         return JSONResponse(content=final_response)
 
     @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
-    async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
+    async def chatbot(text: str, temperature: Optional[float] = 0.7, speaker: Optional[str] = tts_default_speaker):
         logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
         # Do Chatbot
-        chatbot = do_chatbot(text)
+        chatbot = do_chatbot(text, temperature)
         logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
         # Do TTS
         response = do_tts(chatbot, 'FLAC', speaker)
