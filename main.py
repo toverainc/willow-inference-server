@@ -194,6 +194,38 @@ else:
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
 
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+from fastchat.conversation import get_default_conv_template
+from fastchat.serve.inference import load_model
+
+chatbot_model_path = '/data/ml/vicuna-13B'
+
+chatbot_model, chatbot_tokenizer = load_model(chatbot_model_path, device,
+    cuda_dev_num, True, debug=True)
+
+def do_chatbot(text):
+
+    conv = get_default_conv_template(chatbot_model_path).copy()
+    conv.append_message(conv.roles[0], text)
+    conv.append_message(conv.roles[1], None)
+    prompt = conv.get_prompt()
+
+    inputs = chatbot_tokenizer([prompt])
+    output_ids = chatbot_model.generate(
+        torch.as_tensor(inputs.input_ids).cuda(),
+        do_sample=True,
+        temperature=0.7,
+        max_new_tokens=1024)
+    outputs = chatbot_tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+    skip_echo_len = len(prompt.replace("</s>", " ")) + 1
+    outputs = outputs[skip_echo_len:]
+
+    print(f"{conv.roles[0]}: {text}")
+    print(f"{conv.roles[1]}: {outputs}")
+
+    return outputs
+
 class Models(NamedTuple):
     whisper_processor: any
     whisper_model_base: any
@@ -761,6 +793,15 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
         outfile.write(response.getbuffer())
 
     return results
+
+@app.get("/api/chatbot", summary="Submit question for chatbot", response_description="Chatbot answer")
+async def chatbot(text: str):
+    logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
+    # Do Chatbot
+    response = do_chatbot(text)
+    logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
+    final_response = {"response": response}
+    return JSONResponse(content=final_response)
 
 @app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
