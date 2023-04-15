@@ -193,19 +193,15 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
-
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
 from fastchat.conversation import get_default_conv_template
-from fastchat.serve.inference import load_model
+from fastchat.serve.inference import load_model as fastchat_load_model
 
 chatbot_model_path = '/data/ml/vicuna-13B'
 
-chatbot_model, chatbot_tokenizer = load_model(chatbot_model_path, device,
-    cuda_dev_num, True, debug=True)
+chatbot_model, chatbot_tokenizer = fastchat_load_model(chatbot_model_path, device,
+    cuda_dev_num, True, debug=False)
 
 def do_chatbot(text):
-
     conv = get_default_conv_template(chatbot_model_path).copy()
     conv.append_message(conv.roles[0], text)
     conv.append_message(conv.roles[1], None)
@@ -220,9 +216,6 @@ def do_chatbot(text):
     outputs = chatbot_tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
     skip_echo_len = len(prompt.replace("</s>", " ")) + 1
     outputs = outputs[skip_echo_len:]
-
-    print(f"{conv.roles[0]}: {text}")
-    print(f"{conv.roles[1]}: {outputs}")
 
     return outputs
 
