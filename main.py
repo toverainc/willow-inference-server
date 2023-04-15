@@ -792,7 +792,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     return results
 
 if do_chatbot is not None:
-    @app.get("/api/chatbot", summary="Submit question for chatbot", response_description="Chatbot answer")
+    @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
     async def chatbot(text: str):
         logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
         # Do Chatbot
@@ -800,6 +800,16 @@ if do_chatbot is not None:
         logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
         final_response = {"response": response}
         return JSONResponse(content=final_response)
+
+    @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
+    async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
+        logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
+        # Do Chatbot
+        chatbot = do_chatbot(text)
+        logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
+        # Do TTS
+        response = do_tts(chatbot, 'FLAC', speaker)
+        return StreamingResponse(response, media_type="audio/flac")
 
 @app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
