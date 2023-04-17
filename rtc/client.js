@@ -207,7 +207,7 @@ function disconnect() {
     }
 
     if (dc) {
-        dc.send({type:"disconnecting"});
+        dc.send(JSON.stringify({type:"disconnecting"}));
         dc.close();
     }
 
