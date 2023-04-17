@@ -22,6 +22,7 @@ from typing import Optional, Tuple
 from pydantic import BaseModel
 import types
 import random
+import json
 import datetime
 import numpy as np
 import warnings
@@ -544,6 +545,15 @@ def do_speaker_embed(audio_file, speaker_name):
 
     return embeddings, save_path
 
+class DataChannelMessage(NamedTuple):
+    type: str
+    message: Optional[str] = None
+    obj: Optional[any] = None
+    
+def send_dc_response(channel, *args, **kargs):
+    response = DataChannelMessage(*args, **kargs)
+    channel.send(json.dumps(response._asdict()))
+
 # Function for WebRTC handling
 async def rtc_offer(request, model, beam_size, task, detect_language, return_language):
     params = await request.json()
@@ -562,40 +572,36 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
         @channel.on("message")
         def on_message(message):
             logger.debug("RTC DC: message: " + message)
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
-            if isinstance(message, str) and message.startswith("start"):
-                logger.debug("RTC DC: Recording started")
-                nonlocal recorder
+            if not isinstance(message, str):
+                logger.warn('RTC DC:  got non string message', message)
+                return
+            try:
+                message = json.loads(message)
+                message = DataChannelMessage(**message)
+            except:
+                logger.exception("could not parse datachannel message", message)
+                send_dc_response(channel, "error", "could not parse message")
+                return
+            if message.type=="ping":
+                send_dc_response(channel, "pong", message.message)
+            elif message.type=="start":
                 # XXX what if top_track is still None i.e. we got start before we got track?
-                logger.debug(f'RTC DC: Recording with track {top_track}')
+                logger.debug(f'RTC DC: Recording started with track {top_track}')
+                nonlocal recorder
                 recorder = MediaRecorderLite()
                 recorder.addTrack(top_track)
                 recorder.start()
-                channel.send('ASR Recording - start talking and press stop when done')
-            if isinstance(message, str) and message.startswith("stop"):
-                try:
-                    action_list = message.split(":")
-                    logger.debug(f'RTC DC: Got action list {action_list}')
-                except:
-                    logger.debug('RTC DC: Failed to get action list - setting to none')
-                    action_list = None
-                if action_list[1] is not None:
-                    model = action_list[1]
-                    logger.debug(f'RTC DC: Got DC provided model {model}')
-                else:
-                    logger.debug('RTC DC: Failed getting model from DC')
-                if action_list[2] is not None:
-                    beam_size = int(action_list[2])
-                    logger.debug(f'RTC DC: Got DC provided beam size {beam_size}')
-                else:
-                    logger.debug('RTC DC: Failed getting beam size from DC')
-                if action_list[3] is not None:
-                    detect_language = eval(action_list[3])
-                    logger.debug(f'RTC DC: Got DC provided detect language {detect_language}')
-                else:
-                    logger.debug('RTC DC: Failed getting detect language from DC')
-                logger.debug(f'RTC DC: Debug vars {model} {beam_size} {detect_language}')
+                send_dc_response(channel, "log","ASR Recording - start talking and press stop when done")
+            elif message.type=="stop":
+                logger.debug(f'RTC DC: Recording stopped')
+                if not recorder:
+                    send_dc_response(channel, "error", "Recording not yet started")
+                    return
+                obj = message.obj or {}
+                model = obj.get('model')
+                beam_size = obj.get('beam_size')
+                detect_language = obj.get('detect_language')
+                logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size} detect language {detect_language}')
                 logger.debug("RTC DC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
@@ -604,22 +610,23 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 recorder.stop()
                 logger.debug('RTC DC: Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 # Tell client what we are doing
-                channel.send(f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language} - please wait')
+                send_dc_response(channel, "log", f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language} - please wait')
                 # Finally call Whisper
                 recorder.file.seek(0)
                 language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
                 logger.debug("RTC DC: " + results)
-                channel.send('ASR Transcript: ' + results)
+                send_dc_response(channel, "infer", obj=results)
                 if translation:
-                    channel.send(f'ASR Translation from {language}:  {translation}')
+                    send_dc_response(channel, "log", f'ASR Translation from {language}:  {translation}')
                 infer_time = str(infer_time)
                 audio_duration = str(audio_duration)
                 infer_speedup = str(infer_speedup)
-                channel.send(f'ASR Infer time: {infer_time} ms')
-                channel.send(f'ASR Audio Duration: {audio_duration} ms')
-                channel.send(f'ASR Speedup: {infer_speedup}x faster than realtime')
-
-                #del recorder
+                send_dc_response(channel, "log", f'ASR Infer time: {infer_time} ms')
+                send_dc_response(channel, "log", f'ASR Audio Duration: {audio_duration} ms')
+                send_dc_response(channel, "log", f'ASR Speedup: {infer_speedup}x faster than realtime')
+                recorder = None
+            else:
+                send_dc_response(channel, "error", f'unknown message type "{message.type}"')
 
     @pc.on("connectionstatechange")
     async def on_connectionstatechange():
