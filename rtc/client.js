@@ -182,7 +182,7 @@ function stop() {
     // close local audio
     console.log('STOP')
     stop_time = Date.now()
-    dc.send("stop:large:5:False");
+    dc.send(JSON.stringify({type:"stop", obj:{model:"large", beam_size:5, detect_language:false}}))
     //dc.send("stop")
     switchTrack(null)
     //muteMic(true)
@@ -192,7 +192,7 @@ function start() {
     console.log('START')
     //muteMic(false)
     switchTrack(asr_track)
-    dc.send("start");
+    dc.send(JSON.stringify({type:"start"}));
 }
 
 function disconnect() {
@@ -207,7 +207,7 @@ function disconnect() {
     }
 
     if (dc) {
-        dc.send("disconnecting");
+        dc.send(JSON.stringify({type:"disconnecting"}));
         dc.close();
     }
 
