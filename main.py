@@ -204,7 +204,7 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
 
     # Use 8bit by default
     chatbot_model, chatbot_tokenizer = fastchat_load_model(chatbot_model_path, device,
-        cuda_dev_num, True, debug=False)
+        1, True, debug=False)
 
     def do_chatbot(text, temperature=0.7):
         first_time_start = datetime.datetime.now()
