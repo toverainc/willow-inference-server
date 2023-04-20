@@ -728,7 +728,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/sallow", summary="Stream audio for ASR", response_description="Output as text")
-async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
+async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = False, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
     # Set defaults - failsafes for currently broken WIP
@@ -762,10 +762,10 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
     json_compatible_item_data = jsonable_encoder(final_response)
 
-    response = do_tts(results, 'WAV', speaker)
-    with open("audio/sallow-tts.wav", "wb") as outfile:
-        # Copy the BytesIO stream to the output file
-        outfile.write(response.getbuffer())
+    #response = do_tts(results, 'WAV', speaker)
+    #with open("audio/sallow-tts.wav", "wb") as outfile:
+    #    # Copy the BytesIO stream to the output file
+    #    outfile.write(response.getbuffer())
 
     return results
 
