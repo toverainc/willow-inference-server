@@ -8,11 +8,14 @@ logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
 logger.setLevel(gunicorn_logger.level)
-from settings import get_api_settings
-settings = get_api_settings()
-
-# Tell the user we're starting ASAP
-logger.info(f"{settings.name} is starting... Please wait.")
+try:
+    from custom_settings import get_api_settings
+    settings = get_api_settings()
+    logger.info(f"{settings.name} is starting with custom settings... Please wait.")
+except:
+    from settings import get_api_settings
+    settings = get_api_settings()
+    logger.info(f"{settings.name} is starting... Please wait.")
 
 # FastAPI preprocessor
 from fastapi import FastAPI, UploadFile, Request, Response, status
