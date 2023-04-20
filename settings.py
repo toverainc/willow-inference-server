@@ -3,6 +3,11 @@ from pydantic import BaseSettings
 from typing import List
 
 class APISettings(BaseSettings):
+    # Project metadata
+    name = "AIR Infer API"
+    description = "High performance speech API"
+    version = "0.0.1"
+
     # default return language
     return_language: str = "en"
     # default beam_size - 5 is lib default, 1 for greedy

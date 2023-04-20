@@ -8,9 +8,11 @@ logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
 logger.setLevel(gunicorn_logger.level)
+from settings import get_api_settings
+settings = get_api_settings()
 
 # Tell the user we're starting ASAP
-logger.info("AIR Infer API is starting... Please wait.")
+logger.info(f"{settings.name} is starting... Please wait.")
 
 # FastAPI preprocessor
 from fastapi import FastAPI, UploadFile, Request, Response, status
@@ -36,8 +38,6 @@ import re
 import math
 import functools
 from typing import NamedTuple
-from settings import get_api_settings
-settings = get_api_settings()
 
 # WebRTC
 import asyncio
@@ -633,9 +633,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
-app = FastAPI(title="AIR Infer API",
-    description="High performance speech API",
-    version="0.0.1")
+app = FastAPI(title=settings.name,
+    description=settings.description,
+    version=settings.version)
 
 if settings.cors_allowed_origins:
     app.add_middleware(
@@ -670,18 +670,18 @@ class HttpBasicAuth(BaseHTTPMiddleware):
         return await call_next(request)
 
 if settings.basic_auth_pass and settings.basic_auth_user:
-    logger.info("AIR Infer API is configured for HTTP Basic Authentication")
+    logger.info(f"{settings.name} is configured for HTTP Basic Authentication")
     app.add_middleware(HttpBasicAuth, username=settings.basic_auth_user, password=settings.basic_auth_pass)
 
 @app.on_event("startup")
 def startup_event():
     load_models()
     warm_models()
-    logger.info("AIR Infer API is ready for requests!")
+    logger.info(f"{settings.name} is ready for requests!")
 
 @app.on_event("shutdown")
 def shutdown_event():
-    logger.info("AIR Infer API is stopping (this can take a while)...")
+    logger.info(f"{settings.name} is stopping (this can take a while)...")
 
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
