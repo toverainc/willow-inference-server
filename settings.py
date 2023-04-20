@@ -30,6 +30,11 @@ class APISettings(BaseSettings):
     # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
     cors_allowed_origins: List[str] = []
 
+    # If basic_auth_pass or basic_auth_user are set all endpoints are guarded by basic auth
+    # If basic_auth_user is falsy it will not be checked. If basic_auth_pass is falsy it will not be checked.
+    basic_auth_pass: str = None
+    basic_auth_user: str = None
+
     class Config:
         env_prefix = ""
         case_sensitive = False
