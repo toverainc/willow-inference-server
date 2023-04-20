@@ -18,10 +18,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import PlainTextResponse
 from typing import Optional, Tuple
 from pydantic import BaseModel
 import types
 import random
+import base64
+import binascii
 import json
 import datetime
 import numpy as np
@@ -642,6 +646,33 @@ if settings.cors_allowed_origins:
         allow_headers=["*"],
     )
 
+basic_auth_401_response = PlainTextResponse('Invalid credentials', status_code=401, headers={"WWW-Authenticate": "Basic"})
+class HttpBasicAuth(BaseHTTPMiddleware):
+    def __init__(self, app, username: str = None, password:str = None):
+        super().__init__(app)
+        self.username = username
+        self.password = password
+
+    async def dispatch(self, request: Request, call_next):
+        if not request.headers.get('Authorization'):
+            return basic_auth_401_response
+        auth = request.headers["Authorization"]
+        try:
+            scheme, credentials = auth.split()
+            if scheme.lower() != 'basic':
+                return basic_auth_401_response
+            decoded = base64.b64decode(credentials).decode("ascii")
+        except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
+            return basic_auth_401_response
+        username, _, password = decoded.partition(":")
+        if self.username and username != self.username or self.password and password != self.password:
+            return basic_auth_401_response
+        return await call_next(request)
+
+if settings.basic_auth_pass and settings.basic_auth_user:
+    logger.info("AIR Infer API is configured for HTTP Basic Authentication")
+    app.add_middleware(HttpBasicAuth, username=settings.basic_auth_user, password=settings.basic_auth_pass)
+
 @app.on_event("startup")
 def startup_event():
     load_models()
@@ -651,28 +682,6 @@ def startup_event():
 @app.on_event("shutdown")
 def shutdown_event():
     logger.info("AIR Infer API is stopping (this can take a while)...")
-
-# BROKEN: Disable middleware for now
-#@app.middleware("http")
-async def do_auth(request: Request, response: Response, call_next):
-    api_key = os.environ.get('API_KEY')
-    auth_header = request.headers.get('X-API-Key')
-
-    logger.debug(f'FASTAPI: Got API key {api_key}')
-    logger.debug(f'FASTAPI: Got API key header {auth_header}')
-
-    if api_key is not None:
-        if auth_header == api_key:
-            logger.debug(f'FASTAPI: Request is authorized')
-        else:
-            logger.debug(f'FASTAPI: Request is unauthorized')
-            response =  {"result": "no_auth"}
-            response.status_code = status.HTTP_401_UNAUTHORIZED
-            return response
-    else:
-        # If we got here we either don't have auth or it's good
-        response = await call_next(request)
-        return response
 
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
