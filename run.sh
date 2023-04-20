@@ -15,7 +15,6 @@ fi
 #Import source the .env file
 set -a
 source .env
-set +a
 
 # Which docker image to run
 IMAGE=${IMAGE:-air-infer-api}
@@ -44,6 +43,7 @@ FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IP:-127.0.0.1}
 SHM_SIZE=${SHM_SIZE:-1gb}
 
 TAG=${TAG:-latest}
+set +a
 
 # Temp for hacky sallow config
 mkdir -p audio
