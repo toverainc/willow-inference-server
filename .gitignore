@@ -7,4 +7,5 @@ models
 audio
 *.pem
 custom_speakers
+custom_settings.py
 vicuna

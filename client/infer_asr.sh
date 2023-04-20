@@ -12,8 +12,7 @@ fi
 if [ "$2" ]; then
   URL="$2"
 else
-  URL="http://127.0.0.6:58000/api/asr"
+  URL="http://127.0.0.1:19000/api/asr"
 fi
 
-curl "$URL" -H "accept: application/json" \
--H "Content-Type: multipart/form-data" -F "file=@$FILE"
+curl "$URL" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "audio_file=@$FILE"

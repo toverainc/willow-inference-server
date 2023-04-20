@@ -8,9 +8,14 @@ logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
 logger.setLevel(gunicorn_logger.level)
-
-# Tell the user we're starting ASAP
-logger.info("AIR Infer API is starting... Please wait.")
+try:
+    from custom_settings import get_api_settings
+    settings = get_api_settings()
+    logger.info(f"{settings.name} is starting with custom settings... Please wait.")
+except:
+    from settings import get_api_settings
+    settings = get_api_settings()
+    logger.info(f"{settings.name} is starting... Please wait.")
 
 # FastAPI preprocessor
 from fastapi import FastAPI, UploadFile, Request, Response, status
@@ -18,10 +23,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import PlainTextResponse
 from typing import Optional, Tuple
 from pydantic import BaseModel
 import types
 import random
+import base64
+import binascii
 import json
 import datetime
 import numpy as np
@@ -32,8 +41,6 @@ import re
 import math
 import functools
 from typing import NamedTuple
-from settings import get_api_settings
-settings = get_api_settings()
 
 # WebRTC
 import asyncio
@@ -669,9 +676,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
 
     return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
-app = FastAPI(title="AIR Infer API",
-    description="High performance speech API",
-    version="0.0.1")
+app = FastAPI(title=settings.name,
+    description=settings.description,
+    version=settings.version)
 
 if settings.cors_allowed_origins:
     app.add_middleware(
@@ -682,37 +689,42 @@ if settings.cors_allowed_origins:
         allow_headers=["*"],
     )
 
+basic_auth_401_response = PlainTextResponse('Invalid credentials', status_code=401, headers={"WWW-Authenticate": "Basic"})
+class HttpBasicAuth(BaseHTTPMiddleware):
+    def __init__(self, app, username: str = None, password:str = None):
+        super().__init__(app)
+        self.username = username
+        self.password = password
+
+    async def dispatch(self, request: Request, call_next):
+        if not request.headers.get('Authorization'):
+            return basic_auth_401_response
+        auth = request.headers["Authorization"]
+        try:
+            scheme, credentials = auth.split()
+            if scheme.lower() != 'basic':
+                return basic_auth_401_response
+            decoded = base64.b64decode(credentials).decode("ascii")
+        except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
+            return basic_auth_401_response
+        username, _, password = decoded.partition(":")
+        if self.username and username != self.username or self.password and password != self.password:
+            return basic_auth_401_response
+        return await call_next(request)
+
+if settings.basic_auth_pass and settings.basic_auth_user:
+    logger.info(f"{settings.name} is configured for HTTP Basic Authentication")
+    app.add_middleware(HttpBasicAuth, username=settings.basic_auth_user, password=settings.basic_auth_pass)
+
 @app.on_event("startup")
 def startup_event():
     load_models()
     warm_models()
-    logger.info("AIR Infer API is ready for requests!")
+    logger.info(f"{settings.name} is ready for requests!")
 
 @app.on_event("shutdown")
 def shutdown_event():
-    logger.info("AIR Infer API is stopping (this can take a while)...")
-
-# BROKEN: Disable middleware for now
-#@app.middleware("http")
-async def do_auth(request: Request, response: Response, call_next):
-    api_key = os.environ.get('API_KEY')
-    auth_header = request.headers.get('X-API-Key')
-
-    logger.debug(f'FASTAPI: Got API key {api_key}')
-    logger.debug(f'FASTAPI: Got API key header {auth_header}')
-
-    if api_key is not None:
-        if auth_header == api_key:
-            logger.debug(f'FASTAPI: Request is authorized')
-        else:
-            logger.debug(f'FASTAPI: Request is unauthorized')
-            response =  {"result": "no_auth"}
-            response.status_code = status.HTTP_401_UNAUTHORIZED
-            return response
-    else:
-        # If we got here we either don't have auth or it's good
-        response = await call_next(request)
-        return response
+    logger.info(f"{settings.name} is stopping (this can take a while)...")
 
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")

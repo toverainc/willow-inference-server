@@ -3,6 +3,11 @@ from pydantic import BaseSettings
 from typing import List
 
 class APISettings(BaseSettings):
+    # Project metadata
+    name = "AIR Infer API"
+    description = "High performance speech API"
+    version = "0.0.1"
+
     # default return language
     return_language: str = "en"
     # default beam_size - 5 is lib default, 1 for greedy
@@ -29,6 +34,11 @@ class APISettings(BaseSettings):
 
     # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
     cors_allowed_origins: List[str] = []
+
+    # If basic_auth_pass or basic_auth_user are set all endpoints are guarded by basic auth
+    # If basic_auth_user is falsy it will not be checked. If basic_auth_pass is falsy it will not be checked.
+    basic_auth_user: str = None
+    basic_auth_pass: str = None
 
     class Config:
         env_prefix = ""
