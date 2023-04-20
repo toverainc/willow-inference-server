@@ -7,5 +7,3 @@ acme.json
 audio
 .git
 *.pem
-vicuna*
-deps
