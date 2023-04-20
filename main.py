@@ -669,7 +669,8 @@ class HttpBasicAuth(BaseHTTPMiddleware):
             return basic_auth_401_response
         return await call_next(request)
 
-if settings.basic_auth_pass or settings.basic_auth_user:
+if settings.basic_auth_pass and settings.basic_auth_user:
+    logger.info("AIR Infer API is configured for HTTP Basic Authentication")
     app.add_middleware(HttpBasicAuth, username=settings.basic_auth_user, password=settings.basic_auth_pass)
 
 @app.on_event("startup")
