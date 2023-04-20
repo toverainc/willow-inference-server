@@ -201,6 +201,46 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
+# Hack to load vicuna if you have the models
+chatbot_model_path = 'vicuna'
+do_chatbot = None
+if os.path.exists(chatbot_model_path) and device == "cuda":
+    logger.info(f'VICUNA: Found path and CUDA, attempting load...')
+    from fastchat.conversation import get_default_conv_template
+    from fastchat.serve.inference import load_model as fastchat_load_model
+
+    # Use 8bit by default
+    chatbot_model, chatbot_tokenizer = fastchat_load_model(chatbot_model_path, device,
+        1, True, debug=False)
+
+    if os.path.exists('peft'):
+        logger.info(f'VICUNA: Found peft path and CUDA, attempting load...')
+        from peft import PeftModel, PeftConfig
+        chatbot_model = PeftModel.from_pretrained(chatbot_model, 'peft')
+
+    def do_chatbot(text, temperature=0.7):
+        first_time_start = datetime.datetime.now()
+        conv = get_default_conv_template(chatbot_model_path).copy()
+        conv.append_message(conv.roles[0], text)
+        conv.append_message(conv.roles[1], None)
+        prompt = conv.get_prompt()
+
+        inputs = chatbot_tokenizer([prompt])
+        output_ids = chatbot_model.generate(
+            torch.as_tensor(inputs.input_ids).cuda(),
+            do_sample=True,
+            temperature=temperature,
+            max_new_tokens=1024)
+        outputs = chatbot_tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+        skip_echo_len = len(prompt.replace("</s>", " ")) + 1
+        outputs = outputs[skip_echo_len:]
+
+        time_end = datetime.datetime.now()
+        infer_time = time_end - first_time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug('VICUNA: Response took ' + str(infer_time_milliseconds) + ' ms')
+
+        return outputs
 
 class Models(NamedTuple):
     whisper_processor: any
@@ -780,6 +820,26 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
         outfile.write(response.getbuffer())
 
     return results
+
+if do_chatbot is not None:
+    @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
+    async def chatbot(text: str, temperature: Optional[float] = 0.7):
+        logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
+        # Do Chatbot
+        response = do_chatbot(text, temperature)
+        logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
+        final_response = {"response": response}
+        return JSONResponse(content=final_response)
+
+    @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
+    async def chatbot(text: str, temperature: Optional[float] = 0.7, speaker: Optional[str] = tts_default_speaker):
+        logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
+        # Do Chatbot
+        chatbot = do_chatbot(text, temperature)
+        logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
+        # Do TTS
+        response = do_tts(chatbot, 'FLAC', speaker)
+        return StreamingResponse(response, media_type="audio/flac")
 
 @app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
