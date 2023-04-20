@@ -206,6 +206,11 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
     chatbot_model, chatbot_tokenizer = fastchat_load_model(chatbot_model_path, device,
         1, True, debug=False)
 
+    if os.path.exists('peft'):
+        logger.info(f'VICUNA: Found peft path and CUDA, attempting load...')
+        from peft import PeftModel, PeftConfig
+        chatbot_model = PeftModel.from_pretrained(chatbot_model, 'peft')
+
     def do_chatbot(text, temperature=0.7):
         first_time_start = datetime.datetime.now()
         conv = get_default_conv_template(chatbot_model_path).copy()
