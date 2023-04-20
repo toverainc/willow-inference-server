@@ -731,10 +731,10 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
 async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
-    # Set defaults
-    sample_rates = 0
-    bits = 0
-    channel = 0
+    # Set defaults - failsafes for currently broken WIP
+    sample_rates = 48000
+    bits = 16
+    channel = 1
 
     body = b''
     sample_rates = request.headers.get('x-audio-sample-rate', '').lower()
