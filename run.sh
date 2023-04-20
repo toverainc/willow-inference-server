@@ -61,7 +61,7 @@ fi
 # Make sure we have it just in case
 mkdir -p custom_speakers
 
-docker run --rm -it --gpus '"device=1"' --shm-size="$SHM_SIZE" --ipc=host \
+docker run --rm -it --gpus "$GPUS" --shm-size="$SHM_SIZE" --ipc=host \
     --ulimit memlock=-1 --ulimit stack=67108864 \
     -v $PWD:/app -v $PWD/cache:/root/.cache  --env-file .env \
     --name air-infer-api \
