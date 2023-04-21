@@ -142,8 +142,6 @@ sympy==1.11.1
 threadpoolctl==3.1.0
 tokenizers==0.13.3
 toolz==0.12.0
-torch==2.0.0
-torchaudio==2.0.1
 tqdm==4.65.0
 transformers==4.28.1
 triton==2.0.0
