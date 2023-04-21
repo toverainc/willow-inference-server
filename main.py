@@ -243,6 +243,7 @@ def load_models() -> Models:
     return models
 
 def warm_models():
+    return  # XXX
     logger.info("Warming models...")
     for x in range(3):
         if models.whisper_model_base is not None:

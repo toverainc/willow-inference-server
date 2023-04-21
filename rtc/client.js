@@ -33,6 +33,7 @@ function createPeerConnection() {
     config.iceServers = [{urls: ['stun:stun.l.google.com:19302']}];
 
     pc = new RTCPeerConnection(config);
+    //pc.restartIce();
 
     // register some listeners to help debugging
     pc.addEventListener('icegatheringstatechange', function() {
@@ -60,14 +61,26 @@ function createPeerConnection() {
 
 function negotiate() {
     return pc.createOffer().then(function(offer) {
+        console.log("START1");
         return pc.setLocalDescription(offer);
     }).then(function() {
+        console.log("AWWAIT 1");
         // wait for ICE gathering to complete
         return new Promise(function(resolve) {
+            console.log("initial ice state is " + pc.iceGatheringState);
+            pc.addEventListener('icecandidate', function(e) {
+                console.log("ice candidate: " + e.candidate.candidate);
+                console.log("pc local description:", {ld: pc.localDescription});
+            });
+            pc.addEventListener('icecandidateerror', function() {
+                console.log("ice candidate error, args", {arguments});
+            });
+            window.setTimeout(resolve, 2000);
             if (pc.iceGatheringState === 'complete') {
                 resolve();
             } else {
                 function checkState() {
+                    console.log("ice state is " + pc.iceGatheringState);
                     if (pc.iceGatheringState === 'complete') {
                         pc.removeEventListener('icegatheringstatechange', checkState);
                         resolve();
@@ -169,7 +182,11 @@ function init() {
             });
             // After we init and negotiate replace track until we click start
             //muteMic(true)
-            return negotiate().then(switchTrack(null));
+            return negotiate().then(()=>{
+                console.log("Negotiation finished??")
+                switchTrack(null)
+                console.log("Negotiation finished!!")
+            });
         }, function(err) {
             alert('Could not acquire media: ' + err);
         });
