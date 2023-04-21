@@ -570,9 +570,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                     send_dc_response(channel, "error", "Recording not yet started")
                     return
                 obj = message.obj or {}
-                model = obj.get('model')
-                beam_size = obj.get('beam_size')
-                detect_language = obj.get('detect_language')
+                model = obj.get('model') or settings.whisper_model_default
+                beam_size = obj.get('beam_size') or settings.beam_size
+                detect_language = obj.get('detect_language') or settings.detect_language
                 logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size} detect language {detect_language}')
                 logger.debug("RTC DC: Recording stopped")
                 time_start_base = datetime.datetime.now()
