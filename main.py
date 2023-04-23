@@ -823,7 +823,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 async def chatbot(text: str):
     logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
     # Do Chatbot
-    response = do_chatbot(f'Human: {text} Answer:')
+    response = do_chatbot(text)
     logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
     final_response = {"response": response}
     return JSONResponse(content=final_response)
