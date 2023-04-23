@@ -202,7 +202,7 @@ else:
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
 # Hack to load vicuna if you have the models
-chatbot_model_path = 'vicuna-13b-4bit'
+chatbot_model_path = 'vicuna'
 do_chatbot = None
 if os.path.exists(chatbot_model_path) and device == "cuda":
     logger.info(f'VICUNA: Found path and CUDA, attempting load (this takes a while)...')
@@ -212,23 +212,20 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
     chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True, return_token_type_ids=False)
 
     # load quantized model, currently only support single gpu
-    chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0")
+    chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0", use_safetensors=True)
 
     chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=5000)
 
-    def do_chatbot(text, max_length=1000, temperature=0.7):
+    def do_chatbot(text):
         first_time_start = datetime.datetime.now()
-        outputs = chatbot_pipeline(text)[0]["generated_text"]
+        output = chatbot_pipeline(text)[0]["generated_text"]
 
         time_end = datetime.datetime.now()
         infer_time = time_end - first_time_start
         infer_time_milliseconds = infer_time.total_seconds() * 1000
         logger.debug('VICUNA: Response took ' + str(infer_time_milliseconds) + ' ms')
 
-        # We're playing with max_length so delete dynamically defined chatbot_pipeline
-        #del chatbot_pipeline
-
-        return outputs
+        return output
 
 class Models(NamedTuple):
     whisper_processor: any
@@ -811,19 +808,19 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
 if do_chatbot is not None:
     @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str, max_length: Optional[int] = 1000, temperature: Optional[float] = 0.7):
+    async def chatbot(text: str):
         logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
         # Do Chatbot
-        response = do_chatbot(text, max_length, temperature)
+        response = do_chatbot(text)
         logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
         final_response = {"response": response}
         return JSONResponse(content=final_response)
 
     @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
-    async def chatbot(text: str, temperature: Optional[float] = 0.7, speaker: Optional[str] = tts_default_speaker):
+    async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
         logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
         # Do Chatbot
-        chatbot = do_chatbot(text, temperature)
+        chatbot = do_chatbot(text)
         logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
         # Do TTS
         response = do_tts(chatbot, 'FLAC', speaker)
