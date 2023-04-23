@@ -99,35 +99,41 @@ async def new_handle_rtcp_packet(self, packet):
 RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
 #logging.basicConfig(level=logger.DEBUG) #very useful debugging aiortc issues
 
-# Monkey patch aiortc to control ephemeral ports
 local_ports = list(range(10000, 10000+300)) # Allowed ephemeral port range
-loop = asyncio.get_event_loop()
-old_create_datagram_endpoint = loop.create_datagram_endpoint
-async def create_datagram_endpoint(self, protocol_factory,
-    local_addr: Tuple[str, int] = None,
-    **kwargs,
-):
-    #if port is specified just use it
-    if local_addr and local_addr[1]:
-        return await old_create_datagram_endpoint(protocol_factory, local_addr=local_addr, **kwargs)
-    if local_addr is None: 
-        return await old_create_datagram_endpoint(protocol_factory, local_addr=None, **kwargs)
-    #if port is not specified make it use our range
-    ports = list(local_ports)
-    random.shuffle(ports)
-    for port in ports:
-        try:
-            ret = await old_create_datagram_endpoint(
-                protocol_factory, local_addr=(local_addr[0], port), **kwargs
-            )
-            logger.debug(f'create_datagram_endpoint chose port {port}')
-            return ret
-        except OSError as exc:
-            if port == ports[-1]:
-                # this was the last port, give up
-                raise exc
-    raise ValueError("local_ports must not be empty")
-loop.create_datagram_endpoint = types.MethodType(create_datagram_endpoint, loop)
+def patch_loop_datagram():
+    loop = asyncio.get_event_loop()
+    if getattr(loop, '_patch_done', False):
+        return
+
+    # Monkey patch aiortc to control ephemeral ports
+    old_create_datagram_endpoint = loop.create_datagram_endpoint
+    async def create_datagram_endpoint(self, protocol_factory,
+        local_addr: Tuple[str, int] = None,
+        **kwargs,
+    ):
+        #if port is specified just use it
+        if local_addr and local_addr[1]:
+            return await old_create_datagram_endpoint(protocol_factory, local_addr=local_addr, **kwargs)
+        if local_addr is None:
+            return await old_create_datagram_endpoint(protocol_factory, local_addr=None, **kwargs)
+        #if port is not specified make it use our range
+        ports = list(local_ports)
+        random.shuffle(ports)
+        for port in ports:
+            try:
+                ret = await old_create_datagram_endpoint(
+                    protocol_factory, local_addr=(local_addr[0], port), **kwargs
+                )
+                logger.debug(f'create_datagram_endpoint chose port {port}')
+                return ret
+            except OSError as exc:
+                if port == ports[-1]:
+                    # this was the last port, give up
+                    raise exc
+        raise ValueError("local_ports must not be empty")
+    loop.create_datagram_endpoint = types.MethodType(create_datagram_endpoint, loop)
+    loop._patch_done = True
+patch_loop_datagram()  # not really needed here...
 
 #XXX: rm these globals and use settings directly
 # default return language
@@ -608,9 +614,9 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                     send_dc_response(channel, "error", "Recording not yet started")
                     return
                 obj = message.obj or {}
-                model = obj.get('model')
-                beam_size = obj.get('beam_size')
-                detect_language = obj.get('detect_language')
+                model = obj.get('model') or settings.whisper_model_default
+                beam_size = obj.get('beam_size') or settings.beam_size
+                detect_language = obj.get('detect_language') or settings.detect_language
                 logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size} detect language {detect_language}')
                 logger.debug("RTC DC: Recording stopped")
                 time_start_base = datetime.datetime.now()
@@ -740,6 +746,7 @@ async def ping():
 
 @app.post("/api/rtc/asr", summary="Return SDP for WebRTC clients", response_description="SDP for WebRTC clients")
 async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
+    patch_loop_datagram()
     response = await rtc_offer(request, model, beam_size, task, detect_language, return_language)
     return JSONResponse(content=response)
 
@@ -818,6 +825,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
         outfile.write(response.getbuffer())
 
     return results
+
 
 @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
 async def chatbot(text: str):
