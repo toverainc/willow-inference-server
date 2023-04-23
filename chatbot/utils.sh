@@ -51,14 +51,22 @@ install_dist() {
     zstdcat -T0 vicuna.tar.zstd | tar -xvf -
 }
 
+clean() {
+    rm -rf llama-* vicuna-*
+}
+
+dist() {
+    tar -cvf - vicuna | zstd -T0 > vicuna.tar.zstd
+}
+
 case $1 in
 
 clean)
-    rm -rf llama-* vicuna-*
+    clean
 ;;
 
 dist)
-    tar -C ../models -cvf - vicuna | zstd -T0 > vicuna.tar.zstd
+    dist
 ;;
 
 install)
@@ -70,6 +78,8 @@ install)
         convert_llama
         quant_vicuna
         copy_tokenizer
+        clean
+        dist
     fi
     mv vicuna ../models/
     echo "Vicuna installed to models path"

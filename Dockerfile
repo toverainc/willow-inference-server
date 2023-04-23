@@ -2,6 +2,7 @@ FROM nvcr.io/nvidia/tensorrt:22.12-py3
 
 WORKDIR /app
 
+# Install zstd for model compression and distribution
 RUN apt-get update && apt-get install -y zstd  && rm -rf /var/lib/apt/lists/*
 
 # Install our torch ver matching cuda
