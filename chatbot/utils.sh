@@ -20,14 +20,16 @@ check_llama() {
 
 mkdir -p ../models
 
-convert_llama() {
+convert_llama_hf() {
     echo "Using size $SIZE"
     SIZE_LOWER=$(echo $SIZE | tr '[:upper:]' '[:lower:]')
 
     echo "Converting base LLaMA to HF..."
     python convert_llama_weights_to_hf.py \
         --input_dir llama --model_size "$SIZE" --output_dir llama-"$SIZE"-hf
+}
 
+apply_vicuna() {
     echo "Appying Vicuna delta..."
     python -m fastchat.model.apply_delta \
         --base llama-"$SIZE"-hf \
@@ -75,7 +77,8 @@ install)
         install_dist
     else
         check_llama
-        convert_llama
+        convert_llama_hf
+        apply_vicuna
         quant_vicuna
         copy_tokenizer
         clean
