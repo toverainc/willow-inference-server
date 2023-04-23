@@ -202,10 +202,10 @@ else:
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
 # Hack to load vicuna if you have the models
-chatbot_model_path = 'vicuna'
+chatbot_model_path = 'models/vicuna'
 do_chatbot = None
 if os.path.exists(chatbot_model_path) and device == "cuda":
-    logger.info(f'VICUNA: Found path and CUDA, attempting load (this takes a while)...')
+    logger.info(f'CHATBOT: Found path and CUDA, attempting load (this takes a while)...')
     from transformers import AutoTokenizer, TextGenerationPipeline
     from auto_gptq import AutoGPTQForCausalLM
 
@@ -223,7 +223,7 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
         time_end = datetime.datetime.now()
         infer_time = time_end - first_time_start
         infer_time_milliseconds = infer_time.total_seconds() * 1000
-        logger.debug('VICUNA: Response took ' + str(infer_time_milliseconds) + ' ms')
+        logger.debug('CHATBOT: Response took ' + str(infer_time_milliseconds) + ' ms')
 
         return output
 
