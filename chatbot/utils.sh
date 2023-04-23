@@ -47,26 +47,30 @@ copy_tokenizer() {
     done
 }
 
+install_dist() {
+    zstdcat -T0 vicuna.tar.zstd | tar -xvf -
+}
+
 case $1 in
 
 clean)
-    rm -rf llama-* vicuna vicuna-hf
+    rm -rf llama-* vicuna-*
 ;;
 
 dist)
     tar -C ../models -cvf - vicuna | zstd -T0 > vicuna.tar.zstd
 ;;
 
-install-dist)
-    zstdcat vicuna.tar.zstd | tar -xvf -
-    mv vicuna ../models/
-;;
-
 install)
-    check_llama
-    convert_llama
-    quant_vicuna
-    copy_tokenizer
+    if [ -r "vicuna.tar.zstd" ]; then
+        echo "Found dist tarball - extracting..."
+        install_dist
+    else
+        check_llama
+        convert_llama
+        quant_vicuna
+        copy_tokenizer
+    fi
     mv vicuna ../models/
     echo "Vicuna installed to models path"
 ;;
