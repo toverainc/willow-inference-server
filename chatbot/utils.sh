@@ -38,7 +38,7 @@ convert_llama() {
 quant_vicuna() {
     echo "Quantizing Vicuna model - this will take a while..."
     mkdir -p vicuna
-    python vicuna-quant.py --src vicuna-"$SIZE"-hf --dest vicuna
+    python quant-vicuna.py --src vicuna-"$SIZE"-hf --dest vicuna
 }
 
 copy_tokenizer() {
