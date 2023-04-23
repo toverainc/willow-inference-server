@@ -205,7 +205,7 @@ else:
 chatbot_model_path = 'models/vicuna'
 do_chatbot = None
 if os.path.exists(chatbot_model_path) and device == "cuda":
-    logger.info(f'CHATBOT: Found path and CUDA, attempting load (this takes a while)...')
+    logger.info(f'CHATBOT: Found model in {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
     from transformers import AutoTokenizer, TextGenerationPipeline
     from auto_gptq import AutoGPTQForCausalLM
 
