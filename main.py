@@ -154,6 +154,10 @@ tts_default_speaker = settings.tts_default_speaker
 # Default detect language?
 detect_language = settings.detect_language
 
+# Vicuna/chatbot model path and max length
+chatbot_model_path = settings.chatbot_model_path
+chatbot_max_length = settings.chatbot_max_length
+
 # Try CUDA
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -201,32 +205,6 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
-# Hack to load vicuna if you have the models
-chatbot_model_path = 'models/vicuna'
-do_chatbot = None
-if os.path.exists(chatbot_model_path) and device == "cuda":
-    logger.info(f'CHATBOT: Found model in {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
-    from transformers import AutoTokenizer, TextGenerationPipeline
-    from auto_gptq import AutoGPTQForCausalLM
-
-    chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True, return_token_type_ids=False)
-
-    # load quantized model, currently only support single gpu
-    chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0", use_safetensors=True)
-
-    chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=5000)
-
-    def do_chatbot(text):
-        first_time_start = datetime.datetime.now()
-        output = chatbot_pipeline(text)[0]["generated_text"]
-
-        time_end = datetime.datetime.now()
-        infer_time = time_end - first_time_start
-        infer_time_milliseconds = infer_time.total_seconds() * 1000
-        logger.debug('CHATBOT: Response took ' + str(infer_time_milliseconds) + ' ms')
-
-        return output
-
 class Models(NamedTuple):
     whisper_processor: any
     whisper_model_base: any
@@ -236,6 +214,10 @@ class Models(NamedTuple):
     tts_processor: any
     tts_model: any
     tts_vocoder: any
+
+    chatbot_tokenizer: any
+    chatbot_model: any
+    chatbot_pipeline: any
 
 models:Models = None
 
@@ -264,7 +246,24 @@ def load_models() -> Models:
     tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
     tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
     tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
-    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder)
+
+    if os.path.exists(chatbot_model_path) and device == "cuda":
+        logger.info(f'CHATBOT: Found model in {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
+        from transformers import AutoTokenizer, TextGenerationPipeline
+        from auto_gptq import AutoGPTQForCausalLM
+
+        chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True, return_token_type_ids=False)
+
+        # load quantized model, currently only support single gpu
+        chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0", use_safetensors=True)
+
+        chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=chatbot_max_length)
+    else:
+        chatbot_tokenizer = None
+        chatbot_model = None
+        chatbot_pipeline = None
+
+    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
     return models
 
 def warm_models():
@@ -276,6 +275,20 @@ def warm_models():
             do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
         if models.whisper_model_large is not None:
             do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
+
+def do_chatbot(text):
+    if models.chatbot_pipeline is not None:
+        first_time_start = datetime.datetime.now()
+        output = models.chatbot_pipeline(text)[0]["generated_text"]
+
+        time_end = datetime.datetime.now()
+        infer_time = time_end - first_time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug('CHATBOT: Response took ' + str(infer_time_milliseconds) + ' ms')
+    else:
+        logger.warning('CHATBOT: Not installed or supported')
+        output = "Chatbot not installed or supported"
+    return output
 
 def do_translate(features, language, beam_size=beam_size):
     # Set task in token format for processor
@@ -806,25 +819,24 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
     return results
 
-if do_chatbot is not None:
-    @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str):
-        logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
-        # Do Chatbot
-        response = do_chatbot(f'Human: {text} Answer:')
-        logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
-        final_response = {"response": response}
-        return JSONResponse(content=final_response)
+@app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
+async def chatbot(text: str):
+    logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
+    # Do Chatbot
+    response = do_chatbot(f'Human: {text} Answer:')
+    logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
+    final_response = {"response": response}
+    return JSONResponse(content=final_response)
 
-    @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
-    async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
-        logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
-        # Do Chatbot
-        chatbot = do_chatbot(text)
-        logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
-        # Do TTS
-        response = do_tts(chatbot, 'FLAC', speaker)
-        return StreamingResponse(response, media_type="audio/flac")
+@app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
+async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
+    logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
+    # Do Chatbot
+    chatbot = do_chatbot(text)
+    logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
+    # Do TTS
+    response = do_tts(chatbot, 'FLAC', speaker)
+    return StreamingResponse(response, media_type="audio/flac")
 
 @app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
 async def tts(text: str, speaker: Optional[str] = tts_default_speaker):

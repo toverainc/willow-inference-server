@@ -40,6 +40,12 @@ class APISettings(BaseSettings):
     basic_auth_user: str = None
     basic_auth_pass: str = None
 
+    # Path to chatbot model
+    chatbot_model_path: str = 'models/vicuna'
+
+    # Chatbot model max length
+    chatbot_max_length: int = 5000
+
     class Config:
         env_prefix = ""
         case_sensitive = False
