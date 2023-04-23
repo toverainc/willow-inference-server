@@ -8,3 +8,4 @@ audio
 .git
 *.pem
 chatbot
+*.zstd

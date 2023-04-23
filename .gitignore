@@ -9,3 +9,4 @@ audio
 custom_speakers
 custom_settings.py
 chatbot
+*.zstd
