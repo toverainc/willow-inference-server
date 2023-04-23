@@ -1,9 +1,7 @@
 from transformers import AutoTokenizer
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 
-device = "cuda:0"
-
-def main(src, dest):
+def main(src, dest, bits=4, group_size=128):
     tokenizer = AutoTokenizer.from_pretrained(src, use_fast=True)
     example = tokenizer(
         "auto_gptq is a useful tool that can automatically compress model into 4-bit or even higher rate by using GPTQ algorithm.",
@@ -11,8 +9,8 @@ def main(src, dest):
     )
 
     quantize_config = BaseQuantizeConfig(
-        bits=4,  # quantize model
-        group_size=128,  # it is recommended to set the value to 128
+        bits=bits,  # quantize model
+        group_size=group_size,  # it is recommended to set the value to 128
     )
 
     # load un-quantized model, the model will always be force loaded into cpu
@@ -30,8 +28,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src")
-    parser.add_argument("--dest")
+    parser.add_argument("--src", type=str)
+    parser.add_argument("--dest", type=str)
+    parser.add_argument("--bits", type=int, default=4)
+    parser.add_argument("--group_size", type=int, default=128)
 
     args = parser.parse_args()
 
@@ -39,4 +39,4 @@ if __name__ == "__main__":
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    main(args.src, args.dest)
+    main(args.src, args.dest, args.bits, args.group_size)
