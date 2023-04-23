@@ -96,7 +96,7 @@ platformdirs==2.6.0
 polygraphy==0.44.1
 pooch==1.6.0
 prompt-toolkit==3.0.38
-protobuf==4.21.12
+protobuf==3.20.1
 psutil==5.9.4
 pyarrow==11.0.0
 pycparser==2.21
@@ -124,6 +124,7 @@ rfc3986==1.5.0
 rich==13.3.4
 ruamel.yaml==0.17.21
 ruamel.yaml.clib==0.2.7
+safetensors==0.3.0
 scikit-learn==1.2.2
 scipy==1.10.1
 semantic-version==2.10.0

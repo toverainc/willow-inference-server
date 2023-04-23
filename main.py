@@ -202,43 +202,30 @@ else:
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
 # Hack to load vicuna if you have the models
-chatbot_model_path = 'vicuna'
+chatbot_model_path = 'vicuna-13b-4bit'
 do_chatbot = None
 if os.path.exists(chatbot_model_path) and device == "cuda":
-    logger.info(f'VICUNA: Found path and CUDA, attempting load...')
-    from fastchat.conversation import get_default_conv_template
-    from fastchat.serve.inference import load_model as fastchat_load_model
+    logger.info(f'VICUNA: Found path and CUDA, attempting load (this takes a while)...')
+    from transformers import AutoTokenizer, TextGenerationPipeline
+    from auto_gptq import AutoGPTQForCausalLM
 
-    # Use 8bit by default
-    chatbot_model, chatbot_tokenizer = fastchat_load_model(chatbot_model_path, device,
-        1, True, debug=False)
+    chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True, return_token_type_ids=False)
 
-    if os.path.exists('peft'):
-        logger.info(f'VICUNA: Found peft path and CUDA, attempting load...')
-        from peft import PeftModel, PeftConfig
-        chatbot_model = PeftModel.from_pretrained(chatbot_model, 'peft')
+    # load quantized model, currently only support single gpu
+    chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0")
 
-    def do_chatbot(text, temperature=0.7):
+    def do_chatbot(text, max_length=1000, temperature=0.7):
         first_time_start = datetime.datetime.now()
-        conv = get_default_conv_template(chatbot_model_path).copy()
-        conv.append_message(conv.roles[0], text)
-        conv.append_message(conv.roles[1], None)
-        prompt = conv.get_prompt()
-
-        inputs = chatbot_tokenizer([prompt])
-        output_ids = chatbot_model.generate(
-            torch.as_tensor(inputs.input_ids).cuda(),
-            do_sample=True,
-            temperature=temperature,
-            max_new_tokens=1024)
-        outputs = chatbot_tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
-        skip_echo_len = len(prompt.replace("</s>", " ")) + 1
-        outputs = outputs[skip_echo_len:]
+        chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=max_length)
+        outputs = chatbot_pipeline(text)[0]["generated_text"]
 
         time_end = datetime.datetime.now()
         infer_time = time_end - first_time_start
         infer_time_milliseconds = infer_time.total_seconds() * 1000
         logger.debug('VICUNA: Response took ' + str(infer_time_milliseconds) + ' ms')
+
+        # We're playing with max_length so delete dynamically defined chatbot_pipeline
+        del chatbot_pipeline
 
         return outputs
 
@@ -823,10 +810,10 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
 if do_chatbot is not None:
     @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str, temperature: Optional[float] = 0.7):
+    async def chatbot(text: str, max_length: Optional[int] = 1000, temperature: Optional[float] = 0.7):
         logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
         # Do Chatbot
-        response = do_chatbot(text, temperature)
+        response = do_chatbot(text, max_length, temperature)
         logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
         final_response = {"response": response}
         return JSONResponse(content=final_response)

@@ -14,5 +14,5 @@ sed -i '/file:/d' requirements.txt
 # Torch needs to be installed with the current CUDA version in the Docker image - remove them
 sed -i '/torch/d' requirements.txt
 
-# Remove quant-cuda because we install later
-sed -i '/quant-cuda/d' requirements.txt
+# Remove auto-gptq because we install manually
+sed -i '/auto-gptq/d' requirements.txt

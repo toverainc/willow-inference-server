@@ -9,6 +9,9 @@ COPY requirements.txt .
 # Run pip install with cache so we speedup subsequent rebuilds
 RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
 
+# Install auto-gptq
+RUN --mount=type=cache,target=/root/.cache pip install git+https://github.com/qwopqwop200/AutoGPTQ-triton.git
+
 COPY . .
 
 CMD /bin/bash
