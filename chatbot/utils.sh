@@ -6,7 +6,7 @@ cd "$SCRIPT_DIR"
 VICUNA_VER="v1.1"
 
 if [ "$2" ]; then
-    SIZE="$1"
+    SIZE="$2"
 else
     SIZE="13B"
 fi
