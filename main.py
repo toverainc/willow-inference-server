@@ -214,9 +214,10 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
     # load quantized model, currently only support single gpu
     chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0")
 
+    chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=5000)
+
     def do_chatbot(text, max_length=1000, temperature=0.7):
         first_time_start = datetime.datetime.now()
-        chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=max_length)
         outputs = chatbot_pipeline(text)[0]["generated_text"]
 
         time_end = datetime.datetime.now()
@@ -225,7 +226,7 @@ if os.path.exists(chatbot_model_path) and device == "cuda":
         logger.debug('VICUNA: Response took ' + str(infer_time_milliseconds) + ' ms')
 
         # We're playing with max_length so delete dynamically defined chatbot_pipeline
-        del chatbot_pipeline
+        #del chatbot_pipeline
 
         return outputs
 
