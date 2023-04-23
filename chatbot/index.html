@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chatbot</title>
+    </head>
+    <body>
+        <h1>Chatbot</h1>
+        Ask a question!
+        <br>
+        <form action="" onsubmit="sendMessage(event)">
+            <input type="text" id="messageText" autocomplete="off" style="margin: 0px; height: 20px; width: 600px"/>
+            <button>Send</button>
+        </form>
+        <textarea id="messages" style="margin: 0px; height: 300px; width: 800px"></textarea>
+        <script>
+            var messagesLog = document.getElementById('messages')
+            var wsURL = `wss://${window.location.hostname}/ws/chatbot`
+            var ws = new WebSocket(wsURL);
+            console.log(`Using websocket url ${wsURL}`)
+            ws.onmessage = function(event) {
+                messagesLog.textContent += event.data + '\n' + '\n'
+            };
+            function sendMessage(event) {
+                var input = document.getElementById("messageText")
+                messagesLog.textContent += 'Asking chatbot: ' + input.value + '\n' + 'Please wait...' + '\n' + '\n'
+                ws.send(input.value)
+                input.value = ''
+                event.preventDefault()
+            }
+        </script>
+    </body>
+</html>

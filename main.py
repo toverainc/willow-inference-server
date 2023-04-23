@@ -18,14 +18,14 @@ except:
     logger.info(f"{settings.name} is starting... Please wait.")
 
 # FastAPI preprocessor
-from fastapi import FastAPI, UploadFile, Request, Response, status
+from fastapi import FastAPI, UploadFile, Request, Response, status, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import PlainTextResponse
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from pydantic import BaseModel
 import types
 import random
@@ -733,6 +733,9 @@ def shutdown_event():
 # Mount static dir to serve files for aiortc client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
+# Mount static dir to serve files for aiortc client
+app.mount("/chatbot", StaticFiles(directory="chatbot", html = True), name="chatbot_files")
+
 # Temporary hack for the sallow stuff
 app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
 
@@ -909,3 +912,28 @@ async def speaker_delete(request: Request):
 
     response = jsonable_encoder({"speakers": speakers})
     return JSONResponse(content=response)
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/chatbot")
+async def websocket_chatbot(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            text = await websocket.receive_text()
+            #await websocket.send_text(f'Asking chatbot {text}')
+            output = do_chatbot(text)
+            await websocket.send_text(output)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
