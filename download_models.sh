@@ -42,6 +42,6 @@ build_one openai/whisper-medium
 build_one openai/whisper-large-v2
 build_t5
 
-if [ -d "chatbot/llama" ]; then
+if [ -d "chatbot/llama" ] || [ -r "chatbot/vicuna.tar.zstd" ]; then
     build_chatbot
 fi
