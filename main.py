@@ -811,7 +811,7 @@ if do_chatbot is not None:
     async def chatbot(text: str):
         logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
         # Do Chatbot
-        response = do_chatbot(text)
+        response = do_chatbot(f'Human: {text} Answer:')
         logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
         final_response = {"response": response}
         return JSONResponse(content=final_response)
