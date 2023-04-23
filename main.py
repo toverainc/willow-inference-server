@@ -826,7 +826,6 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
     return results
 
-
 @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
 async def chatbot(text: str):
     logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
