@@ -22,6 +22,7 @@ def main(src, dest, bits=4, group_size=128):
 
     # save quantized model using safetensors
     model.save_quantized(dest, use_safetensors=True)
+    tokenizer.save_pretrained(dest)
 
 if __name__ == "__main__":
     import logging

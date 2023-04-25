@@ -80,7 +80,7 @@ install)
         convert_llama_hf
         apply_vicuna
         quant_vicuna
-        copy_tokenizer
+        #copy_tokenizer
         clean
         dist
     fi
