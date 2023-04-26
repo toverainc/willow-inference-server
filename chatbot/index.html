@@ -8,10 +8,10 @@
         Ask a question!
         <br>
         <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off" style="margin: 0px; height: 20px; width: 600px"/>
+            <input type="text" id="messageText" autocomplete="off" style="margin: 0px; height: 150px; width: 600px"/>
             <button>Send</button>
         </form>
-        <textarea id="messages" style="margin: 0px; height: 300px; width: 800px"></textarea>
+        <textarea id="messages" rows="6" cols="60"></textarea>
         <script>
             var messagesLog = document.getElementById('messages')
             var wsURL = `wss://${window.location.hostname}/ws/chatbot`

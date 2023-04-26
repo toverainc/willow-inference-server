@@ -29,10 +29,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src", type=str)
-    parser.add_argument("--dest", type=str)
-    parser.add_argument("--bits", type=int, default=4)
-    parser.add_argument("--group_size", type=int, default=128)
+    parser.add_argument("-s", type=str, help="Source model")
+    parser.add_argument("-d", type=str, help="Destination quantized model")
+    parser.add_argument("-b", type=int, default=4, help="Quantized bits")
+    parser.add_argument("-g", type=int, default=128, help="Quantized group size")
 
     args = parser.parse_args()
 
@@ -40,4 +40,4 @@ if __name__ == "__main__":
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    main(args.src, args.dest, args.bits, args.group_size)
+    main(args.s, args.d, args.b, args.g)
