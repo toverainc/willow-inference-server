@@ -822,11 +822,6 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
 
     json_compatible_item_data = jsonable_encoder(final_response)
 
-    response = do_tts(results, 'WAV', speaker)
-    with open("audio/sallow-tts.wav", "wb") as outfile:
-        # Copy the BytesIO stream to the output file
-        outfile.write(response.getbuffer())
-
     return results
 
 @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
