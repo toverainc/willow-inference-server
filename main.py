@@ -740,9 +740,6 @@ app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 # Mount static dir to serve files for aiortc client
 app.mount("/chatbot", StaticFiles(directory="chatbot", html = True), name="chatbot_files")
 
-# Temporary hack for the sallow stuff
-app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
-
 class Ping(BaseModel):
     message: str
 
