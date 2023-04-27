@@ -77,16 +77,14 @@ from aia.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest
 import wave
 
 # Function to create a wav file from stream data
-def write_stream_wav(data, rates, bits, ch):
-    t = datetime.datetime.utcnow()
-    time = t.strftime('%Y%m%dT%H%M%SZ')
-    #filename = str.format('audio/{}_{}_{}_{}.wav', time, rates, bits, ch)
-    filename = 'audio/sallow.wav'
-    wavfile = wave.open(filename, 'wb')
-    wavfile.setparams((ch, int(bits/8), rates, 0, 'NONE', 'NONE'))
+def write_stream_wav(data, rate, bits, ch):
+    file = io.BytesIO()
+    wavfile = wave.open(file, 'wb')
+    wavfile.setparams((ch, int(bits/8), rate, 0, 'NONE', 'NONE'))
     wavfile.writeframesraw(bytearray(data))
     wavfile.close()
-    return filename
+    file.seek(0)
+    return file
 
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
@@ -797,23 +795,22 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
 async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
-    # Set defaults
-    sample_rates = 0
-    bits = 0
-    channel = 0
+    # Set defaults - use strings because we parse HTTP headers and convert to int later anyway
+    sample_rate = "16000"
+    bits = "16"
+    channel = "1"
 
     body = b''
-    sample_rates = request.headers.get('x-audio-sample-rate', '').lower()
+    sample_rate = request.headers.get('x-audio-sample-rate', '').lower()
     bits = request.headers.get('x-audio-bits', '').lower()
     channel = request.headers.get('x-audio-channel', '').lower()
 
-    audio_info = ("SALLOW: Audio information, sample rate: {}, bits: {}, channel(s): {}".format(sample_rates, bits, channel))
-    logger.debug(audio_info)
+    logger.debug(f"SALLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}")
 
     async for chunk in request.stream():
         body += chunk
 
-    audio_file = write_stream_wav(body, int(sample_rates), int(bits), int(channel))
+    audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
 
     # Do Whisper
     language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
