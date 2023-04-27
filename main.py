@@ -740,7 +740,7 @@ app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 # Mount static dir to serve files for aiortc client
 app.mount("/chatbot", StaticFiles(directory="chatbot", html = True), name="chatbot_files")
 
-# Temporary hack for the sallow stuff
+# Expose audio mount in the event sallow is configured to save
 app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
 
 class Ping(BaseModel):
@@ -792,7 +792,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/sallow", summary="Stream audio for ASR", response_description="Output as text")
-async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker):
+async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker, save_audio: Optional[bool] = False):
     logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
 
     # Set defaults - use strings because we parse HTTP headers and convert to int later anyway
@@ -811,6 +811,13 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
         body += chunk
 
     audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
+
+    # Save received audio if requested - defaults to false
+    if save_audio:
+        save_filename = 'audio/sallow.wav'
+        logger.debug(f"SALLOW: Saving audio to {save_filename}")
+        with open(save_filename, 'wb') as f:
+            f.write(audio_file.getbuffer())
 
     # Do Whisper
     language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
