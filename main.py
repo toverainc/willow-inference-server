@@ -285,17 +285,19 @@ def warm_models():
 def do_chatbot(text):
     if models.chatbot_pipeline is not None:
         first_time_start = datetime.datetime.now()
+        logger.debug(f'CHATBOT: Question is: {text}')
         output = models.chatbot_pipeline(text)[0]["generated_text"]
 
         # Split so we don't return anything other than response
         try:
-            output = output.split("Answer: ")[1]
+            output = output.split("### Assistant: ")[1]
         except:
-            pass
+            logger.debug(f'CHATBOT: Response did not have assistant format')
 
         time_end = datetime.datetime.now()
         infer_time = time_end - first_time_start
         infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug(f'CHATBOT: Response is: {output}')
         logger.debug('CHATBOT: Response took ' + str(infer_time_milliseconds) + ' ms')
     else:
         logger.warning('CHATBOT: Not installed or supported')
