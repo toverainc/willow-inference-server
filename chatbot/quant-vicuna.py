@@ -18,7 +18,7 @@ def main(src, dest, bits=4, group_size=128):
 
     # quantize model, the examples should be list of dict whose keys contains "input_ids" and "attention_mask"
     # with value under torch.LongTensor type.
-    model.quantize([example])
+    model.quantize([example], use_triton=True)
 
     # save quantized model using safetensors
     model.save_quantized(dest, use_safetensors=True)

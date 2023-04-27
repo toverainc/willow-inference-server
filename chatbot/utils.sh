@@ -43,12 +43,6 @@ quant_vicuna() {
     python quant-vicuna.py -s vicuna-"$SIZE"-hf -d vicuna
 }
 
-copy_tokenizer() {
-    for i in generation_config.json special_tokens_map.json tokenizer.model tokenizer_config.json; do
-        cp vicuna-"$SIZE"-hf/"$i" vicuna/
-    done
-}
-
 install_dist() {
     zstdcat -T0 vicuna.tar.zstd | tar -xvf -
 }
@@ -80,7 +74,6 @@ install)
         convert_llama_hf
         apply_vicuna
         quant_vicuna
-        #copy_tokenizer
         clean
         dist
     fi

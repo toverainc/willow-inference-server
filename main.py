@@ -261,7 +261,7 @@ def load_models() -> Models:
         chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True, return_token_type_ids=False)
 
         # load quantized model, currently only support single gpu
-        chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0", use_safetensors=True)
+        chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0", use_safetensors=True, use_triton=True)
 
         chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=chatbot_max_length)
     else:
@@ -286,6 +286,12 @@ def do_chatbot(text):
     if models.chatbot_pipeline is not None:
         first_time_start = datetime.datetime.now()
         output = models.chatbot_pipeline(text)[0]["generated_text"]
+
+        # Split so we don't return anything other than response
+        try:
+            output = output.split("Answer: ")[1]
+        except:
+            pass
 
         time_end = datetime.datetime.now()
         infer_time = time_end - first_time_start
