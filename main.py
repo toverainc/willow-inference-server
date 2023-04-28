@@ -825,16 +825,11 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
 
     # Create final response
-    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
-
-    # Handle translation in one response
-    if translation:
-        final_response['translation']=translation
-        results = translation
+    final_response = { "text": results, "language": language }
 
     json_compatible_item_data = jsonable_encoder(final_response)
 
-    return results
+    return json_compatible_item_data
 
 @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
 async def chatbot(text: str):
