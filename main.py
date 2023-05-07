@@ -75,6 +75,7 @@ from aia.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest
 
 # Sallow
 import wave
+import av
 
 # Function to create a wav file from stream data
 def write_stream_wav(data, rate, bits, ch):
@@ -85,6 +86,24 @@ def write_stream_wav(data, rate, bits, ch):
     wavfile.close()
     file.seek(0)
     return file
+
+def audio_to_wav(file, rate: 16000):
+    """Arbitrary media files to wav"""
+    wav = io.BytesIO()
+    with av.open(file) as in_container:
+        in_stream = in_container.streams.audio[0]
+        with av.open(wav, 'w', 'wav') as out_container:
+            out_stream = out_container.add_stream(
+                'pcm_s16le',
+                rate=rate,
+                layout='mono'
+            )
+            for frame in in_container.decode(in_stream):
+                for packet in out_stream.encode(frame):
+                    out_container.mux(packet)
+
+    wav.seek(0)
+    return wav
 
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
@@ -801,18 +820,26 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     sample_rate = "16000"
     bits = "16"
     channel = "1"
+    codec = None
 
     body = b''
     sample_rate = request.headers.get('x-audio-sample-rate', '').lower()
     bits = request.headers.get('x-audio-bits', '').lower()
     channel = request.headers.get('x-audio-channel', '').lower()
+    codec = request.headers.get('x-audio-codec', '').lower()
 
-    logger.debug(f"SALLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}")
+    logger.debug(f"SALLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}, codec: {codec}")
 
     async for chunk in request.stream():
         body += chunk
 
-    audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
+    if codec is None:
+        audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
+    else:
+        logger.debug(f"SALLOW: Converting {codec} to wav")
+        file = io.BytesIO(body)
+        file.seek(0)
+        audio_file = audio_to_wav(file, int(sample_rate))
 
     # Save received audio if requested - defaults to false
     if save_audio:
