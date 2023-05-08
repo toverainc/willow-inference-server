@@ -834,7 +834,12 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
         body += chunk
 
     if codec is None:
+        logger.debug(f"SALLOW: Source audio is raw PCM, creating WAV container")
         audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
+    elif codec == "wav":
+        logger.debug(f"SALLOW: Source audio is wav")
+        audio_file = io.BytesIO(body)
+        audio_file.seek(0)
     else:
         logger.debug(f"SALLOW: Converting {codec} to wav")
         file = io.BytesIO(body)
