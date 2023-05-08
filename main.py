@@ -820,7 +820,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     sample_rate = "16000"
     bits = "16"
     channel = "1"
-    codec = None
+    codec = "pcm"
 
     body = b''
     sample_rate = request.headers.get('x-audio-sample-rate', '').lower()
@@ -833,7 +833,7 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     async for chunk in request.stream():
         body += chunk
 
-    if codec is None:
+    if codec == "pcm":
         logger.debug(f"SALLOW: Source audio is raw PCM, creating WAV container")
         audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
     elif codec == "wav":
