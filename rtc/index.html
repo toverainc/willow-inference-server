@@ -61,7 +61,6 @@
                 window.client.start()
                 document.getElementById('start').innerText = "Stop Recording and Run ASR"
                 recording = true;
-                setTimeout(toggleRecord, 30*1000) //XXX: comment this line out if testing longer ASR
             }
         }
     </script>
@@ -78,7 +77,8 @@
             </h1>
             </p>
             <p>
-                This is a simple demo and debugging enviroment for the Willow Inference Server (WIS) WebRTC interface. WebRTC based ASR is useful for
+                This is a simple demo and debugging enviroment for the Willow Inference Server (WIS) WebRTC interface.
+                WebRTC based ASR is useful for
                 realtime browser applications where resources are constrained. Audio is streamed to the server as
                 the user speaks so ASR can be performed quickly and accurately leveraging state of the art AI models.
             </p>
