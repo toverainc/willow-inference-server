@@ -656,7 +656,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 recorder.file.seek(0)
                 language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
                 logger.debug("RTC DC: " + results)
-                send_dc_response(channel, "infer", obj=results)
+                send_dc_response(channel, "infer", obj=dict(text=results))
                 if translation:
                     send_dc_response(channel, "log", f'ASR Translation from {language}:  {translation}')
                 infer_time = str(infer_time)
