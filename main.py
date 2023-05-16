@@ -813,7 +813,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/api/willow", summary="Stream audio for ASR", response_description="Output as text")
-async def willow(request: Request, response: Response, model: Optional[str] = "medium", task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 1, speaker: Optional[str] = tts_default_speaker, save_audio: Optional[bool] = False):
+async def willow(request: Request, response: Response, model: Optional[str] = "medium", task: Optional[str] = "transcribe", detect_language: Optional[bool] = False, return_language: Optional[str] = return_language, beam_size: Optional[int] = 1, speaker: Optional[str] = tts_default_speaker, save_audio: Optional[bool] = False):
     logger.debug(f"FASTAPI: Got WILLOW request for model {model} beam size {beam_size} language detection {detect_language}")
 
     # Set defaults - use strings because we parse HTTP headers and convert to int later anyway
