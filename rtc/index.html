@@ -21,36 +21,44 @@
         max-width: 1280px;
     }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/air-infer-client@0.8.2/dist/bundle.browser.js"></script>
+    <script>
+        async function main(){
+            window.client = new AirClient({host:"/api/rtc/asr"})
+            const logEle = document.getElementById('data-channel')
+            client.on('onLog', (log)=>{
+                logEle.textContent += log + "\n"
+            })
+            client.on('onError', (err)=>{
+                logEle.textContent += JSON.stringify(err) + "\n"
+            })
+            const verboseLogEle = document.getElementById('tts')
+            client.on('onInfer', (msg)=>{
+                verboseLogEle.textContent += JSON.stringify(msg) + "\n"
+            })
+            await client.init();
+        }
+        document.addEventListener("DOMContentLoaded", function() { 
+            main().catch(console.error)
+        })
+    </script>
 </head>
 <body>
 <h1>WebRTC ASR</h1>
 
-<button id="start" onclick="start()">Start</button>
-<button id="stop" onclick="stop()">Stop</button>
-<button id="disconnect" onclick="disconnect()">Disconnect</button>
-
-<h2>Connection Status</h2>
-<p>
-    ICE gathering state: <span id="ice-gathering-state"></span>
-</p>
-<p>
-    ICE connection state: <span id="ice-connection-state"></span>
-</p>
-<p>
-    Signaling state: <span id="signaling-state"></span>
-</p>
-
-<div id="media" style="display: none">
-    <h2>Media</h2>
-
-    <audio id="audio" autoplay="true"></audio>
-</div>
+<button id="start" onclick="window.client.start()">Start</button>
+<button id="stop" onclick="window.client.stop()">Stop</button>
+<button id="disconnect" onclick="window.client.disconnect()">Disconnect</button>
 
 <h2>Log</h2>
 <p>
     <textarea id="data-channel" style="margin: 0px; height: 300px; width: 800px"></textarea>
 </p>
 
-<script src="client.js"></script>
+<h2>Verbose Log</h2>
+<p>
+    <textarea id="tts" style="margin: 0px; height: 300px; width: 800px"></textarea>
+</p>
+
 </body>
 </html>
