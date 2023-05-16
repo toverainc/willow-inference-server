@@ -73,7 +73,7 @@ import torch
 # Import audio stuff adapted from ref Whisper implementation
 from aia.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 
-# Sallow
+# Willow
 import wave
 import av
 
@@ -761,7 +761,7 @@ app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 # Mount static dir to serve files for aiortc client
 app.mount("/chatbot", StaticFiles(directory="chatbot", html = True), name="chatbot_files")
 
-# Expose audio mount in the event sallow is configured to save
+# Expose audio mount in the event willow is configured to save
 app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
 
 class Ping(BaseModel):
@@ -812,9 +812,9 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     #stats.print_stats(10) # top 10 rows
     return JSONResponse(content=json_compatible_item_data)
 
-@app.post("/api/sallow", summary="Stream audio for ASR", response_description="Output as text")
-async def sallow(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = True, return_language: Optional[str] = return_language, beam_size: Optional[int] = 5, speaker: Optional[str] = tts_default_speaker, save_audio: Optional[bool] = False):
-    logger.debug(f"FASTAPI: Got Sallow request for model {model} beam size {beam_size} language detection {detect_language}")
+@app.post("/api/willow", summary="Stream audio for ASR", response_description="Output as text")
+async def willow(request: Request, response: Response, model: Optional[str] = "medium", task: Optional[str] = "transcribe", detect_language: Optional[bool] = False, return_language: Optional[str] = return_language, beam_size: Optional[int] = 1, speaker: Optional[str] = tts_default_speaker, save_audio: Optional[bool] = False):
+    logger.debug(f"FASTAPI: Got WILLOW request for model {model} beam size {beam_size} language detection {detect_language}")
 
     # Set defaults - use strings because we parse HTTP headers and convert to int later anyway
     sample_rate = "16000"
@@ -828,28 +828,28 @@ async def sallow(request: Request, response: Response, model: Optional[str] = wh
     channel = request.headers.get('x-audio-channel', '').lower()
     codec = request.headers.get('x-audio-codec', '').lower()
 
-    logger.debug(f"SALLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}, codec: {codec}")
+    logger.debug(f"WILLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}, codec: {codec}")
 
     async for chunk in request.stream():
         body += chunk
 
     if codec == "pcm":
-        logger.debug(f"SALLOW: Source audio is raw PCM, creating WAV container")
+        logger.debug(f"WILLOW: Source audio is raw PCM, creating WAV container")
         audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
     elif codec == "wav":
-        logger.debug(f"SALLOW: Source audio is wav")
+        logger.debug(f"WILLOW: Source audio is wav")
         audio_file = io.BytesIO(body)
         audio_file.seek(0)
     else:
-        logger.debug(f"SALLOW: Converting {codec} to wav")
+        logger.debug(f"WILLOW: Converting {codec} to wav")
         file = io.BytesIO(body)
         file.seek(0)
         audio_file = audio_to_wav(file, int(sample_rate))
 
     # Save received audio if requested - defaults to false
     if save_audio:
-        save_filename = 'audio/sallow.wav'
-        logger.debug(f"SALLOW: Saving audio to {save_filename}")
+        save_filename = 'audio/willow.wav'
+        logger.debug(f"WILLOW: Saving audio to {save_filename}")
         with open(save_filename, 'wb') as f:
             f.write(audio_file.getbuffer())
 
