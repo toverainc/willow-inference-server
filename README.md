@@ -36,6 +36,9 @@ You can view API documentation at http://[your host]:19000/docs
 | Device   | Model    | Beam Size | Speech Duration (ms) | Inference Time (ms) | Realtime Multiple |
 |----------|----------|-----------|----------------------|---------------------|-------------------|
 | RTX 4090 | large-v2 | 5         | 3840                 | 140                 | 27x               |
+| H100     | large-v2 | 5         | 3840                 | 294                 | 12x               |
+| H100     | large-v2 | 5         | 10688                | 519                 | 20x               |
+| H100     | large-v2 | 5         | 29248                | 1223                | 23x               |
 | GTX 1060 | large-v2 | 5         | 3840                 | 1114                | 3x                |
 | Tesla P4 | large-v2 | 5         | 3840                 | 1099                | 3x                |
 | RTX 4090 | medium   | 1         | 3840                 | 84                  | 45x               |
