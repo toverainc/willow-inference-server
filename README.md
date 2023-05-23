@@ -135,6 +135,10 @@ The author has a long background with VoIP, WebRTC, etc. We deploy some fairly u
 
 Start/stop of sessions and return of results uses WebRTC data channels.
 
+## WebRTC Client Library
+
+See the [Willow TypeScript Client repo](https://github.com/toverainc/willow-ts-client) to integrate WIS WebRTC support into your own frontend.
+
 ## Fun Ideas
 
 - Integrate WebRTC with Home Assistant dashboard to support streaming audio directly from the HA dashboard on desktop or mobile.
