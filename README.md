@@ -50,3 +50,15 @@ You can view API documentation at http://[your host]:19000/docs
 | RTX 4090 | base     | 1         | 180000               | 277                 | 648x (not a typo) |
 
 When using WebRTC end-to-end latency in the browser and supported applications is the numbers above plus network latency - with the advantage being you can skip the "upload" portion as audio is streamed in realtime!
+
+## Comparison Benchmarks
+
+Raspberry Pi Benchmarks run on Raspberry Pi 4 4GB Debian 11.7 aarch64 with faster-whisper 0.5.1. Canakit 3 AMP USB-C power adapter and fan. All models int8 with ```OMP_NUM_THREADS=4``` set and language set as en. Same methodology as timing above with model load time excluded (WIS keeps models loaded). All inference time numbers rounded down. Max temperatures as reported by ```vcgencmd measure_temp``` were 57.9 C.
+
+| Device   | Model    | Beam Size | Speech Duration (ms) | Inference Time (ms) | Realtime Multiple |
+|----------|----------|-----------|----------------------|---------------------|-------------------|
+| Pi       | tiny     | 1         | 3840                 | 3333                | 1.15x             |
+| Pi       | base     | 1         | 3840                 | 6207                | 0.62x             |
+| Pi       | medium   | 1         | 3840                 | 50807               | 0.08x             |
+| Pi       | large-v2 | 1         | 3840                 | 91036               | 0.04x             |
+
