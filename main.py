@@ -755,10 +755,13 @@ def startup_event():
 def shutdown_event():
     logger.info(f"{settings.name} is stopping (this can take a while)...")
 
-# Mount static dir to serve files for aiortc client
+# Mount static dir to serve files for WebRTC client
 app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
 
-# Mount static dir to serve files for aiortc client
+# Mount static dir to serve files for dictation client
+app.mount("/dict", StaticFiles(directory="dict", html = True), name="dict_files")
+
+# Mount static dir to serve files for chatbot client
 app.mount("/chatbot", StaticFiles(directory="chatbot", html = True), name="chatbot_files")
 
 # Expose audio mount in the event willow is configured to save
