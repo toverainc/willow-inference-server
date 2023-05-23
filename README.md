@@ -1,4 +1,10 @@
+# Discuss on [HN](https://news.ycombinator.com/item?id=36044755)
+
+First release today!
+
 # Willow Inference Server
+
+Watch the [WIS WebRTC Demo](https://www.youtube.com/watch?v=PxCO5eONqSQ)
 
 [Willow](https://github.com/toverainc/willow) Inference Server (WIS) is a focused and highly optimized language inference server implementation. Our goal is to "automagically" enable performant, cost-effective self-hosting of released state of the art/best of breed models to enable speech and language tasks:
 
@@ -18,6 +24,8 @@ With the goal of enabling democratization of this functionality WIS will detect 
 Note that we are primarily targeting CUDA - the performance, cost, and power usage of cheap GPUs like the Tesla P4 and GTX 1060 is too good to ignore. We'll make our best effort to support CPU wherever possible for current and future functionality but our emphasis is on performant latency-sensitive tasks even with low-end GPUs like the GTX 1060/Tesla P4 (as of this writing roughly $100 USD on the used market - and plenty of stock!).
 
 ## Getting started
+
+For CUDA support you will need to have the NVIDIA drivers for your supported hardware installed.
 
 ```bash
 # Clone this repo:
