@@ -114,7 +114,10 @@ async def new_handle_rtcp_packet(self, packet):
         return
     return old_handle_rtcp_packet(self, packet)
 RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
-#logging.basicConfig(level=logger.DEBUG) #very useful debugging aiortc issues
+
+if settings.aiortc_debug:
+    logger.debug('AIORTC: Debugging active')
+    logging.basicConfig(level=logging.DEBUG) #very useful debugging aiortc issues
 
 local_ports = list(range(10000, 10000+50)) # Allowed ephemeral port range
 def patch_loop_datagram():

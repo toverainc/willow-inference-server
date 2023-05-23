@@ -46,6 +46,9 @@ class APISettings(BaseSettings):
     # Chatbot model max length
     chatbot_max_length: int = 5000
 
+    # airotc debug for connectivity and other WebRTC debugging
+    aiortc_debug: bool = False
+
     class Config:
         env_prefix = ""
         case_sensitive = False
