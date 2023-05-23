@@ -116,7 +116,7 @@ async def new_handle_rtcp_packet(self, packet):
 RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
 #logging.basicConfig(level=logger.DEBUG) #very useful debugging aiortc issues
 
-local_ports = list(range(10000, 10000+300)) # Allowed ephemeral port range
+local_ports = list(range(10000, 10000+50)) # Allowed ephemeral port range
 def patch_loop_datagram():
     loop = asyncio.get_event_loop()
     if getattr(loop, '_patch_done', False):
