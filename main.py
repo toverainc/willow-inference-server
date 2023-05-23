@@ -827,8 +827,12 @@ async def willow(request: Request, response: Response, model: Optional[str] = "m
     bits = request.headers.get('x-audio-bits', '').lower()
     channel = request.headers.get('x-audio-channel', '').lower()
     codec = request.headers.get('x-audio-codec', '').lower()
+    willow_id = request.headers.get('x-willow-id', '').lower()
 
     logger.debug(f"WILLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}, codec: {codec}")
+
+    if willow_id:
+        logger.debug(f"WILLOW: Got Willow ID {willow_id}")
 
     async for chunk in request.stream():
         body += chunk
