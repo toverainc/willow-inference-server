@@ -9,4 +9,4 @@ else
     TAG="latest"
 fi
 
-DOCKER_BUILDKIT=1 docker build -t air-infer-api:"$TAG" .
+DOCKER_BUILDKIT=1 docker build -t willow-inference-server:"$TAG" .

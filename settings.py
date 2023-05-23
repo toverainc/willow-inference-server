@@ -4,9 +4,9 @@ from typing import List
 
 class APISettings(BaseSettings):
     # Project metadata
-    name = "AIR Infer API"
-    description = "High performance speech API"
-    version = "0.0.1"
+    name = "Willow Inference Server"
+    description = "High Performance Language Inference API"
+    version = "1.0"
 
     # default return language
     return_language: str = "en"

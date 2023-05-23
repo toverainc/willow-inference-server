@@ -20,19 +20,19 @@ CHATBOT_PARAMS=${CHATBOT_PARAMS:-13B}
 
 build_one () {
     docker run --rm --gpus all --shm-size=1g --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
-        -v $PWD:/app -v $PWD/cache:/root/.cache air-infer-api:latest \
+        -v $PWD:/app -v $PWD/cache:/root/.cache willow-inference-server:latest \
         /app/whisper.sh $1
 }
 
 build_t5 () {
     docker run --rm --gpus all --shm-size=1g --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
-        -v $PWD:/app -v $PWD/cache:/root/.cache air-infer-api:latest \
+        -v $PWD:/app -v $PWD/cache:/root/.cache willow-inference-server:latest \
         /app/speecht5.sh
 }
 
 build_chatbot () {
     docker run --rm --gpus all --shm-size=1g --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
-        -v $PWD:/app -v $PWD/cache:/root/.cache air-infer-api:latest \
+        -v $PWD:/app -v $PWD/cache:/root/.cache willow-inference-server:latest \
         /app/chatbot/utils.sh install $CHATBOT_PARAMS
 }
 
