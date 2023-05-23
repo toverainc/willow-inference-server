@@ -60,7 +60,7 @@ System runtime can be configured by placing a ```.env``` file in the WIS root to
 
 ## Windows Support
 
-WIS has been successfully tested on Windows with WSL (Windows Subsystem for Linux). With ASR and STT only requiring a total of 6GB VRAM WIS can be run concurrently with standard Windows desktop tasks on GPUs with 8GB VRAM
+WIS has been successfully tested on Windows with WSL (Windows Subsystem for Linux). With ASR and STT only requiring a total of 6GB VRAM WIS can be run concurrently with standard Windows desktop tasks on GPUs with 8GB VRAM.
 
 ## Benchmarks
 
@@ -114,18 +114,18 @@ Perusing eBay and other used marketplaces the GTX 1070 seems to be the best perf
 To support LLM/Vicuna an RTX 3090/4090 is suggested. RTX 3090 being sold for approximately $800 as of this writing (5/23/2023).
 
 ## LLM
-For LLM/LLaMA/Vicuna support you will need to obtain the original Meta LLaMA models. Place the original Meta LLaMA models in ```chatbot/``` and:
+For LLM/LLaMA/Vicuna support you will need to obtain the original Meta LLaMA models. Place the original Meta LLaMA model(s) in ```chatbot/``` and:
 
 ```bash
 
 # Start shell docker container
 ./shell.sh
 
-# Convert to Hugging Face format, apply Vicuna 1.1 delta, quantize, and install
+# Convert to Hugging Face format, apply Vicuna 1.1 delta, quantize to int4, and install
 ./utils.sh install 13B
 ```
 
-Restart/start WIS and vicuna should be detected and loaded.
+Restart/start WIS and Vicuna should be detected and loaded. See API documentation at ```https://[your host]:19000/docs```
 
 Should support any model size but most heavily tested with 13B.
 
