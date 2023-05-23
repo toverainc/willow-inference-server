@@ -1,56 +1,114 @@
 <html>
+
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebRTC ASR</title>
-    <style>
-    button {
-        padding: 8px 16px;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WIS WebRTC ASR</title>
 
-    pre {
-        overflow-x: hidden;
-        overflow-y: auto;
-    }
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tovera/willow-ts-client@0.8.9/dist/bundle.browser.js"
+        crossorigin="anonymous"></script>
+    <script>
+        function createElementFromHTML(htmlString) {
+            var div = document.createElement('div');
+            div.innerHTML = htmlString.trim();
 
-    .option {
-        margin-bottom: 8px;
-    }
-
-    #media {
-        max-width: 1280px;
-    }
-    </style>
+            // Change this to div.childNodes to support multiple top-level nodes.
+            return div.firstChild;
+        }
+        function addAsrMessage(msg) {
+            document.getElementById("asr-list").prepend(createElementFromHTML(`
+                <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div class="ms-2 me-auto">${msg.text}</div>
+                    ${msg.time ? `<span class="badge bg-primary rounded-pill">` + msg.time + ` ms</span>` : ""}
+                </li>`))
+        }
+        async function main() {
+            window.client = new WillowClient({ host: "/api/rtc/asr" })
+            client.on('onOpen', () => {
+                addAsrMessage({ text: 'Connected to WIS! Start recording anytime.' })
+                document.getElementById('start').disabled = false
+            })
+            client.on('onLog', (log) => {
+                const logEle = document.getElementById('data-channel')
+                logEle.textContent = log + "\n" + logEle.textContent
+            })
+            client.on('onError', (err) => {
+                const logEle = document.getElementById('data-channel')
+                logEle.textContent = JSON.stringify(err) + "\n" + logEle.textContent
+            })
+            client.on('onInfer', (msg) => {
+                msg = Object.assign({}, msg, { text: "Transcribed Text: " + msg.text })
+                addAsrMessage(msg)
+            })
+            addAsrMessage({ text: 'Connecting to WIS...' })
+            await client.init();
+        }
+        document.addEventListener("DOMContentLoaded", function () {
+            main().catch(console.error)
+        })
+        var recording = false;
+        async function toggleRecord() {
+            if (recording) {
+                window.client.stop()
+                document.getElementById('start').innerText = "Start Recording"
+                recording = false;
+            } else {
+                window.client.start()
+                document.getElementById('start').innerText = "Stop Recording and Run ASR"
+                recording = true;
+            }
+        }
+    </script>
 </head>
+
 <body>
-<h1>WebRTC ASR</h1>
+    <main role="main">
+        <div class="container">
 
-<button id="start" onclick="start()">Start</button>
-<button id="stop" onclick="stop()">Stop</button>
-<button id="disconnect" onclick="disconnect()">Disconnect</button>
+            <p>
+            <h1 class="d-flex align-items-center">
+                <img src="social-icon-48.png" style="border-radius: 10px;">
+                <span class="ps-2"> Willow Inference Server WebRTC ASR</span>
+            </h1>
+            </p>
+            <p>
+                This is a simple demo and debugging enviroment for the Willow Inference Server (WIS) WebRTC interface.
+                WebRTC based ASR is useful for
+                realtime browser applications where resources are constrained. Audio is streamed to the server as
+                the user speaks so ASR can be performed quickly and accurately leveraging state of the art AI models.
+            </p>
+            <div class="row">
+                <div class="col-md-12 d-flex justify-content-center">
+                    <button type="button" disabled="true" id="start" onclick="toggleRecord()" class="btn btn-primary"
+                        style="width: 300px;">Start Recording</button>
+                </div>
+            </div>
 
-<h2>Connection Status</h2>
-<p>
-    ICE gathering state: <span id="ice-gathering-state"></span>
-</p>
-<p>
-    ICE connection state: <span id="ice-connection-state"></span>
-</p>
-<p>
-    Signaling state: <span id="signaling-state"></span>
-</p>
+            <h2>Log</h2>
+            <div class="row">
+                <div class="col-md-12">
+                    <div style="height: 400px; overflow-y: auto;" class="border mb-3">
+                        <ol id="asr-list" class="list-group list-group-flush">
+                        </ol>
+                    </div>
+                </div>
+            </div>
 
-<div id="media" style="display: none">
-    <h2>Media</h2>
+            <h2>Verbose Log</h2>
+            <div class="row mb-3">
+                <div class="col-md-12 d-flex">
+                    <textarea id="data-channel" class="form-control flex-fill"
+                        style="margin: 0px; height: 300px; overflow-y: scroll;"></textarea>
+                </div>
+            </div>
+        </div>
+    </main>
 
-    <audio id="audio" autoplay="true"></audio>
-</div>
-
-<h2>Log</h2>
-<p>
-    <textarea id="data-channel" style="margin: 0px; height: 300px; width: 800px"></textarea>
-</p>
-
-<script src="client.js"></script>
 </body>
+
 </html>
