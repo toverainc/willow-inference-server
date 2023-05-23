@@ -1,3 +1,7 @@
+# Discuss on [HN](https://news.ycombinator.com/item?id=36044755)
+
+First release today!
+
 # Willow Inference Server
 
 Watch the [WIS WebRTC Demo](https://www.youtube.com/watch?v=PxCO5eONqSQ)
