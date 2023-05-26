@@ -29,7 +29,7 @@ git clone https://github.com/toverainc/willow-inference-server.git && cd willow-
 
 # Ensure you have nvidia-container-toolkit and not nvidia-docker
 # On Arch Linux:
-yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit
+yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit docker-buildx
 
 # Ubuntu:
 ./deps/ubuntu.sh
