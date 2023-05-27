@@ -59,6 +59,10 @@ import ctranslate2
 import librosa
 import transformers
 import datetime
+import aia.languages
+
+# Whisper supported languages
+whisper_languages = aia.languages.LANGUAGES
 
 # TTS
 import soundfile as sf
@@ -354,6 +358,9 @@ def do_translate(whisper_model, features, batch_size, language, beam_size):
     logger.debug(results)
 
     return results
+
+def check_language(language):
+    return language in whisper_languages
 
 def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "transcribe", detect_language:bool = False, force_language: str = None, translate: bool = False):
     # Point to model object depending on passed model string
@@ -801,8 +808,15 @@ class ASR(BaseModel):
 async def asr(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False):
     #prof = profile.Profile()
     #prof.enable()
-    task = "transcribe"
     logger.debug(f"FASTAPI: Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
+    task = "transcribe"
+
+    if force_language:
+        if not check_language(force_language):
+            logger.debug(f"FASTAPI: Invalid force_language in request - returning HTTP 400")
+            response = {"error": "Invalid force_language"}
+            return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
+
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
@@ -825,6 +839,12 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
 async def willow(request: Request, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, save_audio: Optional[bool] = False):
     logger.debug(f"FASTAPI: Got WILLOW request for model {model} beam size {beam_size} language detection {detect_language}")
     task = "transcribe"
+
+    if force_language:
+        if not check_language(force_language):
+            logger.debug(f"WILLOW: Invalid force_language in request - returning HTTP 400")
+            response = {"error": "Invalid force_language"}
+            return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
     # Set defaults - use strings because we parse HTTP headers and convert to int later anyway
     sample_rate = "16000"
@@ -914,6 +934,12 @@ async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
 async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got STS request for model {model} beam size {beam_size} language detection {detect_language}")
     task = "transcribe"
+
+    if force_language:
+        if not check_language(force_language):
+            logger.debug(f"FASTAPI: Invalid force_language in request - returning HTTP 400")
+            response = {"error": "Invalid force_language"}
+            return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
