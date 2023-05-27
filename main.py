@@ -238,6 +238,7 @@ else:
 
 class Models(NamedTuple):
     whisper_processor: any
+    whisper_model_tiny: any
     whisper_model_base: any
     whisper_model_medium: any
     whisper_model_large: any
@@ -265,10 +266,12 @@ def load_models() -> Models:
     # Load all models - thanks for quantization ctranslate2
     logger.info("Loading Whisper models...")
     if device == "cuda":
+        whisper_model_tiny = ctranslate2.models.Whisper('models/openai-whisper-tiny', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
         whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
         whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
         whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
     else:
+        whisper_model_tiny = ctranslate2.models.Whisper('models/openai-whisper-tiny', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
         whisper_model_base = ctranslate2.models.Whisper('models/openai-whisper-base', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
         whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
         whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
@@ -294,12 +297,14 @@ def load_models() -> Models:
         chatbot_model = None
         chatbot_pipeline = None
 
-    models = Models(whisper_processor, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
+    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
     return models
 
 def warm_models():
     logger.info("Warming models...")
     for x in range(3):
+        if models.whisper_model_tiny is not None:
+            do_whisper("client/3sec.flac", "tiny", beam_size, "transcribe", False, "en")
         if models.whisper_model_base is not None:
             do_whisper("client/3sec.flac", "base", beam_size, "transcribe", False, "en")
         if models.whisper_model_medium is not None:
@@ -370,6 +375,8 @@ def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "tra
         whisper_model = models.whisper_model_medium
     elif model == "base":
         whisper_model = models.whisper_model_base
+    elif model == "tiny":
+        whisper_model = models.whisper_model_tiny
 
     processor_task = f'<|{task}|>'
     first_time_start = datetime.datetime.now()
