@@ -11,7 +11,7 @@ mkdir -p nginx/static/audio
 
 if [ ! -d models ]; then
     echo "Models not found. Downloading, please wait..."
-    ./download_models.sh
+    ./utils.sh download_models
 fi
 
 # Make sure we have it just in case
