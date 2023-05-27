@@ -35,17 +35,17 @@ yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit do
 ./deps/ubuntu.sh
 
 # Build docker container
-./build.sh
+./utils.sh build-docker
 
 # Download and quantize models
-./download_models.sh
+./utils.sh download_models
 
 # Generate self-signed TLS cert (or place a "real" one at key.pem and cert.pem)
 # Let's Encrypt/Certbot/ACME coming soon, likely via Traefik. PRs welcome :).
-./gen_cert.sh [your hostname]
+./utils.sh gen_cert [your hostname]
 
 # Run
-./run.sh
+./utils.sh run
 ```
 
 Note that (like Willow) Willow Inference Server is very early and advancing rapidly! Users are encouraged to contribute (hence the build requirement). For the 1.0 release of WIS we will provide ready to deploy Docker containers.
