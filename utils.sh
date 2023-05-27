@@ -9,7 +9,7 @@ if [ -r .env ]; then
     . .env
 else
     echo "Using default configuration values"
-    touch.env
+    touch .env
 fi
 
 #Import source the .env file
@@ -103,7 +103,7 @@ dep_check() {
     fi
 
     # Make sure we have it just in case
-    mkdir -p custom_speakers
+    mkdir -p custom_speakers nginx/cache
 
     # Migrate existing certs
     for i in cert key; do
@@ -115,12 +115,12 @@ dep_check() {
 
     # Check for new certs
     if [ ! -r nginx/cert.pem ] || [ ! -r nginx/key.pem ]; then
-        echo "No SSL cert found - you need to run ./utils.sh gen_cert"
+        echo "No SSL cert found - you need to run ./utils.sh gen-cert"
         exit 1
     fi
 
     # For unprivileged docker
-    chmod 0666 nginx/key.pem nginx/cert.pem 
+    chmod 0666 nginx/key.pem nginx/cert.pem
 }
 
 gunicorn_direct() {
