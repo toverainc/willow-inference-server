@@ -38,11 +38,11 @@ yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit do
 ./utils.sh build-docker
 
 # Download and quantize models
-./utils.sh download_models
+./utils.sh download-models
 
 # Generate self-signed TLS cert (or place a "real" one at nginx/key.pem and nginx/cert.pem)
 # Let's Encrypt/Certbot/ACME coming soon
-./utils.sh gen_cert [your hostname]
+./utils.sh gen-cert [your hostname]
 
 # Run
 ./utils.sh run
