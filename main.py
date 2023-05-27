@@ -778,21 +778,21 @@ def shutdown_event():
     logger.info(f"{settings.name} is stopping (this can take a while)...")
 
 # Mount static dir to serve files for WebRTC client
-app.mount("/rtc", StaticFiles(directory="rtc", html = True), name="rtc_files")
+app.mount("/rtc", StaticFiles(directory="nginx/static/rtc", html = True), name="rtc_files")
 
 # Mount static dir to serve files for dictation client
-app.mount("/dict", StaticFiles(directory="dict", html = True), name="dict_files")
+app.mount("/dict", StaticFiles(directory="nginx/static/dict", html = True), name="dict_files")
 
 # Mount static dir to serve files for chatbot client
-app.mount("/chatbot", StaticFiles(directory="chatbot", html = True), name="chatbot_files")
+app.mount("/chatbot", StaticFiles(directory="nginx/static/chatbot", html = True), name="chatbot_files")
 
 # Expose audio mount in the event willow is configured to save
-app.mount("/audio", StaticFiles(directory="audio", html = True), name="audio_files")
+app.mount("/audio", StaticFiles(directory="nginx/static/audio", html = True), name="audio_files")
 
 class Ping(BaseModel):
     message: str
 
-@app.get("/ping", response_model=Ping, summary="Ping for connectivity check", response_description="pong")
+@app.get("/api/ping", response_model=Ping, summary="Ping for connectivity check", response_description="pong")
 async def ping():
     response = {"message": "pong"}
     return JSONResponse(content=response)
@@ -895,7 +895,7 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
 
     # Save received audio if requested - defaults to false
     if save_audio:
-        save_filename = 'audio/willow.wav'
+        save_filename = 'nginx/static/audio/willow.wav'
         logger.debug(f"WILLOW: Saving audio to {save_filename}")
         with open(save_filename, 'wb') as f:
             f.write(audio_file.getbuffer())
@@ -1017,7 +1017,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-@app.websocket("/ws/chatbot")
+@app.websocket("/api/ws/chatbot")
 async def websocket_chatbot(websocket: WebSocket):
     await manager.connect(websocket)
     try:

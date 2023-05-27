@@ -7,7 +7,7 @@ LOG_LEVEL=${LOG_LEVEL:-info}
 set +a
 
 # Temp for hacky willow config
-mkdir -p audio
+mkdir -p nginx/static/audio
 
 if [ ! -d models ]; then
     echo "Models not found. Downloading, please wait..."

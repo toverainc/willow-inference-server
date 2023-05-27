@@ -19,11 +19,11 @@ source .env
 # Which docker image to run
 IMAGE=${IMAGE:-willow-inference-server}
 
-# Listen port
-LISTEN_PORT=${LISTEN_PORT:-19001}
-
 # HTTPS Listen port
 LISTEN_PORT_HTTPS=${LISTEN_PORT_HTTPS:-19000}
+
+# Listen port
+LISTEN_PORT=${LISTEN_PORT:-19001}
 
 # Log level - acceptable values are debug, info, warning, error, critical. Suggest info or debug.
 LOG_LEVEL=${LOG_LEVEL:-info}
@@ -51,7 +51,7 @@ NAME=${NAME:wis}
 set +a
 
 # Temp for hacky willow config
-mkdir -p audio
+mkdir -p nginx/static/audio
 
 if [ ! -d models ]; then
     echo "Models not found. Downloading, please wait..."
