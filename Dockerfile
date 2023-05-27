@@ -20,5 +20,6 @@ RUN --mount=type=cache,target=/root/.cache BUILD_CUDA_EXT=0 pip install auto-gpt
 
 COPY . .
 
-CMD /bin/bash
+CMD ./entrypoint.sh
 EXPOSE 19000
+EXPOSE 19001
