@@ -8,15 +8,17 @@ class APISettings(BaseSettings):
     description = "High Performance Language Inference API"
     version = "1.0"
 
-    # default return language
-    return_language: str = "en"
     # default beam_size - 5 is lib default, 1 for greedy
-    beam_size: int = 2
+    beam_size: int = 1
     # default beam size for longer transcriptions
-    long_beam_size: int = 5
+    long_beam_size: int = 3
     # Audio duration in ms to activate "long" mode
     long_beam_size_threshold: int = 12000
     model_threads: int = 10
+
+    # Default language
+    language: str = "en"
+
     # Default detect language?
     detect_language: bool = False
 
@@ -27,7 +29,7 @@ class APISettings(BaseSettings):
     support_chunking: bool = True
 
     # The default whisper model to use
-    whisper_model_default: str = 'large'
+    whisper_model_default: str = 'medium'
 
     # Default TTS speaker to use. CLB is US female
     tts_default_speaker: str = "CLB"
