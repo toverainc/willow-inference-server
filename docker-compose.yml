@@ -25,7 +25,7 @@ services:
 
   web:
     restart: unless-stopped
-    image: nginx
+    image: nginx:1.25.0
     shm_size: '1gb'
     volumes:
     - ./nginx:/nginx
