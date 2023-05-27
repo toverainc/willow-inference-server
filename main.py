@@ -855,18 +855,23 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
     async for chunk in request.stream():
         body += chunk
 
-    if codec == "pcm":
-        logger.debug(f"WILLOW: Source audio is raw PCM, creating WAV container")
-        audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
-    elif codec == "wav":
-        logger.debug(f"WILLOW: Source audio is wav")
-        audio_file = io.BytesIO(body)
-        audio_file.seek(0)
-    else:
-        logger.debug(f"WILLOW: Converting {codec} to wav")
-        file = io.BytesIO(body)
-        file.seek(0)
-        audio_file = audio_to_wav(file, int(sample_rate))
+    try:
+        if codec == "pcm":
+            logger.debug(f"WILLOW: Source audio is raw PCM, creating WAV container")
+            audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
+        elif codec == "wav":
+            logger.debug(f"WILLOW: Source audio is wav")
+            audio_file = io.BytesIO(body)
+            audio_file.seek(0)
+        else:
+            logger.debug(f"WILLOW: Converting {codec} to wav")
+            file = io.BytesIO(body)
+            file.seek(0)
+            audio_file = audio_to_wav(file, int(sample_rate))
+    except:
+        logger.debug(f"WILLOW: Invalid audio in request - returning HTTP 400")
+        response = {"error": "Invalid audio"}
+        return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
     # Save received audio if requested - defaults to false
     if save_audio:
