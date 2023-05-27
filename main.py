@@ -156,8 +156,6 @@ def patch_loop_datagram():
 patch_loop_datagram()  # not really needed here...
 
 #XXX: rm these globals and use settings directly
-# default return language
-return_language = settings.return_language
 
 # default beam_size - 5 is lib default, 1 for greedy
 beam_size = settings.beam_size
@@ -176,6 +174,9 @@ support_chunking = settings.support_chunking
 whisper_model_default = settings.whisper_model_default
 
 tts_default_speaker = settings.tts_default_speaker
+
+# Default language
+language = settings.language
 
 # Default detect language?
 detect_language = settings.detect_language
@@ -324,10 +325,12 @@ def do_chatbot(text):
         output = "Chatbot not installed or supported"
     return output
 
-def do_translate(features, language, beam_size=beam_size):
+def do_translate(whisper_model, features, batch_size, language, beam_size):
     # Set task in token format for processor
     task = 'translate'
+    logger.debug(f'WHISPER: Doing translation with {language} beam size {beam_size} and batch size {batch_size}')
     processor_task = f'<|{task}|>'
+
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
@@ -342,7 +345,7 @@ def do_translate(features, language, beam_size=beam_size):
 
     # Run generation for the 30-second window.
     time_start = datetime.datetime.now()
-    results = models.whisper_model_large.generate(features, [prompt], beam_size=beam_size)
+    results = whisper_model.generate(features, [prompt]*batch_size, beam_size=beam_size)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -352,11 +355,7 @@ def do_translate(features, language, beam_size=beam_size):
 
     return results
 
-def do_whisper(audio_file, model:str, beam_size:int, task:str, detect_language:bool, return_language:str):
-    if model != "large" and detect_language == True:
-        logger.warning(f'WHISPER: Language detection requested but not supported on model {model} - overriding with large')
-        model = "large"
-        beam_size = 5
+def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "transcribe", detect_language:bool = False, force_language: str = None, translate: bool = False):
     # Point to model object depending on passed model string
     if model == "large":
         whisper_model = models.whisper_model_large
@@ -411,24 +410,33 @@ def do_whisper(audio_file, model:str, beam_size:int, task:str, detect_language:b
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('WHISPER: Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
 
-    # Whisper STEP 2 - optionally actually detect the language or default to en
+    # Whisper STEP 2 - optionally actually detect the language or default to configuration
     time_start = datetime.datetime.now()
-    if detect_language:
+
+    # System default language by default
+    language = settings.language
+    processor_language = f'<|{language}|>'
+
+    if detect_language and not force_language:
         results = whisper_model.detect_language(features)
         language, probability = results[0][0]
-        logger.debug("WHISPER: Detected language %s with probability %f" % (language, probability))
+        processor_language = language
+        logger.debug(f"WHISPER: Detected language {language} with probability {probability}")
 
     else:
-        logger.debug('WHISPER: Hardcoding language to en')
-        # Hardcode language
-        language = '<|en|>'
+        if force_language:
+            language = force_language
+            logger.debug(f'WHISPER: Forcing language {language}')
+            processor_language = f'<|{language}|>'
+        else:
+            logger.debug(f'WHISPER: Using system default language {language}')
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
     prompt = models.whisper_processor.tokenizer.convert_tokens_to_ids(
         [
             "<|startoftranscript|>",
-            language,
+            processor_language,
             processor_task,
             "<|notimestamps|>",  # Remove this token to generate timestamps.
         ]
@@ -436,7 +444,8 @@ def do_whisper(audio_file, model:str, beam_size:int, task:str, detect_language:b
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('WHISPER: Language detection took ' + str(infer_time_milliseconds) + ' ms')
+    if detect_language:
+        logger.debug('WHISPER: Language detection took ' + str(infer_time_milliseconds) + ' ms')
 
     # Whisper STEP 3 - run model
     time_start = datetime.datetime.now()
@@ -465,16 +474,19 @@ def do_whisper(audio_file, model:str, beam_size:int, task:str, detect_language:b
     pattern = re.compile("[A-Za-z0-9]+", )
     language = pattern.findall(language)[0]
 
-    if not language == return_language:
-        logger.debug(f'WHISPER: Detected non-preferred language {language}, translating to {return_language}')
-        translation = do_translate(features, language, beam_size=beam_size)
+    if translate:
+        logger.debug(f'WHISPER: Detected non-preferred language {language}, translating')
+        translation = do_translate(whisper_model, features, batch_size, language, beam_size=beam_size)
         # Strip tokens from translation output - brittle but works right now
         translation = translation.split('>')[2]
         translation = translation.strip()
-        logger.debug('WHISPER: ASR translation: {translation}')
+        logger.debug(f'WHISPER: ASR translation: {translation}')
     else:
         translation = None
 
+    # Strip tokens from results output - brittle but works right now
+    #if detect_language:
+    #    results = results.split('>')[2]
     # Remove trailing and leading spaces
     results = results.strip()
 
@@ -591,7 +603,7 @@ def send_dc_response(channel, *args, **kargs):
     channel.send(json.dumps(response._asdict()))
 
 # Function for WebRTC handling
-async def rtc_offer(request, model, beam_size, task, detect_language, return_language):
+async def rtc_offer(request, model, beam_size, task, detect_language):
     params = await request.json()
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
@@ -649,7 +661,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language, return_lan
                 send_dc_response(channel, "log", f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language} - please wait')
                 # Finally call Whisper
                 recorder.file.seek(0)
-                language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file, model, beam_size, task, detect_language, return_language)
+                language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file, model, beam_size, task, detect_language)
                 logger.debug("RTC DC: " + results)
                 send_dc_response(channel, "infer", obj=dict(text=results))
                 if translation:
@@ -767,13 +779,13 @@ class Ping(BaseModel):
 
 @app.get("/ping", response_model=Ping, summary="Ping for connectivity check", response_description="pong")
 async def ping():
-    response = jsonable_encoder({"message": "pong"})
+    response = {"message": "pong"}
     return JSONResponse(content=response)
 
 @app.post("/api/rtc/asr", summary="Return SDP for WebRTC clients", response_description="SDP for WebRTC clients")
-async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
+async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size):
     patch_loop_datagram()
-    response = await rtc_offer(request, model, beam_size, task, detect_language, return_language)
+    response = await rtc_offer(request, model, beam_size, task, detect_language)
     return JSONResponse(content=response)
 
 class ASR(BaseModel):
@@ -786,15 +798,15 @@ class ASR(BaseModel):
     text: str
 
 @app.post("/api/asr", response_model=ASR, summary="Submit audio file for ASR", response_description="ASR engine output")
-async def asr(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size):
+async def asr(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False):
     #prof = profile.Profile()
     #prof.enable()
-
+    task = "transcribe"
     logger.debug(f"FASTAPI: Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
-    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
 
     # Create final response
     final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
@@ -803,16 +815,16 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     if translation:
         final_response['translation']=translation
 
-    json_compatible_item_data = jsonable_encoder(final_response)
     #prof.disable()
     # print profiling output
     #stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
     #stats.print_stats(10) # top 10 rows
-    return JSONResponse(content=json_compatible_item_data)
+    return JSONResponse(content=final_response)
 
-@app.post("/api/willow", summary="Stream audio for ASR", response_description="Output as text")
-async def willow(request: Request, response: Response, model: Optional[str] = "medium", task: Optional[str] = "transcribe", detect_language: Optional[bool] = False, return_language: Optional[str] = return_language, beam_size: Optional[int] = 1, speaker: Optional[str] = tts_default_speaker, save_audio: Optional[bool] = False):
+@app.post("/api/willow", response_model=ASR, summary="Stream Willow audio for ASR", response_description="ASR engine output")
+async def willow(request: Request, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, save_audio: Optional[bool] = False):
     logger.debug(f"FASTAPI: Got WILLOW request for model {model} beam size {beam_size} language detection {detect_language}")
+    task = "transcribe"
 
     # Set defaults - use strings because we parse HTTP headers and convert to int later anyway
     sample_rate = "16000"
@@ -856,14 +868,16 @@ async def willow(request: Request, response: Response, model: Optional[str] = "m
             f.write(audio_file.getbuffer())
 
     # Do Whisper
-    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
 
     # Create final response
-    final_response = { "text": results, "language": language }
+    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
 
-    json_compatible_item_data = jsonable_encoder(final_response)
+    # Handle translation in one response
+    if translation:
+        final_response['translation']=translation
 
-    return json_compatible_item_data
+    return JSONResponse(content=final_response)
 
 @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
 async def chatbot(text: str):
@@ -892,12 +906,14 @@ async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
     return StreamingResponse(response, media_type="audio/flac")
 
 @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
-async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, return_language: Optional[str] = return_language, beam_size: Optional[int] = beam_size, speaker: Optional[str] = tts_default_speaker):
+async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
     logger.debug(f"FASTAPI: Got STS request for model {model} beam size {beam_size} language detection {detect_language}")
+    task = "transcribe"
+
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
-    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, return_language)
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
 
     # Do TTS
     response = do_tts(results, 'FLAC', speaker)
@@ -916,7 +932,7 @@ async def speaker_create(request: Request, audio_file: UploadFile, speaker_name:
     status_text = f"Created custom speaker successfully - you can now use the {speaker_name} speaker for TTS"
     logger.debug(f"FASTAPI: {status_text}")
 
-    response = jsonable_encoder({"message": status_text})
+    response = {"message": status_text}
     return JSONResponse(content=response)
 
 @app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker", response_description="Speaker deletion status")
@@ -926,7 +942,7 @@ async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM
     status_text = f"Deleted custom speaker {speaker_name} successfully"
     logger.debug(f"FASTAPI: {status_text}")
 
-    response = jsonable_encoder({"message": status_text})
+    response = {"message": status_text}
     return JSONResponse(content=response)
 
 class SpeakersList(BaseModel):
@@ -946,7 +962,7 @@ async def speaker_delete(request: Request):
                     logger.debug(f"FASTAPI: Getting speakers found speaker {name}")
                     speakers.append(name)
 
-    response = jsonable_encoder({"speakers": speakers})
+    response = {"speakers": speakers}
     return JSONResponse(content=response)
 
 class ConnectionManager:
