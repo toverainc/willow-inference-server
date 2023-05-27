@@ -1,10 +1,10 @@
 services:
   wis:
     restart: unless-stopped
-    image: willow-inference-server:latest
+    image: ${IMAGE}:${TAG}
     env_file:
       - .env
-    shm_size: '1gb'
+    shm_size: ${SHM_SIZE}
     ipc: host
     ulimits:
       memlock: -1
@@ -12,7 +12,7 @@ services:
     #build:
     #  dockerfile: Dockerfile
     ports:
-      - ${MEDIA_PORT_RANGE}:${MEDIA_PORT_RANGE}
+      - ${LISTEN_IP}:${MEDIA_PORT_RANGE}:${MEDIA_PORT_RANGE}
     deploy:
       resources:
         reservations:
@@ -32,5 +32,5 @@ services:
     #environment:
     #  - NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=1
     ports:
-    - "8080:8080"
-    - "8443:8443"
+    - ${LISTEN_IP}:${LISTEN_PORT}:8080
+    - ${LISTEN_IP}:${LISTEN_PORT_HTTPS}:8443

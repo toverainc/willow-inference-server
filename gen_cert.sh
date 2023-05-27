@@ -5,4 +5,4 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -sha256 -days 3650 -nodes -subj "/CN=$1"
+openssl req -x509 -newkey rsa:2048 -keyout nginx/key.pem -out nginx/cert.pem -sha256 -days 3650 -nodes -subj "/CN=$1"

@@ -58,7 +58,7 @@ fi
 # Make sure we have it just in case
 mkdir -p custom_speakers
 
-if [ ! -r cert.pem ] || [ ! -r key.pem ]; then
+if [ ! -r nginx/cert.pem ] || [ ! -r nginx/key.pem ]; then
     echo "No SSL cert found - you need to run ./gen_cert.sh"
     exit 1
 fi
@@ -71,4 +71,4 @@ docker run --rm -it --gpus "$GPUS" --shm-size="$SHM_SIZE" --ipc=host \
     "$IMAGE":"$TAG" \
     gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:"$LISTEN_PORT" \
     --graceful-timeout 10 --forwarded-allow-ips "$FORWARDED_ALLOW_IPS" --log-level "$LOG_LEVEL" -t 0 \
-    --keyfile key.pem --certfile cert.pem --ssl-version TLSv1_2
+    --keyfile nginx/key.pem --certfile nginx/cert.pem --ssl-version TLSv1_2
