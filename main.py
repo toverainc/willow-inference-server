@@ -736,7 +736,10 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
 
 app = FastAPI(title=settings.name,
     description=settings.description,
-    version=settings.version)
+    version=settings.version,
+    openapi_url="/api/openapi.json",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc")
 
 if settings.cors_allowed_origins:
     app.add_middleware(
