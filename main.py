@@ -50,7 +50,7 @@ import uuid
 
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
 from aiortc.rtp import RtcpByePacket
-from aia.media import MediaRecorderLite
+from wis.media import MediaRecorderLite
 
 pcs = set()
 
@@ -59,10 +59,10 @@ import ctranslate2
 import librosa
 import transformers
 import datetime
-import aia.languages
+import wis.languages
 
 # Whisper supported languages
-whisper_languages = aia.languages.LANGUAGES
+whisper_languages = wis.languages.LANGUAGES
 
 # TTS
 import soundfile as sf
@@ -75,7 +75,7 @@ import shutil
 
 import torch
 # Import audio stuff adapted from ref Whisper implementation
-from aia.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
+from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 
 # Willow
 import wave
@@ -513,7 +513,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
     # Load speaker embedding
     time_initial_start = datetime.datetime.now()
 
-    file_path = f"aia/assets/spkemb/{speaker}.npy"
+    file_path = f"wis/assets/spkemb/{speaker}.npy"
     if os.path.isfile(file_path):
         speaker_numpy = file_path
         logger.debug(f'TTS: Loaded included speaker {speaker}')
@@ -983,7 +983,7 @@ class SpeakersList(BaseModel):
 async def speaker_delete(request: Request):
     logger.debug(f"FASTAPI: Got list speakers request")
     speakers = []
-    dirs = [ "aia/assets/spkemb", "custom_speakers" ]
+    dirs = [ "wis/assets/spkemb", "custom_speakers" ]
     for dir in dirs:
         logger.debug(f"FASTAPI: Getting speakers for directory {dir}")
         for (root, dirs, file) in os.walk(dir):
