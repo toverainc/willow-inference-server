@@ -40,8 +40,8 @@ yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit do
 # Download and quantize models
 ./utils.sh download_models
 
-# Generate self-signed TLS cert (or place a "real" one at key.pem and cert.pem)
-# Let's Encrypt/Certbot/ACME coming soon, likely via Traefik. PRs welcome :).
+# Generate self-signed TLS cert (or place a "real" one at nginx/key.pem and nginx/cert.pem)
+# Let's Encrypt/Certbot/ACME coming soon
 ./utils.sh gen_cert [your hostname]
 
 # Run
@@ -56,11 +56,11 @@ Willow: Configure Willow to use ```https://[your host]:19000/api/willow``` then 
 
 WebRTC demo client: ```https://[your host]:19000/rtc```
 
-API documentation for REST interface: ```https://[your host]:19000/docs```
+API documentation for REST interface: ```https://[your host]:19000/api/docs```
 
 ## Configuration
 
-System runtime can be configured by placing a ```.env``` file in the WIS root to override any variables set by ```run.sh```. You can also change more WIS specific parameters by copying ```settings.py``` to ```custom_settings.py```.
+System runtime can be configured by placing a ```.env``` file in the WIS root to override any variables set by ```utils.sh```. You can also change more WIS specific parameters by copying ```settings.py``` to ```custom_settings.py```.
 
 ## Windows Support
 
@@ -123,13 +123,16 @@ For LLM/LLaMA/Vicuna support you will need to obtain the original Meta LLaMA mod
 ```bash
 
 # Start shell docker container
-./shell.sh
+./utils shell
+
+# Go to chatbot directory
+cd chatbot
 
 # Convert to Hugging Face format, apply Vicuna 1.1 delta, quantize to int4, and install
 ./utils.sh install 13B
 ```
 
-Restart/start WIS and Vicuna should be detected and loaded. See API documentation at ```https://[your host]:19000/docs```
+Restart/start WIS and Vicuna should be detected and loaded. See API documentation at ```https://[your host]:19000/api/docs```
 
 Should support any model size but most heavily tested with 13B.
 
