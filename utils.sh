@@ -40,7 +40,7 @@ LISTEN_IP=${LISTEN_IP:-0.0.0.0}
 GPUS=${GPUS:-"all"}
 
 # Allow forwarded IPs. This is a list of hosts to allow parsing of X-Forwarded headers from
-FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IP:-127.0.0.1}
+FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
 
 # Shared memory size for docker
 SHM_SIZE=${SHM_SIZE:-1gb}
@@ -78,13 +78,13 @@ t5_model() {
 build_one_whisper () {
     docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
-        /app/utils.sh whisper_model $1
+        /app/utils.sh whisper-model $1
 }
 
 build_t5 () {
     docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
-        /app/utils.sh t5_model
+        /app/utils.sh t5-model
 }
 
 build_chatbot () {
@@ -98,8 +98,8 @@ dep_check() {
     mkdir -p nginx/static/audio
 
     if [ ! -d models ]; then
-        echo "Models not found. Downloading, please wait..."
-        download_models
+        echo "Models not found. You need to run ./utils.sh download-models - exiting"
+        exit 1
     fi
 
     # Make sure we have it just in case
@@ -192,7 +192,7 @@ download_models() {
 
 case $1 in
 
-download_models)
+download-models)
     download_models
 ;;
 
@@ -200,19 +200,19 @@ build-docker|build)
     build-docker
 ;;
 
-gen_cert)
+gen-cert)
     gen_cert $2
 ;;
 
-freeze_requirements)
+freeze-requirements)
     freeze_requirements
 ;;
 
-whisper_model)
+whisper-model)
     whisper_model $2
 ;;
 
-t5_model)
+t5-model)
     t5_model
 ;;
 
