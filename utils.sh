@@ -181,6 +181,7 @@ download_models() {
 
     build_one_whisper openai/whisper-tiny
     build_one_whisper openai/whisper-base
+    build_one_whisper openai/whisper-small
     build_one_whisper openai/whisper-medium
     build_one_whisper openai/whisper-large-v2
     build_t5
