@@ -77,17 +77,27 @@ WIS has been successfully tested on Windows with WSL (Windows Subsystem for Linu
 | H100     | large-v2 | 5         | 29248                | 1223                | 23x               |
 | GTX 1060 | large-v2 | 5         | 3840                 | 1114                | 3x                |
 | Tesla P4 | large-v2 | 5         | 3840                 | 1099                | 3x                |
+| GTX 1070 | large-v2 | 5         | 3840                 | 742                 | 5x                |
 | RTX 4090 | medium   | 1         | 3840                 | 84                  | 45x               |
 | RTX 3090 | medium   | 1         | 3840                 | 140                 | 27x               |
+| GTX 1070 | medium   | 1         | 3840                 | 424                 | 9x                |
+| GTX 1070 | medium   | 1         | 10688                | 564                 | 18x               |
+| GTX 1070 | medium   | 1         | 29248                | 1118                | 26x               |
 | GTX 1060 | medium   | 1         | 3840                 | 588                 | 6x                |
 | Tesla P4 | medium   | 1         | 3840                 | 586                 | 6x                |
 | RTX 4090 | medium   | 1         | 29248                | 377                 | 77x               |
 | RTX 3090 | medium   | 1         | 29248                | 520                 | 56x               |
 | GTX 1060 | medium   | 1         | 29248                | 1612                | 18x               |
 | Tesla P4 | medium   | 1         | 29248                | 1730                | 16x               |
+| GTX 1070 | base     | 1         | 3840                 | 70                  | 54x               |
+| GTX 1070 | base     | 1         | 10688                | 92                  | 115x              |
+| GTX 1070 | base     | 1         | 29248                | 195                 | 149x              |
 | RTX 4090 | base     | 1         | 180000               | 277                 | 648x (not a typo) |
 | RTX 3090 | base     | 1         | 180000               | 435                 | 414x (not a typo) |
 | RTX 3090 | tiny     | 1         | 180000               | 366                 | 491x (not a typo) |
+| GTX 1070 | tiny     | 1         | 3840                 | 46                  | 82x               |
+| GTX 1070 | tiny     | 1         | 10688                | 64                  | 168x              |
+| GTX 1070 | tiny     | 1         | 29248                | 135                 | 216x              |
 
 As you can see the realtime multiple increases dramatically with longer speech segments. Note that these numbers will also vary slightly depending on broader system configuration - CPU, RAM, etc.
 
