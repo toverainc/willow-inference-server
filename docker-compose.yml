@@ -25,7 +25,7 @@ services:
 
   web:
     restart: unless-stopped
-    image: nginxinc/nginx-unprivileged
+    image: nginx:1.25.0
     volumes:
     - ./nginx:/nginx
     - ./nginx/nginx.conf:/etc/nginx/nginx.conf
