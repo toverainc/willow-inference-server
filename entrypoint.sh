@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Log level - acceptable values are debug, info, warning, error, critical. Suggest info or debug.

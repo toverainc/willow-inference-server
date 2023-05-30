@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 WIS_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd "$WIS_DIR"
@@ -173,7 +173,7 @@ build-docker() {
 shell() {
     docker run --rm -it --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
-        /bin/bash
+        /usr/bin/env bash
 }
 
 download_models() {
