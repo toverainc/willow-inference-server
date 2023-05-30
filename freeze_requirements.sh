@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ ! -f /.dockerenv ]; then
     echo "This script is meant to be run inside the container - exiting"
