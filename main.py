@@ -175,6 +175,9 @@ model_threads = settings.model_threads
 # Support for chunking
 support_chunking = settings.support_chunking
 
+# Support for TTS
+support_tts = settings.support_tts
+
 whisper_model_default = settings.whisper_model_default
 
 tts_default_speaker = settings.tts_default_speaker
@@ -220,6 +223,10 @@ if device == "cuda":
         if cuda_free_memory <= 10000000000:
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling chunking support')
             support_chunking = False
+
+        if cuda_free_memory <= settings.tts_memory_threshold:
+            logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling TTS support')
+            support_tts = False
 
         # Override compute_type if at least one non-Turing card
         if cuda_device_capability <= 70:
@@ -279,10 +286,15 @@ def load_models() -> Models:
         whisper_model_medium = ctranslate2.models.Whisper('models/openai-whisper-medium', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
         whisper_model_large = ctranslate2.models.Whisper('models/openai-whisper-large-v2', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
 
-    logger.info("Loading TTS models...")
-    tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-    tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
-    tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
+    if support_tts:
+        logger.info("Loading TTS models...")
+        tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
+        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
+        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
+    else:
+        tts_processor = None
+        tts_model = None
+        tts_vocoder = None
 
     if os.path.exists(chatbot_model_path) and device == "cuda":
         logger.info(f'CHATBOT: Found model in {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
@@ -523,6 +535,9 @@ def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "tra
 
 def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
+
+    if support_tts is False:
+        return
 
     # Load speaker embedding
     time_initial_start = datetime.datetime.now()
