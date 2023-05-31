@@ -22,11 +22,14 @@ class APISettings(BaseSettings):
     # Default detect language?
     detect_language: bool = False
 
-    # TTS CUDA memory threshold - equivalent of 6GB GPUs
-    tts_memory_threshold: int = 5798205849
+    # TTS CUDA memory threshold - equivalent of 4GB GPUs
+    tts_memory_threshold: int = 3798205849
 
     # Enable chunking support
     support_chunking: bool = True
+
+    # Enable TTS
+    support_tts: bool = True
 
     # The default whisper model to use
     whisper_model_default: str = 'medium'
