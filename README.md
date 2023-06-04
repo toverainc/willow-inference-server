@@ -4,7 +4,7 @@ Watch the [WIS WebRTC Demo](https://www.youtube.com/watch?v=PxCO5eONqSQ)
 
 [Willow](https://github.com/toverainc/willow) Inference Server (WIS) is a focused and highly optimized language inference server implementation. Our goal is to "automagically" enable performant, cost-effective self-hosting of released state of the art/best of breed models to enable speech and language tasks:
 
-- Primarily targeting CUDA with support for low-end (cheap) devices such as the Tesla P4, GTX 1060, and up. Don't worry - it screams on an RTX 4090 too! [(See benchmarks)](#benchmarks)
+- Primarily targeting CUDA with support for low-end (cheap) devices such as the Tesla P4, GTX 1060, and up. Don't worry - it screams on an RTX 4090 too! [(See benchmarks)](#benchmarks). Can also run CPU-only.
 - Memory optimized - all three default Whisper (base, medium, large-v2) models loaded simultaneously with TTS support inside of 6GB VRAM. LLM support defaults to int4 quantization (conversion scripts included). ASR/STT + TTS + Vicuna 13B require roughly 18GB VRAM. Less for 7B, of course!
 - ASR. Heavy emphasis - Whisper optimized for very high quality as-close-to-real-time-as-possible speech recognition via a variety of means (Willow, WebRTC, POST a file, integration with devices and client applications, etc). Results in hundreds of milliseconds or less for most intended speech tasks.
 - TTS. Primarily provided for assistant tasks (like Willow!) and visually impaired users.
