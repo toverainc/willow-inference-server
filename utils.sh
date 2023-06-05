@@ -222,9 +222,16 @@ gunicorn)
     gunicorn_direct
 ;;
 
-start|run)
+start|run|up)
     dep_check
-    docker compose up
+    shift
+    docker compose up "$@"
+;;
+
+stop|down)
+    dep_check
+    shift
+    docker compose down "$@"
 ;;
 
 shell|docker)
