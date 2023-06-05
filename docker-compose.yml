@@ -1,6 +1,8 @@
 services:
   wis:
     restart: unless-stopped
+    depends_on:
+      - nginx
     image: ${IMAGE}:${TAG}
     env_file:
       - .env
@@ -23,7 +25,7 @@ services:
       - ./:/app
     command: ./entrypoint.sh
 
-  web:
+  nginx:
     restart: unless-stopped
     image: nginx:1.25.0
     volumes:
