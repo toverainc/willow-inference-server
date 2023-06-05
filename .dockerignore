@@ -9,3 +9,4 @@ audio
 *.pem
 chatbot
 *.zstd
+nginx
