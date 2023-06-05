@@ -1,8 +1,6 @@
 services:
   wis:
     restart: unless-stopped
-    depends_on:
-      - nginx
     image: ${IMAGE}:${TAG}
     env_file:
       - .env
@@ -27,6 +25,8 @@ services:
 
   nginx:
     restart: unless-stopped
+    depends_on:
+      - wis
     image: nginx:1.25.0
     volumes:
     - ./nginx:/nginx
