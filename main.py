@@ -561,11 +561,14 @@ def do_tts(text, format, speaker = tts_default_speaker):
             output_sentence = []
             for word in sentence.split():
                 if word.isdigit():
-                    output_sentence.append(num2words(word))
+                    word = num2words(word)
+                    word = word.replace("-", " ")
+                    output_sentence.append(word)
                 else:
                     output_sentence.append(word)
             output_string.append(' '.join(output_sentence))
         text = str(output_string)
+        logger.debug(f'TTS: Text after number substitution: {text}')
 
     # Load speaker embedding
     time_initial_start = datetime.datetime.now()
@@ -590,7 +593,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     # Get inputs
     time_start = datetime.datetime.now()
-    inputs = models.tts_processor(text=text, return_tensors="pt").to(device=device)
+    inputs = models.tts_processor(text=text, is_split_into_words=True, return_tensors="pt").to(device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
