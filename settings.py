@@ -25,11 +25,20 @@ class APISettings(BaseSettings):
     # TTS CUDA memory threshold - equivalent of 4GB GPUs
     tts_memory_threshold: int = 3798205849
 
+    # SV CUDA memory threshold - equivalent of 6GB GPUs
+    sv_memory_threshold: int = 5798205849
+
     # Enable chunking support
     support_chunking: bool = True
 
     # Enable TTS
     support_tts: bool = True
+
+    # Enable SV
+    support_sv: bool = True
+
+    # SV threshold
+    sv_threshold: float = 0.90
 
     # The default whisper model to use
     whisper_model_default: str = 'medium'
