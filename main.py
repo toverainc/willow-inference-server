@@ -731,7 +731,7 @@ def do_sv(audio_file, threshold = sv_threshold):
 
     if result:
         result_string = str(result)
-        logger.debug(f'SV: Got known speakers {result_string}')
+        logger.debug(f'SV: Got known speaker(s) {result_string}')
     else:
         logger.debug(f'SV: Unknown speaker')
 
@@ -1008,7 +1008,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response, mode
     return JSONResponse(content=final_response)
 
 @app.post("/api/willow", response_model=ASR, summary="Stream Willow audio for ASR", response_description="ASR engine output")
-async def willow(request: Request, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, save_audio: Optional[bool] = False, stats: Optional[bool] = False):
+async def willow(request: Request, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, save_audio: Optional[bool] = False, stats: Optional[bool] = False, voice_auth: Optional[bool] = False):
     logger.debug(f"FASTAPI: Got WILLOW request for model {model} beam size {beam_size} language detection {detect_language}")
     task = "transcribe"
 
@@ -1064,12 +1064,26 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
         with open(save_filename, 'wb') as f:
             f.write(audio_file.getbuffer())
 
+    # Optionally authenticate voice
+    if voice_auth:
+        sv_results = do_sv(audio_file)
+        if sv_results:
+            logger.debug(f"WILLOW: Authenticated voice")
+            # Seek back to 0 for Whisper later
+            audio_file.seek(0)
+        else:
+            logger.debug(f"WILLOW: Unknown or invalid voice - returning HTTP 401")
+            return PlainTextResponse('Invalid voice', status_code=401)
+
     # Do Whisper
     language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
 
     # Create final response
     if stats:
-        final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
+        if voice_auth:
+            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results, "voice_auth": sv_results}
+        else:
+            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
     else:
         final_response = {"language": language, "text": results}
 
