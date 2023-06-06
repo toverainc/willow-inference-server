@@ -75,6 +75,11 @@ import shutil
 from num2words import num2words
 
 import torch
+
+# SV
+from torchaudio.sox_effects import apply_effects_tensor
+import operator
+
 # Import audio stuff adapted from ref Whisper implementation
 from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 
@@ -179,6 +184,12 @@ support_chunking = settings.support_chunking
 # Support for TTS
 support_tts = settings.support_tts
 
+# Support for SV
+support_sv = settings.support_sv
+
+# Default SV threshold
+sv_threshold = settings.sv_threshold
+
 whisper_model_default = settings.whisper_model_default
 
 tts_default_speaker = settings.tts_default_speaker
@@ -229,6 +240,10 @@ if device == "cuda":
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling TTS support')
             support_tts = False
 
+        if cuda_free_memory <= settings.sv_memory_threshold:
+            logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling SV support')
+            support_sv = False
+
         # Override compute_type if at least one non-Turing card
         if cuda_device_capability <= 70:
             logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Turing, forcing int8')
@@ -255,6 +270,9 @@ class Models(NamedTuple):
     tts_processor: any
     tts_model: any
     tts_vocoder: any
+
+    sv_model: any
+    sv_feature_extractor: any
 
     chatbot_tokenizer: any
     chatbot_model: any
@@ -297,6 +315,14 @@ def load_models() -> Models:
         tts_model = None
         tts_vocoder = None
 
+    if support_sv:
+        logger.info("Loading SV model...")
+        sv_feature_extractor = transformers.AutoFeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
+        sv_model = transformers.AutoModelForAudioXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
+    else:
+        sv_feature_extractor = None
+        sv_model = None
+
     if os.path.exists(chatbot_model_path) and device == "cuda":
         logger.info(f'CHATBOT: Found model in {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
         from transformers import AutoTokenizer, TextGenerationPipeline
@@ -313,7 +339,7 @@ def load_models() -> Models:
         chatbot_model = None
         chatbot_pipeline = None
 
-    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
+    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, sv_feature_extractor, sv_model, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
     return models
 
 def warm_models():
@@ -329,6 +355,8 @@ def warm_models():
             do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
         if models.whisper_model_large is not None:
             do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
+        if models.sv_model is not None:
+            do_sv("client/kk-input.flac")
 
 def do_chatbot(text):
     if models.chatbot_pipeline is not None:
@@ -628,6 +656,87 @@ def do_tts(text, format, speaker = tts_default_speaker):
     logger.debug('TTS: Total time took ' + str(infer_time_milliseconds) + ' ms')
 
     return file
+
+def do_sv(audio_file, threshold = sv_threshold):
+    logger.debug(f'SV: Got request with threshold {threshold}')
+
+    if support_sv is False:
+        return
+
+    # Effects for processing of incoming audio
+    sv_effects = [
+        ["remix", "-"],
+        ["channels", "1"],
+        ["rate", "16000"],
+        ["gain", "-1.0"],
+        ["silence", "1", "0.1", "0.1%", "-1", "0.1", "0.1%"],
+        ["trim", "0", "10"],
+    ]
+
+    # Use cosine simularity for comparison
+    cosine_sim = torch.nn.CosineSimilarity(dim=-1)
+
+    # Load audio from request
+    audio, audio_sr = librosa.load(audio_file, sr=16000, mono=True)
+
+    # Process incoming audio
+    audio_wav, _ = apply_effects_tensor(
+        torch.tensor(audio).unsqueeze(0), audio_sr, sv_effects)
+
+    sv_feature_extractor = transformers.AutoFeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
+    sv_model = transformers.AutoModelForAudioXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
+
+    audio_input = sv_feature_extractor(audio_wav.squeeze(0), return_tensors="pt", sampling_rate=16000).input_values.to(device)
+
+    with torch.no_grad():
+        audio_emb = sv_model(audio_input).embeddings
+    audio_emb = torch.nn.functional.normalize(audio_emb, dim=-1).cpu()
+
+    # Get all defined speakers
+    emb_names = []
+    emb_res = []
+    examples = []
+
+    emb_names.clear
+    emb_res.clear
+    examples.clear
+
+    dir = "./sv_speakers"
+    for f in os.listdir(dir):
+        if (f.endswith(".npy")):
+            name = re.sub(r'(.npy)$', '', f)
+            examples.append(dir+f)
+            file_path = f"{dir}/{name}.npy"
+            if os.path.isfile(file_path):
+                speaker_numpy = file_path
+            emb = np.load(speaker_numpy)
+            emb = torch.tensor(emb).unsqueeze(0).cpu()
+            emb_res.append(emb)
+            emb_names.append(name)
+            logger.debug(f'SV: Loaded speaker {name}')
+
+    result = {}
+    for i in range(0, len(emb_names)):
+        emb1 = emb_res[i]
+        similarity = cosine_sim(emb1, audio_emb).numpy()[0]
+        #result[emb_names[i]] = "{:.3f}".format(similarity)
+        if similarity >= sv_threshold:
+            result[emb_names[i]] = "{:.3f}".format(similarity)
+
+    # Sort result from highest probability
+    result = sorted(result.items(), key=operator.itemgetter(1), reverse=True)
+
+    # Return dict
+    result = dict(result)
+
+    if result:
+        result_string = str(result)
+        logger.debug(f'SV: Got known speakers {result_string}')
+    else:
+        logger.debug(f'SV: Unknown speaker')
+
+    # Return result
+    return result
 
 # Adapted from https://github.com/thingless/t5voice
 def do_speaker_embed(audio_file, speaker_name):
