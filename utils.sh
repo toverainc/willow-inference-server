@@ -75,6 +75,12 @@ t5_model() {
     python -c 'import transformers; vocoder=transformers.SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan"); vocoder.save_pretrained("./models/microsoft-speecht5_hifigan")'
 }
 
+sv_model() {
+    echo "Setting up SV model..."
+    python -c 'import transformers; feature_extractor=transformers.AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus-sv"); feature_extractor.save_pretrained("./models/microsoft-wavlm-base-plus-sv")'
+    python -c 'import transformers; model=transformers.AutoModelForAudioXVector.from_pretrained("microsoft/wavlm-base-plus-sv"); model.save_pretrained("./models/microsoft-wavlm-base-plus-sv")'
+}
+
 build_one_whisper () {
     docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
@@ -85,6 +91,12 @@ build_t5 () {
     docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /app/utils.sh t5-model
+}
+
+build_sv () {
+    docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+        -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
+        /app/utils.sh sv-model
 }
 
 build_chatbot () {
@@ -185,6 +197,7 @@ download_models() {
     build_one_whisper openai/whisper-medium
     build_one_whisper openai/whisper-large-v2
     build_t5
+    build_sv
 
     if [ -d "chatbot/llama" ] || [ -r "chatbot/vicuna.tar.zstd" ]; then
         build_chatbot
@@ -215,6 +228,10 @@ whisper-model)
 
 t5-model)
     t5_model
+;;
+
+sv-model)
+    sv_model
 ;;
 
 gunicorn)
