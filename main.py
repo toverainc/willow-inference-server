@@ -670,16 +670,13 @@ def do_sv(audio_file, threshold = sv_threshold):
     if support_sv is False:
         return
 
+    time_initial_start = datetime.datetime.now()
     # Effects for processing of incoming audio
     sv_effects = [
-        ["remix", "-"],
-        ["channels", "1"],
-        ["rate", "16000"],
-        ["gain", "-1.0"],
-        ["silence", "1", "0.1", "0.1%", "-1", "0.1", "0.1%"],
+        ["norm", "8"],
         ["trim", "0", "10"],
     ]
-
+    # ["silence", "1", "0.1", "0.1%", "-1", "0.1", "0.1%"],
     # Use cosine simularity for comparison
     cosine_sim = torch.nn.CosineSimilarity(dim=-1)
 
@@ -690,7 +687,7 @@ def do_sv(audio_file, threshold = sv_threshold):
     audio_wav, _ = apply_effects_tensor(
         torch.tensor(audio).unsqueeze(0), audio_sr, sv_effects)
 
-    audio_input = sv_feature_extractor(audio_wav.squeeze(0), return_tensors="pt", sampling_rate=16000).input_values.to(device)
+    audio_input = sv_feature_extractor(audio_wav.squeeze(0), return_tensors="pt", sampling_rate=audio_sr).input_values.to(device)
 
     with torch.no_grad():
         audio_emb = sv_model(audio_input).embeddings
@@ -738,6 +735,11 @@ def do_sv(audio_file, threshold = sv_threshold):
         logger.debug(f'SV: Got known speaker(s) {result_string}')
     else:
         logger.debug(f'SV: Unknown speaker')
+
+    time_end = datetime.datetime.now()
+    infer_time = time_end - time_initial_start
+    infer_time_milliseconds = infer_time.total_seconds() * 1000
+    logger.debug('SV: Total time took ' + str(infer_time_milliseconds) + ' ms')
 
     # Return result
     return result
@@ -1075,9 +1077,11 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
             logger.debug(f"WILLOW: Authenticated voice")
             # Seek back to 0 for Whisper later
             audio_file.seek(0)
+            speaker = list(sv_results.keys())[0]
+            speaker_status = (f"I heard {speaker} say:")
         else:
-            logger.debug(f"WILLOW: Unknown or invalid voice - returning HTTP 401")
-            return PlainTextResponse('Invalid voice', status_code=401)
+            logger.debug(f"WILLOW: Unknown or unauthorized voice - returning HTTP 406")
+            return PlainTextResponse('Unauthorized voice', status_code=406)
 
     # Do Whisper
     language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
@@ -1085,7 +1089,7 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
     # Create final response
     if stats:
         if voice_auth:
-            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results, "voice_auth": sv_results}
+            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results, "voice_auth": sv_results, "speaker_status": speaker_status}
         else:
             final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
     else:

@@ -38,7 +38,7 @@ class APISettings(BaseSettings):
     support_sv: bool = True
 
     # SV threshold
-    sv_threshold: float = 0.85
+    sv_threshold: float = 0.75
 
     # The default whisper model to use
     whisper_model_default: str = 'medium'
