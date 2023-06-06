@@ -259,6 +259,13 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
+if support_sv:
+    logger.info("Loading SV models...")
+    sv_feature_extractor = transformers.AutoFeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
+    sv_model = transformers.AutoModelForAudioXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
+
+support_sv_dis = False
+
 class Models(NamedTuple):
     whisper_processor: any
     whisper_model_tiny: any
@@ -315,10 +322,10 @@ def load_models() -> Models:
         tts_model = None
         tts_vocoder = None
 
-    if support_sv:
-        logger.info("Loading SV model...")
-        sv_feature_extractor = transformers.AutoFeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
-        sv_model = transformers.AutoModelForAudioXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
+    if support_sv_dis:
+        logger.info("Loading SV models...")
+        sv_feature_extractor = transformers.Wav2Vec2FeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
+        sv_model = transformers.WavLMForXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
     else:
         sv_feature_extractor = None
         sv_model = None
@@ -355,7 +362,7 @@ def warm_models():
             do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
         if models.whisper_model_large is not None:
             do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
-        if models.sv_model is not None:
+        if sv_model is not None:
             do_sv("client/kk-input.flac")
 
 def do_chatbot(text):
@@ -682,9 +689,6 @@ def do_sv(audio_file, threshold = sv_threshold):
     # Process incoming audio
     audio_wav, _ = apply_effects_tensor(
         torch.tensor(audio).unsqueeze(0), audio_sr, sv_effects)
-
-    sv_feature_extractor = transformers.AutoFeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
-    sv_model = transformers.AutoModelForAudioXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
 
     audio_input = sv_feature_extractor(audio_wav.squeeze(0), return_tensors="pt", sampling_rate=16000).input_values.to(device)
 
