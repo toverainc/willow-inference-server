@@ -26,7 +26,7 @@ LISTEN_PORT_HTTPS=${LISTEN_PORT_HTTPS:-19000}
 LISTEN_PORT=${LISTEN_PORT:-19001}
 
 # Log level - acceptable values are debug, info, warning, error, critical. Suggest info or debug.
-LOG_LEVEL=${LOG_LEVEL:-info}
+LOG_LEVEL=${LOG_LEVEL:-debug}
 
 # Media port range
 # WebRTC dynamically negotiates UDP ports for each session
