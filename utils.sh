@@ -115,7 +115,7 @@ dep_check() {
     fi
 
     # Make sure we have it just in case
-    mkdir -p custom_speakers nginx/cache
+    mkdir -p custom_speakers sv_speakers nginx/cache
 
     # Migrate existing certs
     for i in cert key; do
