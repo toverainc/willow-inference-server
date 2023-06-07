@@ -568,6 +568,18 @@ def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "tra
 
     return language, results, infer_time_milliseconds, translation, infer_speedup, audio_duration
 
+# Handy function for converting numbers to the individual word
+def num_to_word(text):
+    dct={'0':'zero','1':'one','2':'two','3':'three','4':'four',
+        '5':'five','6':'six','7':'seven','8':'eight','9':'nine'}
+    newstr=''
+    for ch in text:
+        if ch.isdigit()==True:
+            dw=dct[ch]
+            newstr=newstr+dw
+        else:
+            newstr=newstr+ch
+    return newstr
 
 # Helper to determine if a word is numeric
 def is_numeric_word(text):
