@@ -362,7 +362,7 @@ def warm_models():
             do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
         if models.whisper_model_large is not None:
             do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
-        if sv_model is not None:
+        if models.sv_model is not None:
             do_sv("client/3sec.flac")
 
 def do_chatbot(text):
