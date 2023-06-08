@@ -35,7 +35,7 @@ class APISettings(BaseSettings):
     support_tts: bool = True
 
     # Enable SV
-    support_sv: bool = True
+    support_sv: bool = False
 
     # SV threshold
     sv_threshold: float = 0.75
