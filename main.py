@@ -519,14 +519,6 @@ def do_tts(text, format, speaker = tts_default_speaker):
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS: Getting inputs took ' + str(infer_time_milliseconds) + ' ms')
-
-    # Generate spectrogram - SLOW
-    time_start = datetime.datetime.now()
-    spectrogram = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding).to(device=device)
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS: Generating spectrogram took ' + str(infer_time_milliseconds) + ' ms')
     
     # Generate audio - SLOW
     time_start = datetime.datetime.now()
