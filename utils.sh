@@ -64,6 +64,30 @@ export QUANT="float16"
 
 set +a
 
+# Container or host?
+# podman sets container var to podman, make docker act like that
+if [ -f /.dockerenv ]; then
+    export container="docker"
+fi
+
+check_container(){
+    if [ "$container" ]; then
+        return
+    fi
+
+    echo "You need to run this command inside of the container - you are on the host"
+    exit 1
+}
+
+check_host(){
+    if [ ! "$container" ]; then
+        return
+    fi
+
+    echo "You need to run this command from the host - you are in the container"
+    exit 1
+}
+
 whisper_model() {
     echo "Setting up Whisper model $1..."
     if [ $1 ]; then
@@ -127,14 +151,6 @@ dep_check() {
     # Make sure we have it just in case
     mkdir -p custom_speakers sv_speakers nginx/cache
 
-    # Migrate existing certs
-    for i in cert key; do
-        PEM="$i".pem
-        if [ -r "$PEM" ]; then
-            mv "$PEM" nginx/
-        fi
-    done
-
     # Check for new certs
     if [ ! -r nginx/cert.pem ] || [ ! -r nginx/key.pem ]; then
         echo "No SSL cert found - you need to run ./utils.sh gen-cert"
@@ -163,6 +179,12 @@ gen_cert() {
         exit 1
     fi
 
+    # Remove old wis certs if present
+    if [ -r cert.pem ] || [ -r key.pem ]; then
+        echo "Removing old WIS certificate - enter password when prompted"
+        sudo rm -f key.pem cert.pem
+    fi
+
     openssl req -x509 -newkey rsa:2048 -keyout nginx/key.pem -out nginx/cert.pem -sha256 -days 3650 \
         -nodes -subj "/CN=$1"
 
@@ -188,7 +210,7 @@ freeze_requirements() {
     sed -i '/auto-gptq/d' requirements.txt
 }
 
-build-docker() {
+build_docker() {
     docker build -t "$IMAGE":"$TAG" .
 }
 
@@ -221,12 +243,13 @@ clean_cache() {
 case $1 in
 
 download-models)
-    rm -rf models
+    sudo rm -rf models
     download_models
 ;;
 
 build-docker|build)
-    build-docker
+    check_host
+    build_docker
 ;;
 
 clean-cache)
@@ -234,10 +257,12 @@ clean-cache)
 ;;
 
 gen-cert)
+    check_host
     gen_cert $2
 ;;
 
 freeze-requirements)
+    check_container
     freeze_requirements
 ;;
 
@@ -255,27 +280,40 @@ sv-model)
 
 gunicorn)
     dep_check
+    check_host
     gunicorn_direct
+;;
+
+install)
+    check_host
+    build_docker
+    download_models
+    clean_cache
+    echo "Install complete - you can now start with ./utils.sh run"
 ;;
 
 start|run|up)
     dep_check
+    check_host
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" up "$@"
 ;;
 
 stop|down)
     dep_check
+    check_host
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" down "$@"
 ;;
 
 shell|docker)
+    check_host
     shell
 ;;
 
 *)
     dep_check
+    check_host
     echo "Passing unknown argument directly to docker compose"
     docker compose -f "$DOCKER_COMPOSE_FILE" "$@"
 ;;
