@@ -214,14 +214,23 @@ download_models() {
     fi
 }
 
+clean_cache() {
+    sudo rm -rf nginx/cache cache/huggingface
+}
+
 case $1 in
 
 download-models)
+    rm -rf models
     download_models
 ;;
 
 build-docker|build)
     build-docker
+;;
+
+clean-cache)
+    clean_cache
 ;;
 
 gen-cert)
