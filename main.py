@@ -1068,6 +1068,7 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
 
     # Optionally authenticate voice
     if voice_auth:
+        stats = True
         sv_results = do_sv(audio_file)
         if sv_results:
             logger.debug(f"WILLOW: Authenticated voice")
