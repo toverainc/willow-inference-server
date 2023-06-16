@@ -259,12 +259,14 @@ else:
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
+# These models refuse to cooperate otherwise
 if support_sv:
     logger.info("Loading SV models...")
-    sv_feature_extractor = transformers.AutoFeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
-    sv_model = transformers.AutoModelForAudioXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
-
-support_sv_dis = False
+    sv_feature_extractor = transformers.Wav2Vec2FeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
+    sv_model = transformers.WavLMForXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device=device)
+else:
+    sv_feature_extractor = None
+    sv_model = None
 
 class Models(NamedTuple):
     whisper_processor: any
@@ -277,9 +279,6 @@ class Models(NamedTuple):
     tts_processor: any
     tts_model: any
     tts_vocoder: any
-
-    sv_model: any
-    sv_feature_extractor: any
 
     chatbot_tokenizer: any
     chatbot_model: any
@@ -322,14 +321,6 @@ def load_models() -> Models:
         tts_model = None
         tts_vocoder = None
 
-    if support_sv_dis:
-        logger.info("Loading SV models...")
-        sv_feature_extractor = transformers.Wav2Vec2FeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
-        sv_model = transformers.WavLMForXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device)
-    else:
-        sv_feature_extractor = None
-        sv_model = None
-
     if os.path.exists(chatbot_model_path) and device == "cuda":
         logger.info(f'CHATBOT: Found model in {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
         from transformers import AutoTokenizer, TextGenerationPipeline
@@ -346,7 +337,7 @@ def load_models() -> Models:
         chatbot_model = None
         chatbot_pipeline = None
 
-    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, sv_feature_extractor, sv_model, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
+    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
     return models
 
 def warm_models():
@@ -667,7 +658,8 @@ def do_tts(text, format, speaker = tts_default_speaker):
 def do_sv(audio_file, threshold = sv_threshold):
     logger.debug(f'SV: Got request with threshold {threshold}')
 
-    if support_sv is False:
+    if sv_model is None:
+        logger.warn(f'SV: Speaker verification support disabled')
         return
 
     time_initial_start = datetime.datetime.now()
