@@ -341,20 +341,24 @@ def load_models() -> Models:
     return models
 
 def warm_models():
-    logger.info("Warming models...")
-    for x in range(3):
-        if models.whisper_model_tiny is not None:
-            do_whisper("client/3sec.flac", "tiny", beam_size, "transcribe", False, "en")
-        if models.whisper_model_base is not None:
-            do_whisper("client/3sec.flac", "base", beam_size, "transcribe", False, "en")
-        if models.whisper_model_small is not None:
-            do_whisper("client/3sec.flac", "small", beam_size, "transcribe", False, "en")
-        if models.whisper_model_medium is not None:
-            do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
-        if models.whisper_model_large is not None:
-            do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
-        if sv_model is not None:
-            do_sv("client/3sec.flac")
+    if device == "cuda":
+        logger.info("Warming models...")
+        for x in range(3):
+            if models.whisper_model_tiny is not None:
+                do_whisper("client/3sec.flac", "tiny", beam_size, "transcribe", False, "en")
+            if models.whisper_model_base is not None:
+                do_whisper("client/3sec.flac", "base", beam_size, "transcribe", False, "en")
+            if models.whisper_model_small is not None:
+                do_whisper("client/3sec.flac", "small", beam_size, "transcribe", False, "en")
+            if models.whisper_model_medium is not None:
+                do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
+            if models.whisper_model_large is not None:
+                do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
+            if sv_model is not None:
+                do_sv("client/3sec.flac")
+    else:
+        logger.info("Skipping warm_models for CPU")
+        return
 
 def do_chatbot(text):
     if models.chatbot_pipeline is not None:

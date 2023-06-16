@@ -39,6 +39,16 @@ LISTEN_IP=${LISTEN_IP:-0.0.0.0}
 # GPUS - WIP for docker compose
 GPUS=${GPUS:-"all"}
 
+# Detect GPU support
+if command -v nvidia-smi &> /dev/null; then
+    DOCKER_GPUS="--gpus $GPUS"
+    DOCKER_COMPOSE_FILE="docker-compose.yml"
+else
+    echo "NVIDIA GPU Support not detected - using CPU"
+    DOCKER_GPUS=""
+    DOCKER_COMPOSE_FILE="docker-compose-cpu.yml"
+fi
+
 # Allow forwarded IPs. This is a list of hosts to allow parsing of X-Forwarded headers from
 FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
 
@@ -82,25 +92,25 @@ sv_model() {
 }
 
 build_one_whisper () {
-    docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /app/utils.sh whisper-model $1
 }
 
 build_t5 () {
-    docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /app/utils.sh t5-model
 }
 
 build_sv () {
-    docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /app/utils.sh sv-model
 }
 
 build_chatbot () {
-    docker run --rm --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /app/chatbot/utils.sh install $CHATBOT_PARAMS
 }
@@ -136,7 +146,7 @@ dep_check() {
 }
 
 gunicorn_direct() {
-    docker run --rm -it --gpus "$GPUS" --shm-size="$SHM_SIZE" --ipc=host \
+    docker run --rm -it $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host \
     --ulimit memlock=-1 --ulimit stack=67108864 \
     -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache  --env-file .env \
     --name "$NAME" \
@@ -183,7 +193,7 @@ build-docker() {
 }
 
 shell() {
-    docker run --rm -it --gpus all --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm -it $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /usr/bin/env bash
 }
@@ -242,13 +252,13 @@ gunicorn)
 start|run|up)
     dep_check
     shift
-    docker compose up "$@"
+    docker compose -f "$DOCKER_COMPOSE_FILE" up "$@"
 ;;
 
 stop|down)
     dep_check
     shift
-    docker compose down "$@"
+    docker compose -f "$DOCKER_COMPOSE_FILE" down "$@"
 ;;
 
 shell|docker)
@@ -258,7 +268,7 @@ shell|docker)
 *)
     dep_check
     echo "Passing unknown argument directly to docker compose"
-    docker compose "$@"
+    docker compose -f "$DOCKER_COMPOSE_FILE" "$@"
 ;;
 
 esac
