@@ -609,7 +609,7 @@ def do_tts(text, format, speaker = tts_default_speaker):
         logger.debug(f'TTS: Loaded included speaker {speaker}')
 
     # Try and potentially override with a custom speaker
-    file_path = f"custom_speakers/{speaker}.npy"
+    file_path = f"speakers/custom_tts/{speaker}.npy"
     if os.path.isfile(file_path):
         speaker_numpy = file_path
         logger.debug(f'TTS: Loaded custom speaker {speaker}')
@@ -698,7 +698,7 @@ def do_sv(audio_file, threshold = sv_threshold):
     emb_res.clear
     examples.clear
 
-    dir = "./sv_speakers"
+    dir = "speakers/voice_auth"
     for f in os.listdir(dir):
         if (f.endswith(".npy")):
             name = re.sub(r'(.npy)$', '', f)
@@ -761,7 +761,7 @@ def do_speaker_embed(audio_file, speaker_name):
         with torch.no_grad():
             embeddings = classifier.encode_batch(audio)
             embeddings = torch.nn.functional.normalize(embeddings, dim=2)
-            save_path = f"custom_speakers/{speaker_name}"
+            save_path = f"speakers/custom_tts/{speaker_name}"
             np.save(save_path, embeddings.squeeze())
             embeddings = embeddings.squeeze().cpu().numpy()
         assert embeddings.shape[0] == size_embed, embeddings.shape[0]
@@ -1162,7 +1162,7 @@ async def speaker_create(request: Request, audio_file: UploadFile, speaker_name:
 @app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker", response_description="Speaker deletion status")
 async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM"):
     logger.debug(f"FASTAPI: Got delete speaker request")
-    os.remove(f'custom_speakers/{speaker_name}.npy')
+    os.remove(f'speakers/custom_tts/{speaker_name}.npy')
     status_text = f"Deleted custom speaker {speaker_name} successfully"
     logger.debug(f"FASTAPI: {status_text}")
 
@@ -1176,7 +1176,7 @@ class SpeakersList(BaseModel):
 async def speaker_delete(request: Request):
     logger.debug(f"FASTAPI: Got list speakers request")
     speakers = []
-    dirs = [ "wis/assets/spkemb", "custom_speakers" ]
+    dirs = [ "wis/assets/spkemb", "speakers/custom_tts" ]
     for dir in dirs:
         logger.debug(f"FASTAPI: Getting speakers for directory {dir}")
         for (root, dirs, file) in os.walk(dir):

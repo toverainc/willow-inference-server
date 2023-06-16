@@ -6,6 +6,6 @@ models
 .env
 audio
 *.pem
-custom_speakers
+speakers
 custom_settings.py
 *.zstd
