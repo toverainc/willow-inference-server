@@ -296,7 +296,7 @@ start|run|up)
     dep_check
     check_host
     shift
-    docker compose -f "$DOCKER_COMPOSE_FILE" up "$@"
+    docker compose -f "$DOCKER_COMPOSE_FILE" up --remove-orphans "$@"
 ;;
 
 stop|down)
