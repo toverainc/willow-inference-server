@@ -149,7 +149,7 @@ dep_check() {
     fi
 
     # Make sure we have it just in case
-    mkdir -p custom_speakers sv_speakers nginx/cache
+    mkdir -p speakers/custom_tts speakers/voice_auth nginx/cache
 
     # Check for new certs
     if [ ! -r nginx/cert.pem ] || [ ! -r nginx/key.pem ]; then
