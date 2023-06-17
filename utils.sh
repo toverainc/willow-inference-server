@@ -49,6 +49,13 @@ else
     DOCKER_COMPOSE_FILE="docker-compose-cpu.yml"
 fi
 
+# Clean this up
+if [ "$FORCE_CPU" ]; then
+    echo "Forcing CPU per configuration"
+    DOCKER_GPUS=""
+    DOCKER_COMPOSE_FILE="docker-compose-cpu.yml"
+fi
+
 # Allow forwarded IPs. This is a list of hosts to allow parsing of X-Forwarded headers from
 FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
 
