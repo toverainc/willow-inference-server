@@ -254,7 +254,7 @@ if device == "cuda":
 else:
     num_cpu_cores = os.cpu_count()
     compute_type = "int8"
-    # Just kind of made these numbers up - needs testing
+    # Tested to generally perform best on CPU
     intra_threads = num_cpu_cores // 2
     model_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
