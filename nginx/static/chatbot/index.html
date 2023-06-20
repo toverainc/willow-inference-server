@@ -12,22 +12,6 @@
             <p><button>Send</button></p>
         </form>
         <textarea id="messages" style="margin: 0px; height: 600px; width: 600px"></textarea>
-        <script>
-            var messagesLog = document.getElementById('messages')
-            var wsURL = `wss://${window.location.hostname}/api/ws/chatbot`
-            var ws = new WebSocket(wsURL);
-            console.log(`Using websocket url ${wsURL}`)
-            ws.onmessage = function(event) {
-                messagesLog.textContent += 'Chatbot says: \n'
-                messagesLog.textContent += event.data + '\n' + '\n'
-            };
-            function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                messagesLog.textContent = 'Asking chatbot: ' + input.value + '\n' + 'Please wait...' + '\n' + '\n'
-                ws.send(input.value)
-                input.value = ''
-                event.preventDefault()
-            }
-        </script>
+        <script src="chatbot.js"></script>
     </body>
 </html>

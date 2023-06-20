@@ -54,11 +54,29 @@ class APISettings(BaseSettings):
     basic_auth_user: str = None
     basic_auth_pass: str = None
 
+    # Support chatbot
+    support_chatbot: bool = False
+
     # Path to chatbot model
-    chatbot_model_path: str = 'models/vicuna'
+    chatbot_model_path: str = 'TheBloke/vicuna-13b-v1.3-GPTQ'
+
+    # Chatbot model basename
+    chatbot_model_basename: str = 'vicuna-13b-v1.3-GPTQ-4bit-128g.no-act.order'
+
+    # Chatbot device
+    chatbot_device: str = 'cuda:0'
+
+    # Chatbot temperature
+    chatbot_temperature: float = 0.7
+
+    # Chatbot top_p
+    chatbot_top_p: float = 0.95
+
+    # Chatbot model repetition penalty
+    chatbot_repetition_penalty: float = 1.15
 
     # Chatbot model max length
-    chatbot_max_length: int = 5000
+    chatbot_max_new_tokens: int = 512
 
     # airotc debug for connectivity and other WebRTC debugging
     aiortc_debug: bool = False

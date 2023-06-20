@@ -187,6 +187,9 @@ support_tts = settings.support_tts
 # Support for SV
 support_sv = settings.support_sv
 
+# Support chatbot
+support_chatbot = settings.support_chatbot
+
 # Default SV threshold
 sv_threshold = settings.sv_threshold
 
@@ -200,9 +203,26 @@ language = settings.language
 # Default detect language?
 detect_language = settings.detect_language
 
-# Vicuna/chatbot model path and max length
+# Path to chatbot model
 chatbot_model_path = settings.chatbot_model_path
-chatbot_max_length = settings.chatbot_max_length
+
+# Chatbot model basename
+chatbot_model_basename = settings.chatbot_model_basename
+
+# Chatbot device
+chatbot_device = settings.chatbot_device
+
+# Chatbot temperature
+chatbot_temperature = settings.chatbot_temperature
+
+# Chatbot top_p
+chatbot_top_p = settings.chatbot_top_p
+
+# Chatbot model repetition penalty
+chatbot_repetition_penalty = settings.chatbot_repetition_penalty
+
+# Chatbot model max length
+chatbot_max_new_tokens = settings.chatbot_max_new_tokens
 
 # Try CUDA
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -321,17 +341,30 @@ def load_models() -> Models:
         tts_model = None
         tts_vocoder = None
 
-    if os.path.exists(chatbot_model_path) and device == "cuda":
-        logger.info(f'CHATBOT: Found model in {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
-        from transformers import AutoTokenizer, TextGenerationPipeline
+    if support_chatbot and device == "cuda":
+        logger.info(f'CHATBOT: Using model {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
+        from transformers import AutoTokenizer, pipeline
         from auto_gptq import AutoGPTQForCausalLM
 
-        chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True, return_token_type_ids=False)
+        chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True)
 
         # load quantized model, currently only support single gpu
-        chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path, device="cuda:0", use_safetensors=True, use_triton=True)
+        chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path,
+            model_basename=chatbot_model_basename,
+            use_safetensors=True,
+            trust_remote_code=False,
+            device=chatbot_device,
+            use_triton=True,
+            quantize_config=None)
 
-        chatbot_pipeline = TextGenerationPipeline(model=chatbot_model, tokenizer=chatbot_tokenizer, device="cuda:0", max_length=chatbot_max_length)
+        chatbot_pipeline = pipeline(
+            "text-generation",
+            model=chatbot_model,
+            tokenizer=chatbot_tokenizer,
+            max_new_tokens=chatbot_max_new_tokens,
+            temperature=chatbot_temperature,
+            top_p=chatbot_top_p,
+            repetition_penalty=chatbot_repetition_penalty)
     else:
         chatbot_tokenizer = None
         chatbot_model = None
@@ -356,6 +389,10 @@ def warm_models():
                 do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
             if sv_model is not None:
                 do_sv("client/3sec.flac")
+        # Warm chatbot once
+        if models.chatbot_pipeline is not None:
+            logger.info("Warming chatbot... This takes a while on first run.")
+            do_chatbot("Tell me about AI")
     else:
         logger.info("Skipping warm_models for CPU")
         return
@@ -363,14 +400,17 @@ def warm_models():
 def do_chatbot(text):
     if models.chatbot_pipeline is not None:
         first_time_start = datetime.datetime.now()
-        logger.debug(f'CHATBOT: Question is: {text}')
-        output = models.chatbot_pipeline(text)[0]["generated_text"]
+        logger.debug(f'CHATBOT: Input is: {text}')
+        prompt=f'''USER: {text}
+ASSISTANT:'''
+
+        output = models.chatbot_pipeline(prompt)[0]["generated_text"]
 
         # Split so we don't return anything other than response
         try:
-            output = output.split("### Assistant: ")[1]
+            output = output.split("ASSISTANT: ")[1]
         except:
-            logger.debug(f'CHATBOT: Response did not have assistant format')
+           logger.warning(f'CHATBOT: Response did not have assistant format')
 
         time_end = datetime.datetime.now()
         infer_time = time_end - first_time_start
