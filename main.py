@@ -1137,97 +1137,99 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
 
     return JSONResponse(content=final_response)
 
-@app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-async def chatbot(text: str):
-    logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
-    # Do Chatbot
-    response = do_chatbot(text)
-    logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
-    final_response = {"response": response}
-    return JSONResponse(content=final_response)
+if support_chatbot:
+    @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
+    async def chatbot(text: str):
+        logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
+        # Do Chatbot
+        response = do_chatbot(text)
+        logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
+        final_response = {"response": response}
+        return JSONResponse(content=final_response)
 
-@app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
-async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
-    logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
-    # Do Chatbot
-    chatbot = do_chatbot(text)
-    logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
-    # Do TTS
-    response = do_tts(chatbot, 'FLAC', speaker)
-    return StreamingResponse(response, media_type="audio/flac")
+    @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
+    async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
+        logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
+        # Do Chatbot
+        chatbot = do_chatbot(text)
+        logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
+        # Do TTS
+        response = do_tts(chatbot, 'FLAC', speaker)
+        return StreamingResponse(response, media_type="audio/flac")
 
-@app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
-async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
-    logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} and text: {text}")
-    # Do TTS
-    response = do_tts(text, 'FLAC', speaker)
-    return StreamingResponse(response, media_type="audio/flac")
+if support_tts:
+    @app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
+    async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
+        logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} and text: {text}")
+        # Do TTS
+        response = do_tts(text, 'FLAC', speaker)
+        return StreamingResponse(response, media_type="audio/flac")
 
-@app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
-async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
-    logger.debug(f"FASTAPI: Got STS request for model {model} beam size {beam_size} language detection {detect_language}")
-    task = "transcribe"
+    @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
+    async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
+        logger.debug(f"FASTAPI: Got STS request for model {model} beam size {beam_size} language detection {detect_language}")
+        task = "transcribe"
 
-    if force_language:
-        if not check_language(force_language):
-            logger.debug(f"FASTAPI: Invalid force_language in request - returning HTTP 400")
-            response = {"error": "Invalid force_language"}
-            return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
+        if force_language:
+            if not check_language(force_language):
+                logger.debug(f"FASTAPI: Invalid force_language in request - returning HTTP 400")
+                response = {"error": "Invalid force_language"}
+                return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
-    # Setup access to file
-    audio_file = io.BytesIO(await audio_file.read())
-    # Do Whisper
-    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
+        # Setup access to file
+        audio_file = io.BytesIO(await audio_file.read())
+        # Do Whisper
+        language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
 
-    # Do TTS
-    response = do_tts(results, 'FLAC', speaker)
-    return StreamingResponse(response, media_type="audio/flac")
+        # Do TTS
+        response = do_tts(results, 'FLAC', speaker)
+        return StreamingResponse(response, media_type="audio/flac")
 
-class Speaker(BaseModel):
-    message: str
+    class Speaker(BaseModel):
+        message: str
 
-@app.post("/api/speaker", response_model=Speaker, summary="Add custom speaker", response_description="Speaker creation status")
-async def speaker_create(request: Request, audio_file: UploadFile, speaker_name: Optional[str] = "CUSTOM"):
-    logger.debug(f"FASTAPI: Got new speaker request")
-    # Setup access to file
-    audio_file = io.BytesIO(await audio_file.read())
-    # Do embed but don't do anything with the output other than save in do_speaker_embed
-    embedding, save_path = do_speaker_embed(audio_file, speaker_name)
-    status_text = f"Created custom speaker successfully - you can now use the {speaker_name} speaker for TTS"
-    logger.debug(f"FASTAPI: {status_text}")
+    @app.post("/api/speaker", response_model=Speaker, summary="Add custom speaker", response_description="Speaker creation status")
+    async def speaker_create(request: Request, audio_file: UploadFile, speaker_name: Optional[str] = "CUSTOM"):
+        logger.debug(f"FASTAPI: Got new speaker request")
+        # Setup access to file
+        audio_file = io.BytesIO(await audio_file.read())
+        # Do embed but don't do anything with the output other than save in do_speaker_embed
+        embedding, save_path = do_speaker_embed(audio_file, speaker_name)
+        status_text = f"Created custom speaker successfully - you can now use the {speaker_name} speaker for TTS"
+        logger.debug(f"FASTAPI: {status_text}")
 
-    response = {"message": status_text}
-    return JSONResponse(content=response)
+        response = {"message": status_text}
+        return JSONResponse(content=response)
 
-@app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker", response_description="Speaker deletion status")
-async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM"):
-    logger.debug(f"FASTAPI: Got delete speaker request")
-    os.remove(f'speakers/custom_tts/{speaker_name}.npy')
-    status_text = f"Deleted custom speaker {speaker_name} successfully"
-    logger.debug(f"FASTAPI: {status_text}")
+    @app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker", response_description="Speaker deletion status")
+    async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM"):
+        logger.debug(f"FASTAPI: Got delete speaker request")
+        os.remove(f'speakers/custom_tts/{speaker_name}.npy')
+        status_text = f"Deleted custom speaker {speaker_name} successfully"
+        logger.debug(f"FASTAPI: {status_text}")
 
-    response = {"message": status_text}
-    return JSONResponse(content=response)
+        response = {"message": status_text}
+        return JSONResponse(content=response)
 
-class SpeakersList(BaseModel):
-    speakers: list
+    class SpeakersList(BaseModel):
+        speakers: list
 
-@app.get("/api/speaker", response_model=SpeakersList, summary="Show supported speakers", response_description="Speakers list")
-async def speaker_delete(request: Request):
-    logger.debug(f"FASTAPI: Got list speakers request")
-    speakers = []
-    dirs = [ "wis/assets/spkemb", "speakers/custom_tts" ]
-    for dir in dirs:
-        logger.debug(f"FASTAPI: Getting speakers for directory {dir}")
-        for (root, dirs, file) in os.walk(dir):
-            for f in file:
-                if '.npy' in f:
-                    name = f.replace(".npy", "")
-                    logger.debug(f"FASTAPI: Getting speakers found speaker {name}")
-                    speakers.append(name)
+    @app.get("/api/speaker", response_model=SpeakersList, summary="Show supported speakers", response_description="Speakers list")
+    async def speaker_delete(request: Request):
+        logger.debug(f"FASTAPI: Got list speakers request")
+        speakers = []
+        dirs = [ "wis/assets/spkemb", "speakers/custom_tts" ]
+        for dir in dirs:
+            logger.debug(f"FASTAPI: Getting speakers for directory {dir}")
+            for (root, dirs, file) in os.walk(dir):
+                for f in file:
+                    if '.npy' in f:
+                        name = f.replace(".npy", "")
+                        logger.debug(f"FASTAPI: Getting speakers found speaker {name}")
+                        speakers.append(name)
 
-    response = {"speakers": speakers}
-    return JSONResponse(content=response)
+        response = {"speakers": speakers}
+        return JSONResponse(content=response)
 
 class ConnectionManager:
     def __init__(self):
@@ -1241,15 +1243,15 @@ class ConnectionManager:
         self.active_connections.remove(websocket)
 
 manager = ConnectionManager()
-
-@app.websocket("/api/ws/chatbot")
-async def websocket_chatbot(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            text = await websocket.receive_text()
-            #await websocket.send_text(f'Asking chatbot {text}')
-            output = do_chatbot(text)
-            await websocket.send_text(output)
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+if support_chatbot:
+    @app.websocket("/api/ws/chatbot")
+    async def websocket_chatbot(websocket: WebSocket):
+        await manager.connect(websocket)
+        try:
+            while True:
+                text = await websocket.receive_text()
+                #await websocket.send_text(f'Asking chatbot {text}')
+                output = do_chatbot(text)
+                await websocket.send_text(output)
+        except WebSocketDisconnect:
+            manager.disconnect(websocket)
