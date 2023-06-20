@@ -21,7 +21,8 @@ Note that we are primarily targeting CUDA - the performance, cost, and power usa
 
 ## Getting started
 
-For CUDA support you will need to have the NVIDIA drivers for your supported hardware installed.
+### Dependencies (run once for initial install)
+For CUDA support you will need to have the NVIDIA drivers for your supported hardware. We recommend Nvidia driver version 530.
 
 ```bash
 # Clone this repo:
@@ -33,18 +34,16 @@ yay -S libnvidia-container-tools libnvidia-container nvidia-container-toolkit do
 
 # Ubuntu:
 ./deps/ubuntu.sh
-
-# Build docker container
-./utils.sh build-docker
-
-# Download and quantize models
-./utils.sh download-models
+```
+### Install, configure, and start WIS
+```
+# Install
+./utils.sh install
 
 # Generate self-signed TLS cert (or place a "real" one at nginx/key.pem and nginx/cert.pem)
-# Let's Encrypt/Certbot/ACME coming soon
 ./utils.sh gen-cert [your hostname]
 
-# Run
+# Start WIS
 ./utils.sh run
 ```
 
