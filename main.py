@@ -397,7 +397,7 @@ def do_chatbot(text, max_new_tokens = chatbot_max_new_tokens, temperature = chat
         logger.debug(f'CHATBOT: Input is: {text}')
         prompt=f'''USER: {text}
 ASSISTANT:'''
-
+        logger.debug(f'CHATBOT: Pipeline parameters are max_new_tokens {max_new_tokens} temperature {temperature} top_p {top_p} repetition_penalty {repetition_penalty}')
         chatbot_pipeline = transformers.pipeline(
             "text-generation",
             model=models.chatbot_model,
@@ -1143,19 +1143,19 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
 
 if support_chatbot:
     @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str):
+    async def chatbot(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens, temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p, repetition_penalty: Optional[float] = chatbot_repetition_penalty):
         logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
         # Do Chatbot
-        response = do_chatbot(text)
+        response = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
         logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
         final_response = {"response": response}
         return JSONResponse(content=final_response)
 
     @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
-    async def chatbot(text: str, speaker: Optional[str] = tts_default_speaker):
+    async def chatbot(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens, temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p, repetition_penalty: Optional[float] = chatbot_repetition_penalty, speaker: Optional[str] = tts_default_speaker):
         logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
         # Do Chatbot
-        chatbot = do_chatbot(text)
+        chatbot = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
         logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
         # Do TTS
         response = do_tts(chatbot, 'FLAC', speaker)

@@ -57,7 +57,7 @@ class APISettings(BaseSettings):
     # Support chatbot
     support_chatbot: bool = False
 
-    # Path to chatbot model
+    # Path to chatbot model - download from HuggingFace at runtime by default (gets cached)
     chatbot_model_path: str = 'TheBloke/vicuna-13b-v1.3-GPTQ'
 
     # Chatbot model basename
@@ -66,16 +66,16 @@ class APISettings(BaseSettings):
     # Chatbot device
     chatbot_device: str = 'cuda:0'
 
-    # Chatbot temperature
+    # Chatbot pipeline default temperature
     chatbot_temperature: float = 0.7
 
-    # Chatbot top_p
+    # Chatbot pipeline default top_p
     chatbot_top_p: float = 0.95
 
-    # Chatbot model repetition penalty
+    # Chatbot pipeline default repetition penalty
     chatbot_repetition_penalty: float = 1.15
 
-    # Chatbot model max length
+    # Chatbot pipeline default max new tokens
     chatbot_max_new_tokens: int = 512
 
     # airotc debug for connectivity and other WebRTC debugging
