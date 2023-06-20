@@ -302,7 +302,6 @@ class Models(NamedTuple):
 
     chatbot_tokenizer: any
     chatbot_model: any
-    chatbot_pipeline: any
 
 models:Models = None
 
@@ -343,7 +342,7 @@ def load_models() -> Models:
 
     if support_chatbot and device == "cuda":
         logger.info(f'CHATBOT: Using model {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
-        from transformers import AutoTokenizer, pipeline
+        from transformers import AutoTokenizer
         from auto_gptq import AutoGPTQForCausalLM
 
         chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True)
@@ -357,20 +356,11 @@ def load_models() -> Models:
             use_triton=True,
             quantize_config=None)
 
-        chatbot_pipeline = pipeline(
-            "text-generation",
-            model=chatbot_model,
-            tokenizer=chatbot_tokenizer,
-            max_new_tokens=chatbot_max_new_tokens,
-            temperature=chatbot_temperature,
-            top_p=chatbot_top_p,
-            repetition_penalty=chatbot_repetition_penalty)
     else:
         chatbot_tokenizer = None
         chatbot_model = None
-        chatbot_pipeline = None
 
-    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model, chatbot_pipeline)
+    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model)
     return models
 
 def warm_models():
@@ -390,21 +380,30 @@ def warm_models():
             if sv_model is not None:
                 do_sv("client/3sec.flac")
         # Warm chatbot once
-        if models.chatbot_pipeline is not None:
+        if models.chatbot_model is not None:
             logger.info("Warming chatbot... This takes a while on first run.")
             do_chatbot("Tell me about AI")
     else:
         logger.info("Skipping warm_models for CPU")
         return
 
-def do_chatbot(text):
-    if models.chatbot_pipeline is not None:
+def do_chatbot(text, max_new_tokens = chatbot_max_new_tokens, temperature = chatbot_temperature, top_p = chatbot_top_p, repetition_penalty = chatbot_repetition_penalty):
+    if models.chatbot_model is not None:
         first_time_start = datetime.datetime.now()
         logger.debug(f'CHATBOT: Input is: {text}')
         prompt=f'''USER: {text}
 ASSISTANT:'''
 
-        output = models.chatbot_pipeline(prompt)[0]["generated_text"]
+        chatbot_pipeline = transformers.pipeline(
+            "text-generation",
+            model=models.chatbot_model,
+            tokenizer=models.chatbot_tokenizer,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty)
+
+        output = chatbot_pipeline(prompt)[0]["generated_text"]
 
         # Split so we don't return anything other than response
         try:
