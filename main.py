@@ -264,8 +264,12 @@ if device == "cuda":
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling SV support')
             support_sv = False
 
-        # Override compute_type if at least one non-Turing card
-        if cuda_device_capability <= 70:
+        # Override compute_type if at least one non-Turing card and override+warn on pre-pascal devices
+        if cuda_device_capability in range(1, 59):
+            logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Pascal, forcing float32')
+            logger.warning(f'CUDA: SUPPORT FOR PRE-PASCAL DEVICES IS UNSUPPORTED AND WILL BE REMOVED IN THE FUTURE')
+            compute_type = "float32"
+        elif cuda_device_capability < 70:
             logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Turing, forcing int8')
             compute_type = "int8"
 
