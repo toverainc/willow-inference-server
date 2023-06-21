@@ -231,7 +231,7 @@ if device == "cuda":
     cuda_num_devices = torch.cuda.device_count()
     logger.info(f'CUDA: Detected {cuda_num_devices} device(s)')
 
-    # Assume Turing or higher
+    # Assume Volta or higher
     compute_type = "int8_float16"
 
     for cuda_dev_num in range(0, cuda_num_devices, 1):
@@ -264,14 +264,23 @@ if device == "cuda":
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling SV support')
             support_sv = False
 
-        # Override compute_type if at least one non-Turing card and override+warn on pre-pascal devices
+        # Override compute_type if at least one non-Volta card and override+warn on pre-pascal devices
         if cuda_device_capability in range(1, 59):
             logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Pascal, forcing float32')
             logger.warning(f'CUDA: SUPPORT FOR PRE-PASCAL DEVICES IS UNSUPPORTED AND WILL BE REMOVED IN THE FUTURE')
             compute_type = "float32"
         elif cuda_device_capability < 70:
-            logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Turing, forcing int8')
+            logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Volta, forcing int8')
             compute_type = "int8"
+
+        # Disable chatbot pre-Volta or low VRAM
+        if cuda_device_capability < 70 and support_chatbot:
+            logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Volta, disabling chatbot')
+            support_chatbot = False
+
+        if cuda_free_memory <= 12000000000 and support_chatbot:
+            logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling chatbot support')
+            support_chatbot = False
 
     # Set ctranslate device index based on number of supported devices
     device_index = [*range(0, cuda_num_devices, 1)]
