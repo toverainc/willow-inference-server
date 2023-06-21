@@ -97,6 +97,11 @@ WIS has been successfully tested on Windows with WSL (Windows Subsystem for Linu
 | GTX 1070 | tiny     | 1         | 3840                 | 46                  | 82x               |
 | GTX 1070 | tiny     | 1         | 10688                | 64                  | 168x              |
 | GTX 1070 | tiny     | 1         | 29248                | 135                 | 216x              |
+| Threadripper PRO 5955WX | tiny     | 1         | 3840                | 140                 | 27x              |
+| Threadripper PRO 5955WX | base     | 1         | 3840                | 245                 | 15x              |
+| Threadripper PRO 5955WX | small     | 1         | 3840                | 641                 | 5x              |
+| Threadripper PRO 5955WX | medium     | 1         | 3840                | 1614                 | 2x              |
+| Threadripper PRO 5955WX | large     | 1         | 3840                | 3344                 | 1x              |
 
 As you can see the realtime multiple increases dramatically with longer speech segments. Note that these numbers will also vary slightly depending on broader system configuration - CPU, RAM, etc.
 
