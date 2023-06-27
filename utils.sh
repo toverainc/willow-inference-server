@@ -99,17 +99,14 @@ check_host(){
 }
 
 whisper_model() {
-    echo "Setting up Whisper model $1..."
-    if [ $1 ]; then
-        MODEL="$1"
-    else
-        MODEL="openai/whisper-tiny"
-    fi
-
+    echo "Setting up WIS model $1..."
+    MODEL="$1"
     MODEL_OUT=`echo $MODEL | sed -e 's,/,-,g'`
 
-    ct2-transformers-converter --force --model "$MODEL" --quantization "$QUANT" --output_dir models/"$MODEL_OUT"
-    python -c 'import transformers; processor=transformers.WhisperProcessor.from_pretrained("'$MODEL'"); processor.save_pretrained("./models/'$MODEL_OUT'")'
+    #ct2-transformers-converter --force --model "$MODEL" --quantization "$QUANT" --output_dir models/"$MODEL_OUT"
+    #python -c 'import transformers; processor=transformers.WhisperProcessor.from_pretrained("'$MODEL'"); processor.save_pretrained("./models/'$MODEL_OUT'")'
+    git clone https://huggingface.co/"$MODEL" models/"$MODEL_OUT"
+    rm -rf "$MODEL_OUT"/.git
 }
 
 t5_model() {
@@ -233,11 +230,11 @@ shell() {
 download_models() {
         CHATBOT_PARAMS=${CHATBOT_PARAMS:-13B}
 
-    build_one_whisper openai/whisper-tiny
-    build_one_whisper openai/whisper-base
-    build_one_whisper openai/whisper-small
-    build_one_whisper openai/whisper-medium
-    build_one_whisper openai/whisper-large-v2
+    build_one_whisper tovera/wis-whisper-tiny
+    build_one_whisper tovera/wis-whisper-base
+    build_one_whisper tovera/wis-whisper-small
+    build_one_whisper tovera/wis-whisper-medium
+    build_one_whisper tovera/wis-whisper-large-v2
     build_t5
     build_sv
 
