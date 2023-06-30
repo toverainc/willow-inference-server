@@ -1,10 +1,12 @@
 from transformers import AutoTokenizer
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 
+
 def main(src, dest, bits=4, group_size=128):
     tokenizer = AutoTokenizer.from_pretrained(src, use_fast=True)
     example = tokenizer(
-        "auto_gptq is a useful tool that can automatically compress model into 4-bit or even higher rate by using GPTQ algorithm.",
+        'auto_gptq is a useful tool that can automatically compress model into 4-bit'
+        'or even higher rate by using GPTQ algorithm.',
         return_tensors="pt", return_token_type_ids=False
     )
 
@@ -23,6 +25,7 @@ def main(src, dest, bits=4, group_size=128):
     # save quantized model using safetensors
     model.save_quantized(dest, use_safetensors=True)
     tokenizer.save_pretrained(dest)
+
 
 if __name__ == "__main__":
     import logging

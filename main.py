@@ -1,25 +1,11 @@
 # Profiling
-import cProfile as profile
-import pstats
+# import cProfile as profile
+# import pstats
 # Logging
 import os
 import logging
-logger = logging.getLogger("infer")
-gunicorn_logger = logging.getLogger('gunicorn.error')
-logger.handlers = gunicorn_logger.handlers
-logger.setLevel(gunicorn_logger.level)
-try:
-    from custom_settings import get_api_settings
-    settings = get_api_settings()
-    logger.info(f"{settings.name} is starting with custom settings... Please wait.")
-except:
-    from settings import get_api_settings
-    settings = get_api_settings()
-    logger.info(f"{settings.name} is starting... Please wait.")
-
 # FastAPI preprocessor
 from fastapi import FastAPI, UploadFile, Request, Response, status, WebSocket, WebSocketDisconnect
-from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,7 +21,6 @@ import json
 import datetime
 import numpy as np
 import warnings
-warnings.simplefilter(action='ignore')
 import io
 import re
 import math
@@ -44,32 +29,22 @@ from typing import NamedTuple
 
 # WebRTC
 import asyncio
-#import uvloop
-#asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-import uuid
 
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
 from aiortc.rtp import RtcpByePacket
 from wis.media import MediaRecorderLite
 
-pcs = set()
 
 # Whisper
 import ctranslate2
 import librosa
 import transformers
-import datetime
 import wis.languages
-
-# Whisper supported languages
-whisper_languages = wis.languages.LANGUAGES
 
 # TTS
 import soundfile as sf
 from speechbrain.pretrained import EncoderClassifier
 import torchaudio
-# Use soundfile so we can support WAV, FLAC, etc
-torchaudio.set_audio_backend('soundfile')
 import tempfile
 import shutil
 from num2words import num2words
@@ -87,6 +62,32 @@ from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest
 import wave
 import av
 
+
+logger = logging.getLogger("infer")
+gunicorn_logger = logging.getLogger('gunicorn.error')
+logger.handlers = gunicorn_logger.handlers
+logger.setLevel(gunicorn_logger.level)
+
+try:
+    from custom_settings import get_api_settings
+    settings = get_api_settings()
+    logger.info(f"{settings.name} is starting with custom settings... Please wait.")
+except Exception:
+    from settings import get_api_settings
+    settings = get_api_settings()
+    logger.info(f"{settings.name} is starting... Please wait.")
+
+warnings.simplefilter(action='ignore')
+
+pcs = set()
+
+# Whisper supported languages
+whisper_languages = wis.languages.LANGUAGES
+
+# Use soundfile so we can support WAV, FLAC, etc
+torchaudio.set_audio_backend('soundfile')
+
+
 # Function to create a wav file from stream data
 def write_stream_wav(data, rate, bits, ch):
     file = io.BytesIO()
@@ -96,6 +97,7 @@ def write_stream_wav(data, rate, bits, ch):
     wavfile.close()
     file.seek(0)
     return file
+
 
 def audio_to_wav(file, rate: 16000):
     """Arbitrary media files to wav"""
@@ -115,10 +117,13 @@ def audio_to_wav(file, rate: 16000):
     wav.seek(0)
     return wav
 
+
 # Monkey patch aiortc
 # sender.replaceTrack(null) sends a RtcpByePacket which we want to ignore
 # in this case and keep connection open. XXX: Are there other cases we want to close?
 old_handle_rtcp_packet = RTCRtpReceiver._handle_rtcp_packet
+
+
 async def new_handle_rtcp_packet(self, packet):
     if isinstance(packet, RtcpByePacket):
         return
@@ -127,9 +132,11 @@ RTCRtpReceiver._handle_rtcp_packet = new_handle_rtcp_packet
 
 if settings.aiortc_debug:
     logger.debug('AIORTC: Debugging active')
-    logging.basicConfig(level=logging.DEBUG) #very useful debugging aiortc issues
+    logging.basicConfig(level=logging.DEBUG)  # very useful debugging aiortc issues
 
-local_ports = list(range(10000, 10000+50)) # Allowed ephemeral port range
+local_ports = list(range(10000, 10000+50))  # Allowed ephemeral port range
+
+
 def patch_loop_datagram():
     loop = asyncio.get_event_loop()
     if getattr(loop, '_patch_done', False):
@@ -137,16 +144,14 @@ def patch_loop_datagram():
 
     # Monkey patch aiortc to control ephemeral ports
     old_create_datagram_endpoint = loop.create_datagram_endpoint
-    async def create_datagram_endpoint(self, protocol_factory,
-        local_addr: Tuple[str, int] = None,
-        **kwargs,
-    ):
-        #if port is specified just use it
+
+    async def create_datagram_endpoint(self, protocol_factory, local_addr: Tuple[str, int] = None, **kwargs):
+        # if port is specified just use it
         if local_addr and local_addr[1]:
             return await old_create_datagram_endpoint(protocol_factory, local_addr=local_addr, **kwargs)
         if local_addr is None:
             return await old_create_datagram_endpoint(protocol_factory, local_addr=None, **kwargs)
-        #if port is not specified make it use our range
+        # if port is not specified make it use our range
         ports = list(local_ports)
         random.shuffle(ports)
         for port in ports:
@@ -163,9 +168,11 @@ def patch_loop_datagram():
         raise ValueError("local_ports must not be empty")
     loop.create_datagram_endpoint = types.MethodType(create_datagram_endpoint, loop)
     loop._patch_done = True
+
+
 patch_loop_datagram()  # not really needed here...
 
-#XXX: rm these globals and use settings directly
+# XXX: rm these globals and use settings directly
 
 # default beam_size - 5 is lib default, 1 for greedy
 beam_size = settings.beam_size
@@ -267,7 +274,7 @@ if device == "cuda":
         # Override compute_type if at least one non-Volta card and override+warn on pre-pascal devices
         if cuda_device_capability in range(1, 59):
             logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Pascal, forcing float32')
-            logger.warning(f'CUDA: SUPPORT FOR PRE-PASCAL DEVICES IS UNSUPPORTED AND WILL BE REMOVED IN THE FUTURE')
+            logger.warning('CUDA: SUPPORT FOR PRE-PASCAL DEVICES IS UNSUPPORTED AND WILL BE REMOVED IN THE FUTURE')
             compute_type = "float32"
         elif cuda_device_capability < 70:
             logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Volta, forcing int8')
@@ -295,11 +302,13 @@ else:
 # These models refuse to cooperate otherwise
 if support_sv:
     logger.info("Loading SV models...")
-    sv_feature_extractor = transformers.Wav2Vec2FeatureExtractor.from_pretrained("./models/microsoft-wavlm-base-plus-sv")
+    sv_feature_extractor = transformers.Wav2Vec2FeatureExtractor.from_pretrained(
+            "./models/microsoft-wavlm-base-plus-sv")
     sv_model = transformers.WavLMForXVector.from_pretrained("./models/microsoft-wavlm-base-plus-sv").to(device=device)
 else:
     sv_feature_extractor = None
     sv_model = None
+
 
 class Models(NamedTuple):
     whisper_processor: any
@@ -316,38 +325,63 @@ class Models(NamedTuple):
     chatbot_tokenizer: any
     chatbot_model: any
 
-models:Models = None
+
+models: Models = None
+
 
 def load_models() -> Models:
     global models
     # Turn up log_level for ctranslate2
-    #ctranslate2.set_log_level(logger.DEBUG)
+    # ctranslate2.set_log_level(logger.DEBUG)
     # Load processor from transformers
     whisper_processor = transformers.WhisperProcessor.from_pretrained("./models/tovera-wis-whisper-base")
     # Show supported compute types
     supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
-    logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types} - using configured {compute_type}')
+    logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types}'
+                '- using configured {compute_type}')
 
     # Load all models - thanks for quantization ctranslate2
     logger.info("Loading Whisper models...")
     if device == "cuda":
-        whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
-        whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
-        whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
-        whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
-        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device, compute_type=compute_type, device_index=device_index, inter_threads=model_threads)
+        whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
+                                                        compute_type=compute_type, device_index=device_index,
+                                                        inter_threads=model_threads)
+        whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
+                                                        compute_type=compute_type, device_index=device_index,
+                                                        inter_threads=model_threads)
+        whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
+                                                         compute_type=compute_type, device_index=device_index,
+                                                         inter_threads=model_threads)
+        whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
+                                                          compute_type=compute_type, device_index=device_index,
+                                                          inter_threads=model_threads)
+        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
+                                                         compute_type=compute_type, device_index=device_index,
+                                                         inter_threads=model_threads)
     else:
-        whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
-        whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
-        whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
-        whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
-        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device, compute_type=compute_type, inter_threads=model_threads, intra_threads=intra_threads)
+        whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
+                                                        compute_type=compute_type, inter_threads=model_threads,
+                                                        intra_threads=intra_threads)
+        whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
+                                                        compute_type=compute_type, inter_threads=model_threads,
+                                                        intra_threads=intra_threads)
+        whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
+                                                         compute_type=compute_type, inter_threads=model_threads,
+                                                         intra_threads=intra_threads)
+        whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
+                                                          compute_type=compute_type, inter_threads=model_threads,
+                                                          intra_threads=intra_threads)
+        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
+                                                         compute_type=compute_type, inter_threads=model_threads,
+                                                         intra_threads=intra_threads)
 
     if support_tts:
         logger.info("Loading TTS models...")
         tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
-        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
+        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(
+            device=device)
+        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(
+            device=device)
     else:
         tts_processor = None
         tts_model = None
@@ -362,19 +396,22 @@ def load_models() -> Models:
 
         # load quantized model, currently only support single gpu
         chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path,
-            model_basename=chatbot_model_basename,
-            use_safetensors=True,
-            trust_remote_code=False,
-            device=chatbot_device,
-            use_triton=True,
-            quantize_config=None)
+                                                           model_basename=chatbot_model_basename,
+                                                           use_safetensors=True,
+                                                           trust_remote_code=False,
+                                                           device=chatbot_device,
+                                                           use_triton=True,
+                                                           quantize_config=None)
 
     else:
         chatbot_tokenizer = None
         chatbot_model = None
 
-    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small, whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder, chatbot_tokenizer, chatbot_model)
+    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small,
+                    whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder,
+                    chatbot_tokenizer, chatbot_model)
     return models
+
 
 def warm_models():
     if device == "cuda":
@@ -400,13 +437,16 @@ def warm_models():
         logger.info("Skipping warm_models for CPU")
         return
 
-def do_chatbot(text, max_new_tokens = chatbot_max_new_tokens, temperature = chatbot_temperature, top_p = chatbot_top_p, repetition_penalty = chatbot_repetition_penalty):
+
+def do_chatbot(text, max_new_tokens=chatbot_max_new_tokens, temperature=chatbot_temperature, top_p=chatbot_top_p,
+               repetition_penalty=chatbot_repetition_penalty):
     if models.chatbot_model is not None:
         first_time_start = datetime.datetime.now()
         logger.debug(f'CHATBOT: Input is: {text}')
-        prompt=f'''USER: {text}
+        prompt = f'''USER: {text}
 ASSISTANT:'''
-        logger.debug(f'CHATBOT: Pipeline parameters are max_new_tokens {max_new_tokens} temperature {temperature} top_p {top_p} repetition_penalty {repetition_penalty}')
+        logger.debug(f'CHATBOT: Pipeline parameters are max_new_tokens {max_new_tokens} temperature {temperature}'
+                     'top_p {top_p} repetition_penalty {repetition_penalty}')
         chatbot_pipeline = transformers.pipeline(
             "text-generation",
             model=models.chatbot_model,
@@ -421,8 +461,8 @@ ASSISTANT:'''
         # Split so we don't return anything other than response
         try:
             output = output.split("ASSISTANT: ")[1]
-        except:
-           logger.warning(f'CHATBOT: Response did not have assistant format')
+        except Exception:
+            logger.warning('CHATBOT: Response did not have assistant format')
 
         time_end = datetime.datetime.now()
         infer_time = time_end - first_time_start
@@ -434,12 +474,12 @@ ASSISTANT:'''
         output = "Chatbot not installed or supported"
     return output
 
+
 def do_translate(whisper_model, features, batch_size, language, beam_size):
     # Set task in token format for processor
     task = 'translate'
     logger.debug(f'WHISPER: Doing translation with {language} beam size {beam_size} and batch size {batch_size}')
     processor_task = f'<|{task}|>'
-
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
@@ -464,10 +504,13 @@ def do_translate(whisper_model, features, batch_size, language, beam_size):
 
     return results
 
+
 def check_language(language):
     return language in whisper_languages
 
-def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "transcribe", detect_language:bool = False, force_language: str = None, translate: bool = False):
+
+def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "transcribe",
+               detect_language: bool = False, force_language: str = None, translate: bool = False):
     # Point to model object depending on passed model string
     if model == "large":
         whisper_model = models.whisper_model_large
@@ -493,10 +536,10 @@ def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "tra
     use_chunking = False
     if audio_duration > 30*1000:
         if support_chunking:
-            logger.debug(f'WHISPER: Audio duration is > 30s - activating chunking')
+            logger.debug('WHISPER: Audio duration is > 30s - activating chunking')
             use_chunking = True
         else:
-            logger.warning(f'WHISPER: Audio duration is > 30s but chunking is not available. Will truncate!')
+            logger.warning('WHISPER: Audio duration is > 30s but chunking is not available. Will truncate!')
 
     time_end = datetime.datetime.now()
     infer_time = time_end - first_time_start
@@ -571,7 +614,7 @@ def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "tra
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('WHISPER: Model took ' + str(infer_time_milliseconds) + ' ms')
-    
+
     time_start = datetime.datetime.now()
     if use_chunking:
         assert strides, 'strides needed to compute final tokens when chunking'
@@ -601,8 +644,8 @@ def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "tra
         translation = None
 
     # Strip tokens from results output - brittle but works right now
-    #if detect_language:
-    #    results = results.split('>')[2]
+    # if detect_language:
+    #     results = results.split('>')[2]
     # Remove trailing and leading spaces
     results = results.strip()
 
@@ -618,26 +661,27 @@ def do_whisper(audio_file, model:str, beam_size:int = beam_size, task:str = "tra
 
 # Handy function for converting numbers to the individual word
 def num_to_word(text):
-    dct={'0':'zero','1':'one','2':'two','3':'three','4':'four',
-        '5':'five','6':'six','7':'seven','8':'eight','9':'nine'}
-    newstr=''
+    dct = {'0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+           '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'}
+    newstr = ''
     for ch in text:
-        if ch.isdigit()==True:
-            dw=dct[ch]
-            newstr=newstr+dw
+        if ch.isdigit() is True:
+            dw = dct[ch]
+            newstr = newstr+dw
         else:
-            newstr=newstr+ch
+            newstr = newstr+ch
     return newstr
 
-def do_tts(text, format, speaker = tts_default_speaker):
+
+def do_tts(text, format, speaker=tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
 
     if support_tts is False:
         return
 
     # Convert numbers to words because T5 doesn't support numbers
-    if re.search('\d', text):
-        logger.debug(f'TTS: Text contains numbers, converting to words')
+    if re.search(r'\d', text):
+        logger.debug('TTS: Text contains numbers, converting to words')
         output_string = []
         for sentence in [text]:
             output_sentence = []
@@ -680,10 +724,11 @@ def do_tts(text, format, speaker = tts_default_speaker):
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS: Getting inputs took ' + str(infer_time_milliseconds) + ' ms')
-    
+
     # Generate audio - SLOW
     time_start = datetime.datetime.now()
-    audio = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=models.tts_vocoder).to(device=device)
+    audio = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=models.tts_vocoder).to(
+        device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -711,11 +756,12 @@ def do_tts(text, format, speaker = tts_default_speaker):
 
     return file
 
-def do_sv(audio_file, threshold = sv_threshold):
+
+def do_sv(audio_file, threshold=sv_threshold):
     logger.debug(f'SV: Got request with threshold {threshold}')
 
     if sv_model is None:
-        logger.warn(f'SV: Speaker verification support disabled')
+        logger.warn('SV: Speaker verification support disabled')
         return
 
     time_initial_start = datetime.datetime.now()
@@ -735,7 +781,8 @@ def do_sv(audio_file, threshold = sv_threshold):
     audio_wav, _ = apply_effects_tensor(
         torch.tensor(audio).unsqueeze(0), audio_sr, sv_effects)
 
-    audio_input = sv_feature_extractor(audio_wav.squeeze(0), return_tensors="pt", sampling_rate=audio_sr).input_values.to(device)
+    audio_input = sv_feature_extractor(audio_wav.squeeze(0), return_tensors="pt", sampling_rate=audio_sr
+                                       ).input_values.to(device)
 
     with torch.no_grad():
         audio_emb = sv_model(audio_input).embeddings
@@ -768,7 +815,7 @@ def do_sv(audio_file, threshold = sv_threshold):
     for i in range(0, len(emb_names)):
         emb1 = emb_res[i]
         similarity = cosine_sim(emb1, audio_emb).numpy()[0]
-        #result[emb_names[i]] = "{:.3f}".format(similarity)
+        # result[emb_names[i]] = "{:.3f}".format(similarity)
         if similarity >= sv_threshold:
             result[emb_names[i]] = "{:.3f}".format(similarity)
 
@@ -782,7 +829,7 @@ def do_sv(audio_file, threshold = sv_threshold):
         result_string = str(result)
         logger.debug(f'SV: Got known speaker(s) {result_string}')
     else:
-        logger.debug(f'SV: Unknown speaker')
+        logger.debug('SV: Unknown speaker')
 
     time_end = datetime.datetime.now()
     infer_time = time_end - time_initial_start
@@ -791,6 +838,7 @@ def do_sv(audio_file, threshold = sv_threshold):
 
     # Return result
     return result
+
 
 # Adapted from https://github.com/thingless/t5voice
 def do_speaker_embed(audio_file, speaker_name):
@@ -823,14 +871,17 @@ def do_speaker_embed(audio_file, speaker_name):
 
     return embeddings, save_path
 
+
 class DataChannelMessage(NamedTuple):
     type: str
     message: Optional[str] = None
     obj: Optional[any] = None
-    
+
+
 def send_dc_response(channel, *args, **kargs):
     response = DataChannelMessage(*args, **kargs)
     channel.send(json.dumps(response._asdict()))
+
 
 # Function for WebRTC handling
 async def rtc_offer(request, model, beam_size, task, detect_language):
@@ -856,22 +907,22 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
             try:
                 message = json.loads(message)
                 message = DataChannelMessage(**message)
-            except:
+            except Exception:
                 logger.exception("could not parse datachannel message", message)
                 send_dc_response(channel, "error", "could not parse message")
                 return
-            if message.type=="ping":
+            if message.type == "ping":
                 send_dc_response(channel, "pong", message.message)
-            elif message.type=="start":
+            elif message.type == "start":
                 # XXX what if top_track is still None i.e. we got start before we got track?
                 logger.debug(f'RTC DC: Recording started with track {top_track}')
                 nonlocal recorder
                 recorder = MediaRecorderLite()
                 recorder.addTrack(top_track)
                 recorder.start()
-                send_dc_response(channel, "log","ASR Recording - start talking and press stop when done")
-            elif message.type=="stop":
-                logger.debug(f'RTC DC: Recording stopped')
+                send_dc_response(channel, "log", "ASR Recording - start talking and press stop when done")
+            elif message.type == "stop":
+                logger.debug('RTC DC: Recording stopped')
                 if not recorder:
                     send_dc_response(channel, "error", "Recording not yet started")
                     return
@@ -879,7 +930,8 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
                 model = obj.get('model') or settings.whisper_model_default
                 beam_size = obj.get('beam_size') or settings.beam_size
                 detect_language = obj.get('detect_language') or settings.detect_language
-                logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size} detect language {detect_language}')
+                logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size}'
+                             'detect language {detect_language}')
                 logger.debug("RTC DC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
@@ -888,10 +940,14 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
                 recorder.stop()
                 logger.debug('RTC DC: Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 # Tell client what we are doing
-                send_dc_response(channel, "log", f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language} - please wait')
+                send_dc_response(channel, "log", f'Doing ASR with model {model} beam size {beam_size} '
+                                 'detect language {detect_language} - please wait')
                 # Finally call Whisper
                 recorder.file.seek(0)
-                language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file, model, beam_size, task, detect_language)
+                language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file,
+                                                                                                       model, beam_size,
+                                                                                                       task,
+                                                                                                       detect_language)
                 logger.debug("RTC DC: " + results)
                 send_dc_response(channel, "infer", obj=dict(text=results))
                 if translation:
@@ -912,13 +968,13 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
         if pc.connectionState == "failed" or pc.connectionState == "closed":
             try:
                 await recorder.stop()
-            except:
+            except Exception:
                 pass
             else:
                 logger.debug("RTC: Recording stopped")
             await pc.close()
             pcs.discard(pc)
-            #XXX: close recorders?
+            # XXX: close recorders?
             logger.debug("RTC: Connection ended")
 
     @pc.on("track")
@@ -943,11 +999,11 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
     return {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
 app = FastAPI(title=settings.name,
-    description=settings.description,
-    version=settings.version,
-    openapi_url="/api/openapi.json",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc")
+              description=settings.description,
+              version=settings.version,
+              openapi_url="/api/openapi.json",
+              docs_url="/api/docs",
+              redoc_url="/api/redoc")
 
 if settings.cors_allowed_origins:
     app.add_middleware(
@@ -958,9 +1014,12 @@ if settings.cors_allowed_origins:
         allow_headers=["*"],
     )
 
-basic_auth_401_response = PlainTextResponse('Invalid credentials', status_code=401, headers={"WWW-Authenticate": "Basic"})
+basic_auth_401_response = PlainTextResponse('Invalid credentials', status_code=401,
+                                            headers={"WWW-Authenticate": "Basic"})
+
+
 class HttpBasicAuth(BaseHTTPMiddleware):
-    def __init__(self, app, username: str = None, password:str = None):
+    def __init__(self, app, username: str = None, password: str = None):
         super().__init__(app)
         self.username = username
         self.password = password
@@ -974,16 +1033,18 @@ class HttpBasicAuth(BaseHTTPMiddleware):
             if scheme.lower() != 'basic':
                 return basic_auth_401_response
             decoded = base64.b64decode(credentials).decode("ascii")
-        except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
+        except (ValueError, UnicodeDecodeError, binascii.Error):
             return basic_auth_401_response
         username, _, password = decoded.partition(":")
         if self.username and username != self.username or self.password and password != self.password:
             return basic_auth_401_response
         return await call_next(request)
 
+
 if settings.basic_auth_pass and settings.basic_auth_user:
     logger.info(f"{settings.name} is configured for HTTP Basic Authentication")
     app.add_middleware(HttpBasicAuth, username=settings.basic_auth_user, password=settings.basic_auth_pass)
+
 
 @app.on_event("startup")
 def startup_event():
@@ -991,35 +1052,43 @@ def startup_event():
     warm_models()
     logger.info(f"{settings.name} is ready for requests!")
 
+
 @app.on_event("shutdown")
 def shutdown_event():
     logger.info(f"{settings.name} is stopping (this can take a while)...")
 
+
 # Mount static dir to serve files for WebRTC client
-app.mount("/rtc", StaticFiles(directory="nginx/static/rtc", html = True), name="rtc_files")
+app.mount("/rtc", StaticFiles(directory="nginx/static/rtc", html=True), name="rtc_files")
 
 # Mount static dir to serve files for dictation client
-app.mount("/dict", StaticFiles(directory="nginx/static/dict", html = True), name="dict_files")
+app.mount("/dict", StaticFiles(directory="nginx/static/dict", html=True), name="dict_files")
 
 # Mount static dir to serve files for chatbot client
-app.mount("/chatbot", StaticFiles(directory="nginx/static/chatbot", html = True), name="chatbot_files")
+app.mount("/chatbot", StaticFiles(directory="nginx/static/chatbot", html=True), name="chatbot_files")
 
 # Expose audio mount in the event willow is configured to save
-app.mount("/audio", StaticFiles(directory="nginx/static/audio", html = True), name="audio_files")
+app.mount("/audio", StaticFiles(directory="nginx/static/audio", html=True), name="audio_files")
+
 
 class Ping(BaseModel):
     message: str
+
 
 @app.get("/api/ping", response_model=Ping, summary="Ping for connectivity check", response_description="pong")
 async def ping():
     response = {"message": "pong"}
     return JSONResponse(content=response)
 
+
 @app.post("/api/rtc/asr", summary="Return SDP for WebRTC clients", response_description="SDP for WebRTC clients")
-async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default, task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size):
+async def rtc_asr(request: Request, response: Response, model: Optional[str] = whisper_model_default,
+                  task: Optional[str] = "transcribe", detect_language: Optional[bool] = detect_language,
+                  beam_size: Optional[int] = beam_size):
     patch_loop_datagram()
     response = await rtc_offer(request, model, beam_size, task, detect_language)
     return JSONResponse(content=response)
+
 
 class ASR(BaseModel):
     language: str
@@ -1030,45 +1099,61 @@ class ASR(BaseModel):
     audio_duration: int
     text: str
 
+
 @app.post("/api/asr", response_model=ASR, summary="Submit audio file for ASR", response_description="ASR engine output")
-async def asr(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False):
-    #prof = profile.Profile()
-    #prof.enable()
-    logger.debug(f"FASTAPI: Got ASR request for model {model} beam size {beam_size} language detection {detect_language}")
+async def asr(request: Request, audio_file: UploadFile, response: Response,
+              model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language,
+              beam_size: Optional[int] = beam_size, force_language: Optional[str] = None,
+              translate: Optional[bool] = False):
+    # prof = profile.Profile()
+    # prof.enable()
+    logger.debug(f'FASTAPI: Got ASR request for model {model} beam size {beam_size} '
+                 'language detection {detect_language}')
     task = "transcribe"
 
     if force_language:
         if not check_language(force_language):
-            logger.debug(f"FASTAPI: Invalid force_language in request - returning HTTP 400")
+            logger.debug("FASTAPI: Invalid force_language in request - returning HTTP 400")
             response = {"error": "Invalid force_language"}
             return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
     # Setup access to file
     audio_file = io.BytesIO(await audio_file.read())
     # Do Whisper
-    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model,
+                                                                                           beam_size, task,
+                                                                                           detect_language,
+                                                                                           force_language, translate)
 
     # Create final response
-    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
+    final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration,
+                      "language": language, "text": results}
 
     # Handle translation in one response
     if translation:
-        final_response['translation']=translation
+        final_response['translation'] = translation
 
-    #prof.disable()
+    # prof.disable()
     # print profiling output
-    #stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
-    #stats.print_stats(10) # top 10 rows
+    # stats = pstats.Stats(prof).strip_dirs().sort_stats("cumtime")
+    # stats.print_stats(10) # top 10 rows
     return JSONResponse(content=final_response)
 
-@app.post("/api/willow", response_model=ASR, summary="Stream Willow audio for ASR", response_description="ASR engine output")
-async def willow(request: Request, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, save_audio: Optional[bool] = False, stats: Optional[bool] = False, voice_auth: Optional[bool] = False):
-    logger.debug(f"FASTAPI: Got WILLOW request for model {model} beam size {beam_size} language detection {detect_language}")
+
+@app.post("/api/willow", response_model=ASR, summary="Stream Willow audio for ASR",
+          response_description="ASR engine output")
+async def willow(request: Request, response: Response, model: Optional[str] = whisper_model_default,
+                 detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size,
+                 force_language: Optional[str] = None, translate: Optional[bool] = False,
+                 save_audio: Optional[bool] = False, stats: Optional[bool] = False,
+                 voice_auth: Optional[bool] = False):
+    logger.debug(f'FASTAPI: Got WILLOW request for model {model} beam size {beam_size} '
+                 'language detection {detect_language}')
     task = "transcribe"
 
     if force_language:
         if not check_language(force_language):
-            logger.debug(f"WILLOW: Invalid force_language in request - returning HTTP 400")
+            logger.debug("WILLOW: Invalid force_language in request - returning HTTP 400")
             response = {"error": "Invalid force_language"}
             return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -1085,7 +1170,8 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
     codec = request.headers.get('x-audio-codec', '').lower()
     willow_id = request.headers.get('x-willow-id', '').lower()
 
-    logger.debug(f"WILLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}, codec: {codec}")
+    logger.debug(f'WILLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}, '
+                 'codec: {codec}')
 
     if willow_id:
         logger.debug(f"WILLOW: Got Willow ID {willow_id}")
@@ -1095,10 +1181,10 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
 
     try:
         if codec == "pcm":
-            logger.debug(f"WILLOW: Source audio is raw PCM, creating WAV container")
+            logger.debug("WILLOW: Source audio is raw PCM, creating WAV container")
             audio_file = write_stream_wav(body, int(sample_rate), int(bits), int(channel))
         elif codec == "wav":
-            logger.debug(f"WILLOW: Source audio is wav")
+            logger.debug("WILLOW: Source audio is wav")
             audio_file = io.BytesIO(body)
             audio_file.seek(0)
         else:
@@ -1106,8 +1192,8 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
             file = io.BytesIO(body)
             file.seek(0)
             audio_file = audio_to_wav(file, int(sample_rate))
-    except:
-        logger.debug(f"WILLOW: Invalid audio in request - returning HTTP 400")
+    except Exception:
+        logger.debug("WILLOW: Invalid audio in request - returning HTTP 400")
         response = {"error": "Invalid audio"}
         return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -1123,36 +1209,45 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
         stats = True
         sv_results = do_sv(audio_file)
         if sv_results:
-            logger.debug(f"WILLOW: Authenticated voice")
+            logger.debug("WILLOW: Authenticated voice")
             # Seek back to 0 for Whisper later
             audio_file.seek(0)
             speaker = list(sv_results.keys())[0]
             speaker_status = (f"I heard {speaker} say:")
         else:
-            logger.debug(f"WILLOW: Unknown or unauthorized voice - returning HTTP 406")
+            logger.debug("WILLOW: Unknown or unauthorized voice - returning HTTP 406")
             return PlainTextResponse('Unauthorized voice', status_code=406)
 
     # Do Whisper
-    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
+    language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model,
+                                                                                           beam_size, task,
+                                                                                           detect_language,
+                                                                                           force_language, translate)
 
     # Create final response
     if stats:
         if voice_auth:
-            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results, "voice_auth": sv_results, "speaker_status": speaker_status}
+            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup,
+                              "audio_duration": audio_duration, "language": language, "text": results,
+                              "voice_auth": sv_results, "speaker_status": speaker_status}
         else:
-            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup, "audio_duration": audio_duration, "language": language, "text": results}
+            final_response = {"infer_time": infer_time, "infer_speedup": infer_speedup,
+                              "audio_duration": audio_duration, "language": language, "text": results}
     else:
         final_response = {"language": language, "text": results}
 
     # Handle translation in one response
     if translation:
-        final_response['translation']=translation
+        final_response['translation'] = translation
 
     return JSONResponse(content=final_response)
 
+
 if support_chatbot:
     @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens, temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p, repetition_penalty: Optional[float] = chatbot_repetition_penalty):
+    async def chatbot(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens,
+                      temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p,
+                      repetition_penalty: Optional[float] = chatbot_repetition_penalty):
         logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
         # Do Chatbot
         response = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
@@ -1160,8 +1255,12 @@ if support_chatbot:
         final_response = {"response": response}
         return JSONResponse(content=final_response)
 
-    @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response", response_description="Chatbot answer audio")
-    async def chatbot(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens, temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p, repetition_penalty: Optional[float] = chatbot_repetition_penalty, speaker: Optional[str] = tts_default_speaker):
+    @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response",
+             response_description="Chatbot answer audio")
+    async def chatbot_tts(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens,
+                          temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p,
+                          repetition_penalty: Optional[float] = chatbot_repetition_penalty,
+                          speaker: Optional[str] = tts_default_speaker):
         logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
         # Do Chatbot
         chatbot = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
@@ -1171,28 +1270,38 @@ if support_chatbot:
         return StreamingResponse(response, media_type="audio/flac")
 
 if support_tts:
-    @app.get("/api/tts", summary="Submit text for text to speech", response_description="Audio file of generated speech")
+    @app.get("/api/tts", summary="Submit text for text to speech",
+             response_description="Audio file of generated speech")
     async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
         logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} and text: {text}")
         # Do TTS
         response = do_tts(text, 'FLAC', speaker)
         return StreamingResponse(response, media_type="audio/flac")
 
-    @app.post("/api/sts", summary="Submit speech, do ASR, and TTS", response_description="Audio file of generated speech")
-    async def sts(request: Request, audio_file: UploadFile, response: Response, model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size, force_language: Optional[str] = None, translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
-        logger.debug(f"FASTAPI: Got STS request for model {model} beam size {beam_size} language detection {detect_language}")
+    @app.post("/api/sts", summary="Submit speech, do ASR, and TTS",
+              response_description="Audio file of generated speech")
+    async def sts(request: Request, audio_file: UploadFile, response: Response,
+                  model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language,
+                  beam_size: Optional[int] = beam_size, force_language: Optional[str] = None,
+                  translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
+        logger.debug(f'FASTAPI: Got STS request for model {model} beam size {beam_size} '
+                     'language detection {detect_language}')
         task = "transcribe"
 
         if force_language:
             if not check_language(force_language):
-                logger.debug(f"FASTAPI: Invalid force_language in request - returning HTTP 400")
+                logger.debug("FASTAPI: Invalid force_language in request - returning HTTP 400")
                 response = {"error": "Invalid force_language"}
                 return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
 
         # Setup access to file
         audio_file = io.BytesIO(await audio_file.read())
         # Do Whisper
-        language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model, beam_size, task, detect_language, force_language, translate)
+        language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model,
+                                                                                               beam_size, task,
+                                                                                               detect_language,
+                                                                                               force_language,
+                                                                                               translate)
 
         # Do TTS
         response = do_tts(results, 'FLAC', speaker)
@@ -1201,9 +1310,10 @@ if support_tts:
     class Speaker(BaseModel):
         message: str
 
-    @app.post("/api/speaker", response_model=Speaker, summary="Add custom speaker", response_description="Speaker creation status")
+    @app.post("/api/speaker", response_model=Speaker, summary="Add custom speaker",
+              response_description="Speaker creation status")
     async def speaker_create(request: Request, audio_file: UploadFile, speaker_name: Optional[str] = "CUSTOM"):
-        logger.debug(f"FASTAPI: Got new speaker request")
+        logger.debug("FASTAPI: Got new speaker request")
         # Setup access to file
         audio_file = io.BytesIO(await audio_file.read())
         # Do embed but don't do anything with the output other than save in do_speaker_embed
@@ -1214,9 +1324,10 @@ if support_tts:
         response = {"message": status_text}
         return JSONResponse(content=response)
 
-    @app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker", response_description="Speaker deletion status")
+    @app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker",
+                response_description="Speaker deletion status")
     async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM"):
-        logger.debug(f"FASTAPI: Got delete speaker request")
+        logger.debug("FASTAPI: Got delete speaker request")
         os.remove(f'speakers/custom_tts/{speaker_name}.npy')
         status_text = f"Deleted custom speaker {speaker_name} successfully"
         logger.debug(f"FASTAPI: {status_text}")
@@ -1227,11 +1338,12 @@ if support_tts:
     class SpeakersList(BaseModel):
         speakers: list
 
-    @app.get("/api/speaker", response_model=SpeakersList, summary="Show supported speakers", response_description="Speakers list")
-    async def speaker_delete(request: Request):
-        logger.debug(f"FASTAPI: Got list speakers request")
+    @app.get("/api/speaker", response_model=SpeakersList, summary="Show supported speakers",
+             response_description="Speakers list")
+    async def speaker_delete_get(request: Request):
+        logger.debug("FASTAPI: Got list speakers request")
         speakers = []
-        dirs = [ "wis/assets/spkemb", "speakers/custom_tts" ]
+        dirs = ["wis/assets/spkemb", "speakers/custom_tts"]
         for dir in dirs:
             logger.debug(f"FASTAPI: Getting speakers for directory {dir}")
             for (root, dirs, file) in os.walk(dir):
@@ -1244,6 +1356,7 @@ if support_tts:
         response = {"speakers": speakers}
         return JSONResponse(content=response)
 
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -1255,6 +1368,7 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
 
+
 manager = ConnectionManager()
 if support_chatbot:
     @app.websocket("/api/ws/chatbot")
@@ -1263,7 +1377,7 @@ if support_chatbot:
         try:
             while True:
                 text = await websocket.receive_text()
-                #await websocket.send_text(f'Asking chatbot {text}')
+                # await websocket.send_text(f'Asking chatbot {text}')
                 output = do_chatbot(text)
                 await websocket.send_text(output)
         except WebSocketDisconnect:
