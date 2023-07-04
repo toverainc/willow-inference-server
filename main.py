@@ -429,6 +429,11 @@ def warm_models():
                 do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
             if sv_model is not None:
                 do_sv("client/3sec.flac")
+
+            if models.tts_model is not None:
+                logger.info("Warming TTS... This takes a while on first run.")
+                do_tts("Hello from Willow")
+
         # Warm chatbot once
         if models.chatbot_model is not None:
             logger.info("Warming chatbot... This takes a while on first run.")
@@ -673,7 +678,7 @@ def num_to_word(text):
     return newstr
 
 
-def do_tts(text, format, speaker=tts_default_speaker):
+def do_tts(text, format='FLAC', speaker=tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
 
     if support_tts is False:
@@ -727,8 +732,9 @@ def do_tts(text, format, speaker=tts_default_speaker):
 
     # Generate audio - SLOW
     time_start = datetime.datetime.now()
-    audio = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=models.tts_vocoder).to(
-        device=device)
+    with torch.inference_mode():
+        audio = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=models.tts_vocoder).to(
+            device=device)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
