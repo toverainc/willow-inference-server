@@ -6,6 +6,8 @@ LOG_LEVEL=${LOG_LEVEL:-info}
 
 FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
 
+export TOKENIZERS_PARALLELISM=true
+
 set +a
 
 # Temp for hacky willow config
