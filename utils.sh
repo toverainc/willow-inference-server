@@ -244,6 +244,10 @@ clean_cache() {
     sudo rm -rf nginx/cache cache/huggingface
 }
 
+clean_models() {
+    sudo rm -rf models/*
+}
+
 case $1 in
 
 download-models)
@@ -291,6 +295,7 @@ gunicorn)
 install)
     check_host
     build_docker
+    clean_models
     download_models
     clean_cache
     echo "Install complete - you can now start with ./utils.sh run"
