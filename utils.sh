@@ -39,9 +39,6 @@ LISTEN_IP=${LISTEN_IP:-0.0.0.0}
 # GPUS - WIP for docker compose
 GPUS=${GPUS:-"all"}
 
-# Suppress chatbot pipeline error messages
-TOKENIZERS_PARALLELISM="false"
-
 # Detect GPU support
 if command -v nvidia-smi &> /dev/null; then
     DOCKER_GPUS="--gpus $GPUS"
