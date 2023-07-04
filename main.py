@@ -790,7 +790,7 @@ def do_sv(audio_file, threshold=sv_threshold):
     audio_input = sv_feature_extractor(audio_wav.squeeze(0), return_tensors="pt", sampling_rate=audio_sr
                                        ).input_values.to(device)
 
-    with torch.no_grad():
+    with torch.inference_mode():
         audio_emb = sv_model(audio_input).embeddings
     audio_emb = torch.nn.functional.normalize(audio_emb, dim=-1).cpu()
 
