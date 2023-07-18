@@ -1,0 +1,14 @@
+---
+name: code formatting
+on:
+  - pull_request
+jobs:
+  flake8:
+    name: flake8-check
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: flake8
+        uses: py-actions/flake8@v2
+        with:
+          max-line-length: "120"

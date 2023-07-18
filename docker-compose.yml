@@ -1,0 +1,38 @@
+services:
+  wis:
+    restart: unless-stopped
+    image: ${IMAGE}:${TAG}
+    env_file:
+      - .env
+    shm_size: ${SHM_SIZE}
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    #build:
+    #  dockerfile: Dockerfile
+    ports:
+      - ${LISTEN_IP}:${MEDIA_PORT_RANGE}:${MEDIA_PORT_RANGE}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    volumes:
+      - ./:/app
+    command: ./entrypoint.sh
+
+  nginx:
+    restart: unless-stopped
+    depends_on:
+      - wis
+    image: nginx:1.25.0
+    volumes:
+    - ./nginx:/nginx
+    - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    #environment:
+    #  - NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=1
+    ports:
+    - ${LISTEN_IP}:${LISTEN_PORT_HTTPS}:19000
+    - ${LISTEN_IP}:${LISTEN_PORT}:19001
