@@ -338,7 +338,7 @@ def load_models() -> Models:
     # Show supported compute types
     supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
     logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types}'
-                '- using configured {compute_type}')
+                f'- using configured {compute_type}')
 
     # Load all models - thanks for quantization ctranslate2
     logger.info("Loading Whisper models...")
@@ -451,7 +451,7 @@ def do_chatbot(text, max_new_tokens=chatbot_max_new_tokens, temperature=chatbot_
         prompt = f'''USER: {text}
 ASSISTANT:'''
         logger.debug(f'CHATBOT: Pipeline parameters are max_new_tokens {max_new_tokens} temperature {temperature}'
-                     'top_p {top_p} repetition_penalty {repetition_penalty}')
+                     f'top_p {top_p} repetition_penalty {repetition_penalty}')
         chatbot_pipeline = transformers.pipeline(
             "text-generation",
             model=models.chatbot_model,
@@ -937,7 +937,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
                 beam_size = obj.get('beam_size') or settings.beam_size
                 detect_language = obj.get('detect_language') or settings.detect_language
                 logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size}'
-                             'detect language {detect_language}')
+                             f'detect language {detect_language}')
                 logger.debug("RTC DC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
@@ -1114,7 +1114,7 @@ async def asr(request: Request, audio_file: UploadFile, response: Response,
     # prof = profile.Profile()
     # prof.enable()
     logger.debug(f'FASTAPI: Got ASR request for model {model} beam size {beam_size} '
-                 'language detection {detect_language}')
+                 f'language detection {detect_language}')
     task = "transcribe"
 
     if force_language:
@@ -1154,7 +1154,7 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
                  save_audio: Optional[bool] = False, stats: Optional[bool] = False,
                  voice_auth: Optional[bool] = False):
     logger.debug(f'FASTAPI: Got WILLOW request for model {model} beam size {beam_size} '
-                 'language detection {detect_language}')
+                 f'language detection {detect_language}')
     task = "transcribe"
 
     if force_language:
@@ -1177,7 +1177,7 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
     willow_id = request.headers.get('x-willow-id', '').lower()
 
     logger.debug(f'WILLOW: Audio information: sample rate: {sample_rate}, bits: {bits}, channel(s): {channel}, '
-                 'codec: {codec}')
+                 f'codec: {codec}')
 
     if willow_id:
         logger.debug(f"WILLOW: Got Willow ID {willow_id}")
@@ -1291,7 +1291,7 @@ if support_tts:
                   beam_size: Optional[int] = beam_size, force_language: Optional[str] = None,
                   translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
         logger.debug(f'FASTAPI: Got STS request for model {model} beam size {beam_size} '
-                     'language detection {detect_language}')
+                     f'language detection {detect_language}')
         task = "transcribe"
 
         if force_language:
