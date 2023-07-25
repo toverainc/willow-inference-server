@@ -141,6 +141,8 @@ From WIS root:
 
 Edit ```custom_settings.py``` and set ```chatbot_model_path``` to an AutoGPTQForCausalLM compatible model path from Hugging Face (example provided). The model will be automatically downloaded, cached, and loaded from Hugging Face. Depending on the GPTQ format and configuration for your chosen model you may need to also change ```chatbot_model_basename```. The various other parameters (temperature, top_p, etc) can also be set in ```custom_settings.py``` (defaults provided).
 
+Make sure to set ```support_chatbot``` to ```True```.
+
 Then start/restart WIS.
 
 Once loaded you can view the chatbot API documentation at ```https://[your host]:19000/api/docs```.
