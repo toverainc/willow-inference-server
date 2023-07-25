@@ -133,23 +133,17 @@ Perusing eBay and other used marketplaces the GTX 1070 seems to be the best perf
 To support LLM/Vicuna an RTX 3090/4090 is suggested. RTX 3090 being sold for approximately $800 as of this writing (5/23/2023).
 
 ## LLM
-For LLM/LLaMA/Vicuna support you will need to obtain the original Meta LLaMA models. Place the original Meta LLaMA model(s) in ```chatbot/``` and:
+WIS supports LLM on compatible CUDA devices with sufficient memory (varies depending on model selected).
 
-```bash
+From WIS root:
 
-# Start shell docker container
-./utils shell
+```cp settings.py custom_settings.py```
 
-# Go to chatbot directory
-cd chatbot
+Edit ```custom_settings.py``` and set ```chatbot_model_path``` to an AutoGPTQForCausalLM compatible model path from Hugging Face (example provided). The model will be automatically downloaded, cached, and loaded from Hugging Face. Depending on the GPTQ format and configuration for your chosen model you may need to also change ```chatbot_model_basename```. The various other parameters (temperature, top_p, etc) can also be set in ```custom_settings.py``` (defaults provided).
 
-# Convert to Hugging Face format, apply Vicuna 1.1 delta, quantize to int4, and install
-./utils.sh install 13B
-```
+Then start/restart WIS.
 
-Restart/start WIS and Vicuna should be detected and loaded. See API documentation at ```https://[your host]:19000/api/docs```
-
-Should support any model size but most heavily tested with 13B.
+Once loaded you can view the chatbot API documentation at ```https://[your host]:19000/api/docs```.
 
 ## WebRTC Tricks
 
