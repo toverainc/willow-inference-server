@@ -1,4 +1,4 @@
-accelerate==0.20.3
+accelerate==0.21.0
 aiofiles==23.1.0
 aiohttp==3.8.4
 aioice==0.9.0
@@ -19,7 +19,7 @@ cmake==3.25.0
 colorlog==6.7.0
 contourpy==1.1.0
 cryptography==41.0.1
-ctranslate2==3.16.1
+ctranslate2==3.17.1
 cycler==0.11.0
 datasets==2.13.0
 decorator==5.1.1
@@ -138,7 +138,7 @@ tiktoken==0.4.0
 tokenizers==0.13.3
 toolz==0.12.0
 tqdm==4.65.0
-transformers==4.30.2
+transformers==4.31.0
 triton==2.0.0
 types-PyYAML==6.0.12.10
 typing_extensions==4.4.0
