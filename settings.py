@@ -44,6 +44,9 @@ class APISettings(BaseSettings):
     # The default whisper model to use
     whisper_model_default: str = 'medium'
 
+    # Default TTS format to use
+    tts_default_format: str = "FLAC"
+
     # Default TTS speaker to use. CLB is US female
     tts_default_speaker: str = "CLB"
 

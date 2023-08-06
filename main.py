@@ -48,6 +48,8 @@ import torchaudio
 import tempfile
 import shutil
 from num2words import num2words
+import mimetypes
+mimetypes.init()
 
 import torch
 
@@ -201,6 +203,8 @@ support_chatbot = settings.support_chatbot
 sv_threshold = settings.sv_threshold
 
 whisper_model_default = settings.whisper_model_default
+
+tts_default_format = settings.tts_default_format
 
 tts_default_speaker = settings.tts_default_speaker
 
@@ -378,10 +382,8 @@ def load_models() -> Models:
     if support_tts:
         logger.info("Loading TTS models...")
         tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(
-            device=device)
-        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(
-            device=device)
+        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
+        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
     else:
         tts_processor = None
         tts_model = None
@@ -678,7 +680,7 @@ def num_to_word(text):
     return newstr
 
 
-def do_tts(text, format='FLAC', speaker=tts_default_speaker):
+def do_tts(text, format='WAV', speaker=tts_default_speaker):
     logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
 
     if support_tts is False:
@@ -755,12 +757,15 @@ def do_tts(text, format='FLAC', speaker=tts_default_speaker):
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS: Generating file took ' + str(infer_time_milliseconds) + ' ms')
 
+    fake_filename = f'tts.{format}'
+    media_type = mimetypes.guess_type(fake_filename)[0]
+
     time_end = datetime.datetime.now()
     infer_time = time_end - time_initial_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('TTS: Total time took ' + str(infer_time_milliseconds) + ' ms')
 
-    return file
+    return file, media_type
 
 
 def do_sv(audio_file, threshold=sv_threshold):
@@ -1266,23 +1271,25 @@ if support_chatbot:
     async def chatbot_tts(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens,
                           temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p,
                           repetition_penalty: Optional[float] = chatbot_repetition_penalty,
+                          format: Optional[str] = tts_default_format,
                           speaker: Optional[str] = tts_default_speaker):
         logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
         # Do Chatbot
         chatbot = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
         logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
         # Do TTS
-        response = do_tts(chatbot, 'FLAC', speaker)
-        return StreamingResponse(response, media_type="audio/flac")
+        response, media_type = do_tts(chatbot, format, speaker)
+        return StreamingResponse(response, media_type=media_type)
 
 if support_tts:
     @app.get("/api/tts", summary="Submit text for text to speech",
              response_description="Audio file of generated speech")
-    async def tts(text: str, speaker: Optional[str] = tts_default_speaker):
-        logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} and text: {text}")
+    async def tts(text: str, format: Optional[str] = tts_default_format, speaker: Optional[str] = tts_default_speaker):
+        logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} with format {format} and text: {text}")
         # Do TTS
-        response = do_tts(text, 'FLAC', speaker)
-        return StreamingResponse(response, media_type="audio/flac")
+        response, media_type = do_tts(text, format, speaker)
+
+        return StreamingResponse(response, media_type=media_type)
 
     @app.post("/api/sts", summary="Submit speech, do ASR, and TTS",
               response_description="Audio file of generated speech")
@@ -1311,7 +1318,9 @@ if support_tts:
 
         # Do TTS
         response = do_tts(results, 'FLAC', speaker)
-        return StreamingResponse(response, media_type="audio/flac")
+        fake_filename = f'tts.{format}'
+        media_type = mimetypes.types_map[fake_filename]
+        return StreamingResponse(response, media_type=media_type[0])
 
     class Speaker(BaseModel):
         message: str
