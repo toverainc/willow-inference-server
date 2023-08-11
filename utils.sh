@@ -39,6 +39,9 @@ LISTEN_IP=${LISTEN_IP:-0.0.0.0}
 # GPUS - WIP for docker compose
 GPUS=${GPUS:-"all"}
 
+# Specify Dockerfile
+DOCKER_FILE="Dockerfile"
+
 # Detect GPU support
 if command -v nvidia-smi &> /dev/null; then
     DOCKER_GPUS="--gpus $GPUS"
@@ -47,6 +50,14 @@ else
     echo "NVIDIA GPU Support not detected - using CPU"
     DOCKER_GPUS=""
     DOCKER_COMPOSE_FILE="docker-compose-cpu.yml"
+fi
+
+# Nvidia Jetson support
+if [ -f "/etc/nv_tegra_release" ]; then
+    echo "Enabling Jetson GPU support"
+    DOCKER_GPUS="--gpus $GPUS"
+    DOCKER_COMPOSE_FILE="docker-compose.yml"
+    DOCKER_FILE="Dockerfile.jetson"
 fi
 
 # Clean this up
@@ -215,7 +226,7 @@ freeze_requirements() {
 }
 
 build_docker() {
-    docker build -t "$IMAGE":"$TAG" .
+    docker build -t "$IMAGE":"$TAG" -f "$DOCKER_FILE" .
 }
 
 shell() {

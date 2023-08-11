@@ -190,6 +190,9 @@ model_threads = settings.model_threads
 # Support for chunking
 support_chunking = settings.support_chunking
 
+# Support for Whisper large
+support_whisper_large = True
+
 # Support for TTS
 support_tts = settings.support_tts
 
@@ -293,6 +296,13 @@ if device == "cuda":
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling chatbot support')
             support_chatbot = False
 
+        # Check for Jetson Orin
+        if cuda_device_name == "Orin":
+            logger.info(f'CUDA: Nvidia Jetson Orin detected')
+            support_tts = False
+            compute_type = "int8"
+            support_whisper_large = False
+
     # Set ctranslate device index based on number of supported devices
     device_index = [*range(0, cuda_num_devices, 1)]
 else:
@@ -359,9 +369,12 @@ def load_models() -> Models:
         whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
                                                           compute_type=compute_type, device_index=device_index,
                                                           inter_threads=model_threads)
-        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
-                                                         compute_type=compute_type, device_index=device_index,
-                                                         inter_threads=model_threads)
+        if support_whisper_large:
+            whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
+                                                            compute_type=compute_type, device_index=device_index,
+                                                            inter_threads=model_threads)
+        else:
+            whisper_model_large = None
     else:
         whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
                                                         compute_type=compute_type, inter_threads=model_threads,
@@ -375,9 +388,12 @@ def load_models() -> Models:
         whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
                                                           compute_type=compute_type, inter_threads=model_threads,
                                                           intra_threads=intra_threads)
-        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
-                                                         compute_type=compute_type, inter_threads=model_threads,
-                                                         intra_threads=intra_threads)
+        if support_whisper_large:
+            whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
+                                                            compute_type=compute_type, inter_threads=model_threads,
+                                                            intra_threads=intra_threads)
+        else:
+            whisper_model_large = None
 
     if support_tts:
         logger.info("Loading TTS models...")

@@ -1,0 +1,30 @@
+FROM nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+
+WORKDIR /app
+
+# Set in environment in case we need to build any extensions
+ENV TORCH_CUDA_ARCH_LIST="8.7"
+
+# Install zstd and git-lfs for model compression and distribution
+RUN apt-get update && apt-get install -y zstd  git-lfs && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-jetson.txt .
+
+# Run pip install with cache so we speedup subsequent rebuilds
+RUN --mount=type=cache,target=/root/.cache pip install -r requirements-jetson.txt
+
+# Build CTranslate2 with CUDA support
+RUN mkdir -p work && cd work && git clone --recursive -b v3.18.0 https://github.com/OpenNMT/CTranslate2.git && cd CTranslate2 && \
+    mkdir build && cd build && \
+    cmake -DWITH_CUDA=1 -DWITH_CUDNN=1 -DWITH_MKL=0 -DCUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST -DBUILD_SHARED_LIBS=1 .. && \
+    make install -j8 && cd ../python && \
+    python3 setup.py install && \
+    ldconfig
+
+RUN rm -rf work
+
+COPY . .
+
+CMD ./entrypoint.sh
+EXPOSE 19000
+EXPOSE 19001
