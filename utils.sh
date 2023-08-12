@@ -3,6 +3,12 @@ set -e
 WIS_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd "$WIS_DIR"
 
+USE_SUDO=""
+SUDO="sudo"
+if [ "$USE_SUDO" != 'yes' ];
+then SUDO=''
+fi
+
 # Test for local environment file and use any overrides
 if [ -r .env ]; then
     echo "Using configuration overrides from .env file"
@@ -186,7 +192,7 @@ gen_cert() {
     # Remove old wis certs if present
     if [ -r cert.pem ] || [ -r key.pem ]; then
         echo "Removing old WIS certificate - enter password when prompted"
-        sudo rm -f key.pem cert.pem
+        $SUDO rm -f key.pem cert.pem
     fi
 
     openssl req -x509 -newkey rsa:2048 -keyout nginx/key.pem -out nginx/cert.pem -sha256 -days 3650 \
@@ -241,17 +247,17 @@ download_models() {
 }
 
 clean_cache() {
-    sudo rm -rf nginx/cache cache/huggingface
+    $SUDO rm -rf nginx/cache cache/huggingface
 }
 
 clean_models() {
-    sudo rm -rf models/*
+    $SUDO rm -rf models/*
 }
 
 case $1 in
 
 download-models)
-    sudo rm -rf models
+    $SUDO rm -rf models
     download_models
 ;;
 
