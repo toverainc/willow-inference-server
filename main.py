@@ -381,8 +381,10 @@ def load_models() -> Models:
     if support_tts:
         logger.info("Loading TTS models...")
         tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
-        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
+        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained(
+            "./models/microsoft-speecht5_tts").to(device=device)
+        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained(
+            "./models/microsoft-speecht5_hifigan").to(device=device)
     else:
         tts_processor = None
         tts_model = None
