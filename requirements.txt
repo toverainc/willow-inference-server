@@ -67,7 +67,7 @@ MarkupSafe==2.1.1
 matplotlib==3.7.1
 mdit-py-plugins==0.3.3
 mdurl==0.1.2
-mpmath==1.2.1
+mpmath==1.3.0
 msgpack==1.0.5
 multidict==6.0.4
 multiprocess==0.70.14
