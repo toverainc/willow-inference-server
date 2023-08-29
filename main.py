@@ -49,7 +49,6 @@ import tempfile
 import shutil
 from num2words import num2words
 import mimetypes
-mimetypes.init()
 
 import torch
 
@@ -64,7 +63,7 @@ from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest
 import wave
 import av
 
-
+mimetypes.init()
 logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
