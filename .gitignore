@@ -9,3 +9,5 @@ audio
 speakers
 custom_settings.py
 *.zstd
+.vscode
+.venv
