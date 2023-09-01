@@ -49,7 +49,6 @@ import tempfile
 import shutil
 from num2words import num2words
 import mimetypes
-mimetypes.init()
 
 import torch
 
@@ -64,7 +63,7 @@ from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest
 import wave
 import av
 
-
+mimetypes.init()
 logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
@@ -382,8 +381,10 @@ def load_models() -> Models:
     if support_tts:
         logger.info("Loading TTS models...")
         tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained("./models/microsoft-speecht5_tts").to(device=device)
-        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained("./models/microsoft-speecht5_hifigan").to(device=device)
+        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained(
+            "./models/microsoft-speecht5_tts").to(device=device)
+        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained(
+            "./models/microsoft-speecht5_hifigan").to(device=device)
     else:
         tts_processor = None
         tts_model = None
