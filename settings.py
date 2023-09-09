@@ -5,9 +5,9 @@ from typing import List
 
 class APISettings(BaseSettings):
     # Project metadata
-    name = "Willow Inference Server"
-    description = "High Performance Language Inference API"
-    version = "1.0"
+    name: str= "Willow Inference Server"
+    description: str = "High Performance Language Inference API"
+    version: str = "1.0"
 
     # default beam_size - 5 is lib default, 1 for greedy
     beam_size: int = 1
