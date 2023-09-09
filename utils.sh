@@ -207,6 +207,9 @@ freeze_requirements() {
     # When using Nvidia docker images they include a bunch of invalid local refs - remove them
     sed -i '/file:/d' requirements.txt
 
+    # When using Nvidia docker images they include polygraphy - remove it
+    sed -i '/polygraphy/d' requirements.txt
+
     # Torch needs to be installed with the current CUDA version in the Docker image - remove them
     sed -i '/torch/d' requirements.txt
 
