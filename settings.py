@@ -62,13 +62,7 @@ class APISettings(BaseSettings):
     support_chatbot: bool = False
 
     # Path to chatbot model - download from HuggingFace at runtime by default (gets cached)
-    chatbot_model_path: str = 'TheBloke/vicuna-13b-v1.3-GPTQ'
-
-    # Chatbot model basename
-    chatbot_model_basename: str = 'vicuna-13b-v1.3-GPTQ-4bit-128g.no-act.order'
-
-    # Chatbot device
-    chatbot_device: str = 'cuda:0'
+    chatbot_model_path: str = 'TheBloke/vicuna-13b-v1.3.0-GPTQ'
 
     # Chatbot pipeline default temperature
     chatbot_temperature: float = 0.7

@@ -216,12 +216,6 @@ detect_language = settings.detect_language
 # Path to chatbot model
 chatbot_model_path = settings.chatbot_model_path
 
-# Chatbot model basename
-chatbot_model_basename = settings.chatbot_model_basename
-
-# Chatbot device
-chatbot_device = settings.chatbot_device
-
 # Chatbot temperature
 chatbot_temperature = settings.chatbot_temperature
 
@@ -392,19 +386,14 @@ def load_models() -> Models:
 
     if support_chatbot and device == "cuda":
         logger.info(f'CHATBOT: Using model {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
-        from transformers import AutoTokenizer
-        from auto_gptq import AutoGPTQForCausalLM
+        from transformers import AutoTokenizer, AutoModelForCausalLM
 
         chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True)
 
         # load quantized model, currently only support single gpu
-        chatbot_model = AutoGPTQForCausalLM.from_quantized(chatbot_model_path,
-                                                           model_basename=chatbot_model_basename,
-                                                           use_safetensors=True,
-                                                           trust_remote_code=False,
-                                                           device=chatbot_device,
-                                                           use_triton=True,
-                                                           quantize_config=None)
+        chatbot_model = AutoModelForCausalLM.from_pretrained(chatbot_model_path,
+                                                           torch_dtype=torch.float16,
+                                                           device_map="auto")
 
     else:
         chatbot_tokenizer = None
@@ -437,10 +426,6 @@ def warm_models():
                 logger.info("Warming TTS... This takes a while on first run.")
                 do_tts("Hello from Willow")
 
-        # Warm chatbot once
-        if models.chatbot_model is not None:
-            logger.info("Warming chatbot... This takes a while on first run.")
-            do_chatbot("Tell me about AI")
     else:
         logger.info("Skipping warm_models for CPU")
         return
@@ -454,7 +439,7 @@ def do_chatbot(text, max_new_tokens=chatbot_max_new_tokens, temperature=chatbot_
         prompt = f'''USER: {text}
 ASSISTANT:'''
         logger.debug(f'CHATBOT: Pipeline parameters are max_new_tokens {max_new_tokens} temperature {temperature}'
-                     f'top_p {top_p} repetition_penalty {repetition_penalty}')
+                     f' top_p {top_p} repetition_penalty {repetition_penalty}')
         chatbot_pipeline = transformers.pipeline(
             "text-generation",
             model=models.chatbot_model,
