@@ -13,7 +13,7 @@ class APISettings(BaseSettings):
     beam_size: int = 1
     # default beam size for longer transcriptions
     long_beam_size: int = 3
-    # Audio duration in ms to activate "long" mode
+    # Audio duration in ms to activate "long" mode. Any audio longer than this will use long_beam_size. More beams is more accurate but slower.
     long_beam_size_threshold: int = 12000
     model_threads: int = 10
 
@@ -41,7 +41,7 @@ class APISettings(BaseSettings):
     # SV threshold
     sv_threshold: float = 0.75
 
-    # The default whisper model to use
+    # The default whisper model to use. Options are "tiny", "base", "small", "medium", "large"
     whisper_model_default: str = 'medium'
 
     # Default TTS format to use
