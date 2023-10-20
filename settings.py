@@ -32,6 +32,16 @@ class APISettings(BaseSettings):
     # Enable chunking support
     support_chunking: bool = True
 
+    # There is really no reason to disable chunking anymore
+    # But if you still want to, you can set this threshold higher
+    # current value is equivalent of 4GB GPUs
+    chunking_memory_threshold: int = 3798205849
+
+    # Maximum number of chunks that are loaded into the GPU at once
+    # This will need to be tweaked based on GPU ram
+    # 8GB GPUs should support at least 2 chunks so starting with that
+    concurrent_gpu_chunks: int = 2
+
     # Enable TTS
     support_tts: bool = True
 
