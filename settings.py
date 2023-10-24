@@ -38,7 +38,7 @@ class APISettings(BaseSettings):
     chunking_memory_threshold: int = 3798205849
 
     # Maximum number of chunks that are loaded into the GPU at once
-    # This will need to be tweaked based on GPU ram
+    # This will need to be tweaked based on GPU ram and model used.
     # 8GB GPUs should support at least 2 chunks so starting with that
     concurrent_gpu_chunks: int = 2
 
