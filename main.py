@@ -5,7 +5,7 @@
 import os
 import logging
 # FastAPI preprocessor
-from fastapi import FastAPI, UploadFile, Request, Response, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, UploadFile, Request, Response, status, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -906,6 +906,13 @@ def do_sv(audio_file, threshold=sv_threshold):
     # Return result
     return result
 
+def do_api_key_auth(api_key):
+    if settings.api_key:
+        logger.debug(f'FASTAPI: Authenticating request with API key')
+
+        if settings.api_key != api_key:
+            logger.debug(f'FASTAPI: Invalid API key - returning 401')
+            raise HTTPException(detail='Invalid credentials', status_code=401)
 
 # Adapted from https://github.com/thingless/t5voice
 def do_speaker_embed(audio_file, speaker_name):
@@ -1213,7 +1220,11 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
                  detect_language: Optional[bool] = detect_language, beam_size: Optional[int] = beam_size,
                  force_language: Optional[str] = None, translate: Optional[bool] = False,
                  save_audio: Optional[bool] = False, stats: Optional[bool] = False,
-                 voice_auth: Optional[bool] = False):
+                 voice_auth: Optional[bool] = False, api_key: Optional[str] = None):
+
+    if api_key:
+        do_api_key_auth(api_key)
+
     logger.debug(f'FASTAPI: Got WILLOW request for model {model} beam size {beam_size} '
                  f'language detection {detect_language}')
     task = "transcribe"
