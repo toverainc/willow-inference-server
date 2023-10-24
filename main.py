@@ -90,10 +90,10 @@ torchaudio.set_audio_backend('soundfile')
 
 
 # you can chunkit
-def chunkit(l, n):
-    """Yield successive n-sized chunks from list l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+def chunkit(lst, num):
+    """Yield successive num-sized chunks from list lst."""
+    for i in range(0, len(lst), num):
+        yield lst[i:i + num]
 
 
 # Function to create a wav file from stream data
@@ -496,7 +496,7 @@ ASSISTANT:'''
 def do_translate(whisper_model, features, total_chunk_count, language, beam_size):
     # Set task in token format for processor
     task = 'translate'
-    logger.debug(f'WHISPER: Doing translation with {language} beam size {beam_size} and total chunk count {total_chunk_count}')
+    logger.debug(f'WHISPER: Doing translation with {language}, beam size {beam_size}, chunk count {total_chunk_count}')
     processor_task = f'<|{task}|>'
 
     # Describe the task in the prompt.
@@ -638,7 +638,7 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
     ):
         logger.debug("Processing GPU batch %s of expected %s", i+1, len(mel_features) // concurrent_gpu_chunks + 1)
         gpu_features = ctranslate2.StorageView.from_array(mel_features_batch)
-        results.extend( whisper_model.generate(
+        results.extend(whisper_model.generate(
             gpu_features,
             [prompt]*len(mel_features_batch),
             beam_size=beam_size,

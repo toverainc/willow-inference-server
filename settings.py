@@ -5,7 +5,7 @@ from typing import List
 
 class APISettings(BaseSettings):
     # Project metadata
-    name: str= "Willow Inference Server"
+    name: str = "Willow Inference Server"
     description: str = "High Performance Language Inference API"
     version: str = "1.0"
 
