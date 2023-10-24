@@ -190,6 +190,13 @@ long_beam_size = settings.long_beam_size
 # Audio duration in ms to activate "long" mode
 long_beam_size_threshold = settings.long_beam_size_threshold
 
+# models to load
+load_whisper_model_tiny = settings.load_whisper_model_tiny
+load_whisper_model_base = settings.load_whisper_model_base
+load_whisper_model_small = settings.load_whisper_model_small
+load_whisper_model_medium = settings.load_whisper_model_medium
+load_whisper_model_large = settings.load_whisper_model_large
+
 # model threads
 model_threads = settings.model_threads
 
@@ -350,37 +357,67 @@ def load_models() -> Models:
     # Load all models - thanks for quantization ctranslate2
     logger.info("Loading Whisper models...")
     if device == "cuda":
-        whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
-                                                        compute_type=compute_type, device_index=device_index,
-                                                        inter_threads=model_threads)
-        whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
-                                                        compute_type=compute_type, device_index=device_index,
-                                                        inter_threads=model_threads)
-        whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
-                                                         compute_type=compute_type, device_index=device_index,
-                                                         inter_threads=model_threads)
-        whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
-                                                          compute_type=compute_type, device_index=device_index,
-                                                          inter_threads=model_threads)
-        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
-                                                         compute_type=compute_type, device_index=device_index,
-                                                         inter_threads=model_threads)
+        if load_whisper_model_tiny:
+            whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
+                                                            compute_type=compute_type, device_index=device_index,
+                                                            inter_threads=model_threads)
+        else:
+            whisper_model_tiny = None
+        if load_whisper_model_base:
+            whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
+                                                            compute_type=compute_type, device_index=device_index,
+                                                            inter_threads=model_threads)
+        else:
+            whisper_model_base = None
+        if load_whisper_model_small:
+            whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
+                                                             compute_type=compute_type, device_index=device_index,
+                                                             inter_threads=model_threads)
+        else:
+            whisper_model_small = None
+        if load_whisper_model_medium:
+            whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
+                                                              compute_type=compute_type, device_index=device_index,
+                                                              inter_threads=model_threads)
+        else:
+            whisper_model_medium = None
+        if load_whisper_model_large:
+            whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
+                                                             compute_type=compute_type, device_index=device_index,
+                                                             inter_threads=model_threads)
+        else:
+            whisper_model_large = None
     else:
-        whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
-                                                        compute_type=compute_type, inter_threads=model_threads,
-                                                        intra_threads=intra_threads)
-        whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
-                                                        compute_type=compute_type, inter_threads=model_threads,
-                                                        intra_threads=intra_threads)
-        whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
-                                                         compute_type=compute_type, inter_threads=model_threads,
-                                                         intra_threads=intra_threads)
-        whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
-                                                          compute_type=compute_type, inter_threads=model_threads,
-                                                          intra_threads=intra_threads)
-        whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
-                                                         compute_type=compute_type, inter_threads=model_threads,
-                                                         intra_threads=intra_threads)
+        if load_whisper_model_tiny:
+            whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
+                                                            compute_type=compute_type, inter_threads=model_threads,
+                                                            intra_threads=intra_threads)
+        else:
+            whisper_model_tiny = None
+        if load_whisper_model_base:
+            whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
+                                                            compute_type=compute_type, inter_threads=model_threads,
+                                                            intra_threads=intra_threads)
+        else:
+            whisper_model_base = None
+        if load_whisper_model_small:
+            whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
+                                                             compute_type=compute_type, inter_threads=model_threads,
+                                                             intra_threads=intra_threads)
+        else:
+            whisper_model_small = None
+        if load_whisper_model_medium:
+            whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
+                                                              compute_type=compute_type, inter_threads=model_threads,
+                                                              intra_threads=intra_threads)
+        else:
+            whisper_model_medium = None
+        if load_whisper_model_large:
+            whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
+                                                             compute_type=compute_type, inter_threads=model_threads,
+                                                             intra_threads=intra_threads)
+        else:
+            whisper_model_large = None
 
     if support_tts:
         logger.info("Loading TTS models...")
