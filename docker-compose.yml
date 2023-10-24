@@ -21,13 +21,14 @@ services:
               capabilities: [gpu]
     volumes:
       - ./:/app
+      - ./cache:/root/.cache
     command: ./entrypoint.sh
 
   nginx:
     restart: unless-stopped
     depends_on:
       - wis
-    image: nginx:1.25.0
+    image: nginx:1.25.2
     volumes:
     - ./nginx:/nginx
     - ./nginx/nginx.conf:/etc/nginx/nginx.conf

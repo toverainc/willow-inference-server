@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/tensorrt:22.12-py3
+FROM nvcr.io/nvidia/tensorrt:23.08-py3
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
 
 # Install auto-gptq
-RUN --mount=type=cache,target=/root/.cache BUILD_CUDA_EXT=0 pip install auto-gptq[triton]==0.2.2
+RUN --mount=type=cache,target=/root/.cache pip install auto-gptq==0.4.2+cu118 --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118
 
 COPY . .
 
