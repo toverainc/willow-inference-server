@@ -71,7 +71,7 @@ class APISettings(BaseSettings):
     # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
     cors_allowed_origins: List[str] = []
 
-    # If api_key is set requests to the Willow route are checked against the api_key URI param
+    # If api_key is set requests to the Willow routes are checked against the api_key URI param
     api_key: str = None
 
     # If basic_auth_pass or basic_auth_user are set all endpoints are guarded by basic auth
