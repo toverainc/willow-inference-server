@@ -1222,8 +1222,8 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
                  save_audio: Optional[bool] = False, stats: Optional[bool] = False,
                  voice_auth: Optional[bool] = False, api_key: Optional[str] = None):
 
-    if api_key:
-        do_api_key_auth(api_key)
+    # Optionally do API key auth
+    do_api_key_auth(api_key)
 
     logger.debug(f'FASTAPI: Got WILLOW request for model {model} beam size {beam_size} '
                  f'language detection {detect_language}')
@@ -1352,7 +1352,11 @@ if support_chatbot:
 if support_tts:
     @app.get("/api/tts", summary="Submit text for text to speech",
              response_description="Audio file of generated speech")
-    async def tts(text: str, format: Optional[str] = tts_default_format, speaker: Optional[str] = tts_default_speaker):
+    async def tts(text: str, format: Optional[str] = tts_default_format, speaker: Optional[str] = tts_default_speaker, api_key: Optional[str] = None):
+
+        # Optionally do API key auth
+        do_api_key_auth(api_key)
+
         logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} with format {format} and text: {text}")
         # Do TTS
         response, media_type = do_tts(text, format, speaker)
