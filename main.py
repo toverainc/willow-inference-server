@@ -190,12 +190,25 @@ long_beam_size = settings.long_beam_size
 # Audio duration in ms to activate "long" mode
 long_beam_size_threshold = settings.long_beam_size_threshold
 
-# models to load
-load_whisper_model_tiny = settings.load_whisper_model_tiny
-load_whisper_model_base = settings.load_whisper_model_base
-load_whisper_model_small = settings.load_whisper_model_small
-load_whisper_model_medium = settings.load_whisper_model_medium
-load_whisper_model_large = settings.load_whisper_model_large
+# models to preload
+preload_all_models = settings.preload_all_models
+preload_whisper_model_tiny = settings.preload_whisper_model_tiny
+preload_whisper_model_base = settings.preload_whisper_model_base
+preload_whisper_model_small = settings.preload_whisper_model_small
+preload_whisper_model_medium = settings.preload_whisper_model_medium
+preload_whisper_model_large = settings.preload_whisper_model_large
+preload_chatbot_model = settings.preload_chatbot_model
+preload_tts_model = settings.preload_tts_model
+
+# bit hacky but if we need to preload all models, we need to preload each model independently too
+if preload_all_models:
+    preload_whisper_model_tiny = True
+    preload_whisper_model_base = True
+    preload_whisper_model_small = True
+    preload_whisper_model_medium = True
+    preload_whisper_model_large = True
+    preload_chatbot_model = True
+    preload_tts_model = True
 
 # model threads
 model_threads = settings.model_threads
@@ -314,6 +327,7 @@ else:
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
 # These models refuse to cooperate otherwise
+# XXX move these to LazyModels too?
 if support_sv:
     logger.info("Loading SV models...")
     sv_feature_extractor = transformers.Wav2Vec2FeatureExtractor.from_pretrained(
@@ -324,131 +338,225 @@ else:
     sv_model = None
 
 
-class Models(NamedTuple):
-    whisper_processor: any
-    whisper_model_tiny: any
-    whisper_model_base: any
-    whisper_model_small: any
-    whisper_model_medium: any
-    whisper_model_large: any
+class LazyModels:
+    def __init__(self):
+        self._whisper_processor = None
+        self._whisper_model_tiny = None
+        self._whisper_model_base = None
+        self._whisper_model_small = None
+        self._whisper_model_medium = None
+        self._whisper_model_large = None
 
-    tts_processor: any
-    tts_model: any
-    tts_vocoder: any
+        self._tts_processor = None
+        self._tts_model = None
+        self._tts_vocoder = None
 
-    chatbot_tokenizer: any
-    chatbot_model: any
+        self._chatbot_tokenizer = None
+        self._chatbot_model = None
 
+    @property
+    def whisper_processor(self):
+        if self._whisper_processor is None:
+            self._whisper_processor = transformers.WhisperProcessor.from_pretrained("./models/tovera-wis-whisper-base")
+        return self._whisper_processor
 
-models: Models = None
+    @property
+    def whisper_model_tiny(self):
+        if self._whisper_model_tiny is None:
+            logger.info("Loading whisper model: tiny")
+            if device == "cuda":
+                self._whisper_model_tiny = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-tiny',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    device_index=device_index,
+                )
+            else:
+                self._whisper_model_tiny = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-tiny',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    intra_threads=intra_threads,
+                )
+        return self._whisper_model_tiny
 
+    @property
+    def whisper_model_base(self):
+        if self._whisper_model_base is None:
+            logger.info("Loading whisper model: base")
+            if device == "cuda":
+                self._whisper_model_base = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-base',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    device_index=device_index,
+                )
+            else:
+                self._whisper_model_base = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-base',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    intra_threads=intra_threads,
+                )
+        return self._whisper_model_base
 
-def load_models() -> Models:
-    global models
+    @property
+    def whisper_model_small(self):
+        if self._whisper_model_small is None:
+            logger.info("Loading whisper model: small")
+            if device == "cuda":
+                self._whisper_model_small = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-small',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    device_index=device_index,
+                )
+            else:
+                self._whisper_model_small = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-small',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    intra_threads=intra_threads,
+                )
+        return self._whisper_model_small
+
+    @property
+    def whisper_model_medium(self):
+        if self._whisper_model_medium is None:
+            logger.info("Loading whisper model: medium")
+            if device == "cuda":
+                self._whisper_model_medium = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-medium',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    device_index=device_index,
+                )
+            else:
+                self._whisper_model_medium = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-medium',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    intra_threads=intra_threads,
+                )
+        return self._whisper_model_medium
+
+    @property
+    def whisper_model_large(self):
+        if self._whisper_model_large is None:
+            logger.info("Loading whisper model: large")
+            if device == "cuda":
+                self._whisper_model_large = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-large-v2',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    device_index=device_index,
+                )
+            else:
+                self._whisper_model_large = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-large-v2',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    intra_threads=intra_threads,
+                )
+        return self._whisper_model_large
+
+    @property
+    def tts_processor(self):
+        if not support_tts:
+            return None
+        if self._tts_processor is None:
+            self._tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
+        return self._tts_processor
+
+    @property
+    def tts_model(self):
+        if not support_tts:
+            return None
+        if self._tts_model is None:
+            self._tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained(
+                "./models/microsoft-speecht5_tts").to(device=device)
+        return self._tts_model
+
+    @property
+    def tts_vocoder(self):
+        if not support_tts:
+            return None
+        if self._tts_vocoder is None:
+            self._tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained(
+                "./models/microsoft-speecht5_hifigan").to(device=device)
+        return self._tts_vocoder
+
+    @property
+    def chatbot_tokenizer(self):
+        if not (support_chatbot and device == "cuda"):
+            return None
+        if self._chatbot_tokenizer is None:
+            from transformers import AutoTokenizer
+            self._chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True)
+        return self._chatbot_tokenizer
+
+    @property
+    def chatbot_model(self):
+        if not (support_chatbot and device == "cuda"):
+            return None
+        if self._chatbot_tokenizer is None:
+            logger.info(f'CHATBOT: Using model {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
+            from auto_gptq import AutoGPTQForCausalLM
+            self._chatbot_model = AutoGPTQForCausalLM.from_quantized(
+                chatbot_model_path,
+                model_basename=chatbot_model_basename,
+                use_safetensors=True,
+                trust_remote_code=False,
+                device=chatbot_device,
+                use_triton=True,
+                quantize_config=None,
+            )
+        return self._chatbot_model
+
+# this is a singleton instance that is never re-assigned
+models: LazyModels = LazyModels()
+
+def load_models() -> LazyModels:
     # Turn up log_level for ctranslate2
     # ctranslate2.set_log_level(logger.DEBUG)
-    # Load processor from transformers
-    whisper_processor = transformers.WhisperProcessor.from_pretrained("./models/tovera-wis-whisper-base")
-    # Show supported compute types
     supported_compute_types = str(ctranslate2.get_supported_compute_types(device))
     logger.info(f'CTRANSLATE: Supported compute types for device {device} are {supported_compute_types}'
                 f'- using configured {compute_type}')
 
-    # Load all models - thanks for quantization ctranslate2
-    logger.info("Loading Whisper models...")
-    if device == "cuda":
-        if load_whisper_model_tiny:
-            whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
-                                                            compute_type=compute_type, device_index=device_index,
-                                                            inter_threads=model_threads)
-        else:
-            whisper_model_tiny = None
-        if load_whisper_model_base:
-            whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
-                                                            compute_type=compute_type, device_index=device_index,
-                                                            inter_threads=model_threads)
-        else:
-            whisper_model_base = None
-        if load_whisper_model_small:
-            whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
-                                                             compute_type=compute_type, device_index=device_index,
-                                                             inter_threads=model_threads)
-        else:
-            whisper_model_small = None
-        if load_whisper_model_medium:
-            whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
-                                                              compute_type=compute_type, device_index=device_index,
-                                                              inter_threads=model_threads)
-        else:
-            whisper_model_medium = None
-        if load_whisper_model_large:
-            whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
-                                                             compute_type=compute_type, device_index=device_index,
-                                                             inter_threads=model_threads)
-        else:
-            whisper_model_large = None
-    else:
-        if load_whisper_model_tiny:
-            whisper_model_tiny = ctranslate2.models.Whisper('models/tovera-wis-whisper-tiny', device=device,
-                                                            compute_type=compute_type, inter_threads=model_threads,
-                                                            intra_threads=intra_threads)
-        else:
-            whisper_model_tiny = None
-        if load_whisper_model_base:
-            whisper_model_base = ctranslate2.models.Whisper('models/tovera-wis-whisper-base', device=device,
-                                                            compute_type=compute_type, inter_threads=model_threads,
-                                                            intra_threads=intra_threads)
-        else:
-            whisper_model_base = None
-        if load_whisper_model_small:
-            whisper_model_small = ctranslate2.models.Whisper('models/tovera-wis-whisper-small', device=device,
-                                                             compute_type=compute_type, inter_threads=model_threads,
-                                                             intra_threads=intra_threads)
-        else:
-            whisper_model_small = None
-        if load_whisper_model_medium:
-            whisper_model_medium = ctranslate2.models.Whisper('models/tovera-wis-whisper-medium', device=device,
-                                                              compute_type=compute_type, inter_threads=model_threads,
-                                                              intra_threads=intra_threads)
-        else:
-            whisper_model_medium = None
-        if load_whisper_model_large:
-            whisper_model_large = ctranslate2.models.Whisper('models/tovera-wis-whisper-large-v2', device=device,
-                                                             compute_type=compute_type, inter_threads=model_threads,
-                                                             intra_threads=intra_threads)
-        else:
-            whisper_model_large = None
+    # preload models if requested
+    if preload_whisper_model_tiny:
+        models.whisper_processor
+        models.whisper_model_tiny
+    if preload_whisper_model_base:
+        models.whisper_processor
+        models.whisper_model_base
+    if preload_whisper_model_small:
+        models.whisper_processor
+        models.whisper_model_small
+    if preload_whisper_model_medium:
+        models.whisper_processor
+        models.whisper_model_medium
+    if preload_whisper_model_large:
+        models.whisper_processor
+        models.whisper_model_large
+    if preload_tts_model:
+        models.tts_processor
+        models.tts_vocoder
+        models.tts_model
+    if preload_chatbot_model:
+        models.chatbot_tokenizer
+        models.chatbot_model
 
-    if support_tts:
-        logger.info("Loading TTS models...")
-        tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-        tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained(
-            "./models/microsoft-speecht5_tts").to(device=device)
-        tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained(
-            "./models/microsoft-speecht5_hifigan").to(device=device)
-    else:
-        tts_processor = None
-        tts_model = None
-        tts_vocoder = None
-
-    if support_chatbot and device == "cuda":
-        logger.info(f'CHATBOT: Using model {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
-        from transformers import AutoTokenizer, AutoModelForCausalLM
-
-        chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True)
-
-        # load quantized model, currently only support single gpu
-        chatbot_model = AutoModelForCausalLM.from_pretrained(chatbot_model_path,
-                                                           torch_dtype=torch.float16,
-                                                           device_map="auto")
-
-    else:
-        chatbot_tokenizer = None
-        chatbot_model = None
-
-    models = Models(whisper_processor, whisper_model_tiny, whisper_model_base, whisper_model_small,
-                    whisper_model_medium, whisper_model_large, tts_processor, tts_model, tts_vocoder,
-                    chatbot_tokenizer, chatbot_model)
     return models
 
 
@@ -456,20 +564,22 @@ def warm_models():
     if device == "cuda":
         logger.info("Warming models...")
         for x in range(3):
-            if models.whisper_model_tiny is not None:
+            if preload_whisper_model_tiny and models.whisper_model_tiny is not None:
                 do_whisper("client/3sec.flac", "tiny", beam_size, "transcribe", False, "en")
-            if models.whisper_model_base is not None:
+            if preload_whisper_model_base and models.whisper_model_base is not None:
                 do_whisper("client/3sec.flac", "base", beam_size, "transcribe", False, "en")
-            if models.whisper_model_small is not None:
+            if preload_whisper_model_small and models.whisper_model_small is not None:
                 do_whisper("client/3sec.flac", "small", beam_size, "transcribe", False, "en")
-            if models.whisper_model_medium is not None:
+            if preload_whisper_model_medium and models.whisper_model_medium is not None:
                 do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
-            if models.whisper_model_large is not None:
+            if preload_whisper_model_large and models.whisper_model_large is not None:
                 do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
             if sv_model is not None:
+                # XXX sv_model is loaded at top level instead of in LazyModels
+                # XXX so it is always preloaded & warmed if supported
                 do_sv("client/3sec.flac")
 
-            if models.tts_model is not None:
+            if preload_tts_model and models.tts_model is not None:
                 logger.info("Warming TTS... This takes a while on first run.")
                 do_tts("Hello from Willow")
 
