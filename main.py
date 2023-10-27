@@ -997,8 +997,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
                 model = obj.get('model') or settings.whisper_model_default
                 beam_size = obj.get('beam_size') or settings.beam_size
                 detect_language = obj.get('detect_language') or settings.detect_language
-                logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size}'
-                             f'detect language {detect_language}')
+                logger.debug(f'RTC DC: Debug Stop Vars model {model} beam size {beam_size} detect language {detect_language}')
                 logger.debug("RTC DC: Recording stopped")
                 time_start_base = datetime.datetime.now()
                 time_end = datetime.datetime.now()
@@ -1007,8 +1006,7 @@ async def rtc_offer(request, model, beam_size, task, detect_language):
                 recorder.stop()
                 logger.debug('RTC DC: Recorder stop took ' + str(infer_time_milliseconds) + ' ms')
                 # Tell client what we are doing
-                send_dc_response(channel, "log", f'Doing ASR with model {model} beam size {beam_size} '
-                                 'detect language {detect_language} - please wait')
+                send_dc_response(channel, "log", f'Doing ASR with model {model} beam size {beam_size} detect language {detect_language} - please wait')
                 # Finally call Whisper
                 recorder.file.seek(0)
                 language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(recorder.file,
