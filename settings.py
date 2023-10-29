@@ -24,12 +24,19 @@ class APISettings(BaseSettings):
     # Default detect language?
     detect_language: bool = False
 
-    # Models to load
-    load_whisper_model_tiny = True
-    load_whisper_model_base = True
-    load_whisper_model_small = True
-    load_whisper_model_medium = True
-    load_whisper_model_large = True
+    # if False, load models only on first use
+    # this saves GPU ram but costs latency on first calls
+    preload_all_models: bool = False
+
+    # Models to preload
+    # if preload_all_models is True, these are irrelevant
+    preload_whisper_model_tiny = True
+    preload_whisper_model_base = True
+    preload_whisper_model_small = True
+    preload_whisper_model_medium = True
+    preload_whisper_model_large = True
+    preload_chatbot_model = True  # only used if support_chatbot is True too
+    preload_tts_model = True  # only used if support_tts is True too
 
     # TTS CUDA memory threshold - equivalent of 4GB GPUs
     tts_memory_threshold: int = 3798205849
