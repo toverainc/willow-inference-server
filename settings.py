@@ -36,10 +36,6 @@ class APISettings(BaseSettings):
     preload_whisper_model_medium = True
     preload_whisper_model_large = True
     preload_chatbot_model = True  # only used if support_chatbot is True too
-    preload_tts_model = True  # only used if support_tts is True too
-
-    # TTS CUDA memory threshold - equivalent of 4GB GPUs
-    tts_memory_threshold: int = 3798205849
 
     # SV CUDA memory threshold - equivalent of 6GB GPUs
     sv_memory_threshold: int = 5798205849
@@ -57,9 +53,6 @@ class APISettings(BaseSettings):
     # 8GB GPUs should support at least 2 chunks so starting with that
     concurrent_gpu_chunks: int = 2
 
-    # Enable TTS
-    support_tts: bool = False
-
     # Enable SV
     support_sv: bool = False
 
@@ -68,12 +61,6 @@ class APISettings(BaseSettings):
 
     # The default whisper model to use. Options are "tiny", "base", "small", "medium", "large"
     whisper_model_default: str = 'medium'
-
-    # Default TTS format to use
-    tts_default_format: str = "FLAC"
-
-    # Default TTS speaker to use. CLB is US female
-    tts_default_speaker: str = "CLB"
 
     # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
     cors_allowed_origins: List[str] = []
