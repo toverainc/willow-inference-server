@@ -77,12 +77,12 @@ WORKDIR /app
 # Install zstd and git-lfs for model compression and distribution
 RUN apt-get update && apt-get install -y zstd git-lfs && rm -rf /var/lib/apt/lists/*
 
+# Install our torch ver matching cuda
+RUN --mount=type=cache,target=/root/.cache pip install torch==2.1.0 torchaudio==2.1.0
+
 COPY requirements.txt .
 # Run pip install with cache so we speedup subsequent rebuilds
 RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
-
-# Install our torch ver matching cuda
-RUN --mount=type=cache,target=/root/.cache pip install -U torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0
 
 # Install compiled ctranslate2
 ENV CTRANSLATE2_ROOT=/opt/ctranslate2
@@ -91,9 +91,6 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CTRANSLATE2_ROOT/lib
 COPY --from=builder $CTRANSLATE2_ROOT $CTRANSLATE2_ROOT
 RUN python3 -m pip --no-cache-dir install $CTRANSLATE2_ROOT/*.whl && \
     rm $CTRANSLATE2_ROOT/*.whl
-
-# Install auto-gptq
-RUN --mount=type=cache,target=/root/.cache pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
 
 COPY . .
 

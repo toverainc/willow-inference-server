@@ -35,7 +35,6 @@ class APISettings(BaseSettings):
     preload_whisper_model_small = True
     preload_whisper_model_medium = True
     preload_whisper_model_large = True
-    preload_chatbot_model = True  # only used if support_chatbot is True too
 
     # SV CUDA memory threshold - equivalent of 6GB GPUs
     sv_memory_threshold: int = 5798205849
@@ -69,24 +68,6 @@ class APISettings(BaseSettings):
     # If basic_auth_user is falsy it will not be checked. If basic_auth_pass is falsy it will not be checked.
     basic_auth_user: str = None
     basic_auth_pass: str = None
-
-    # Support chatbot
-    support_chatbot: bool = False
-
-    # Path to chatbot model - download from HuggingFace at runtime by default (gets cached)
-    chatbot_model_path: str = 'TheBloke/vicuna-13b-v1.3.0-GPTQ'
-
-    # Chatbot pipeline default temperature
-    chatbot_temperature: float = 0.7
-
-    # Chatbot pipeline default top_p
-    chatbot_top_p: float = 0.95
-
-    # Chatbot pipeline default repetition penalty
-    chatbot_repetition_penalty: float = 1.15
-
-    # Chatbot pipeline default max new tokens
-    chatbot_max_new_tokens: int = 512
 
     # airotc debug for connectivity and other WebRTC debugging
     aiortc_debug: bool = False

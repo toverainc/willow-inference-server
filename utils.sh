@@ -124,12 +124,6 @@ build_sv () {
         /app/utils.sh sv-model
 }
 
-build_chatbot () {
-    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
-        -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
-        /app/chatbot/utils.sh install $CHATBOT_PARAMS
-}
-
 dep_check() {
     # Temp for hacky willow config
     mkdir -p nginx/static/audio
@@ -199,9 +193,6 @@ freeze_requirements() {
 
     # Torch needs to be installed with the current CUDA version in the Docker image - remove them
     sed -i '/torch/d' requirements.txt
-
-    # Remove auto-gptq because we install manually
-    sed -i '/auto-gptq/d' requirements.txt
 }
 
 build_docker() {
@@ -215,18 +206,12 @@ shell() {
 }
 
 download_models() {
-        CHATBOT_PARAMS=${CHATBOT_PARAMS:-13B}
-
     build_one_whisper tovera/wis-whisper-tiny
     build_one_whisper tovera/wis-whisper-base
     build_one_whisper tovera/wis-whisper-small
     build_one_whisper tovera/wis-whisper-medium
     build_one_whisper tovera/wis-whisper-large-v2
     build_sv
-
-    if [ -d "chatbot/llama" ] || [ -r "chatbot/vicuna.tar.zstd" ]; then
-        build_chatbot
-    fi
 }
 
 clean_cache() {
