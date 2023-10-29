@@ -58,7 +58,7 @@ class APISettings(BaseSettings):
     concurrent_gpu_chunks: int = 2
 
     # Enable TTS
-    support_tts: bool = True
+    support_tts: bool = False
 
     # Enable SV
     support_sv: bool = False
