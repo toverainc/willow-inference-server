@@ -2,7 +2,7 @@
 FROM nvcr.io/nvidia/tensorrt:23.08-py3 as builder
 
 # Set in environment in case we need to build any extensions
-ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;6.2;7.0;7.2;7.5;8.0;8.6;8.9;9.0+PTX"
+ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6;8.9;9.0+PTX"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -64,21 +64,9 @@ RUN mkdir build && \
 ENV LANG=en_US.UTF-8
 COPY README.md .
 
-RUN cd python && \
-    python3 -m pip --no-cache-dir install -r install_requirements.txt && \
+RUN --mount=type=cache,target=/root/.cache cd python && \
+    pip --no-cache-dir install -r install_requirements.txt && \
     python3 setup.py bdist_wheel --dist-dir $CTRANSLATE2_ROOT
-
-# auto-gptq
-ENV AUTOGPTQ_ROOT=/opt/autogptq
-WORKDIR /root
-RUN --mount=type=cache,target=/root/.cache pip install numpy gekko pandas
-
-RUN git clone https://github.com/PanQiWei/AutoGPTQ.git
-
-WORKDIR /root/AutoGPTQ
-RUN git checkout 518617b
-
-RUN python3 setup.py bdist_wheel --dist-dir $AUTOGPTQ_ROOT
 
 # Runtime
 
@@ -96,12 +84,6 @@ RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
 # Install our torch ver matching cuda
 RUN --mount=type=cache,target=/root/.cache pip install -U torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0
 
-# Install auto-gptq
-ENV AUTOGPTQ_ROOT=/opt/autogptq
-COPY --from=builder $AUTOGPTQ_ROOT $AUTOGPTQ_ROOT
-RUN pip install $AUTOGPTQ_ROOT/*.whl && \
-    rm -rf $AUTOGPTQ_ROOT
-
 # Install compiled ctranslate2
 ENV CTRANSLATE2_ROOT=/opt/ctranslate2
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CTRANSLATE2_ROOT/lib
@@ -109,6 +91,9 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CTRANSLATE2_ROOT/lib
 COPY --from=builder $CTRANSLATE2_ROOT $CTRANSLATE2_ROOT
 RUN python3 -m pip --no-cache-dir install $CTRANSLATE2_ROOT/*.whl && \
     rm $CTRANSLATE2_ROOT/*.whl
+
+# Install auto-gptq
+RUN --mount=type=cache,target=/root/.cache pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
 
 COPY . .
 
