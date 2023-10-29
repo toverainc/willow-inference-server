@@ -75,7 +75,7 @@ FROM nvcr.io/nvidia/tensorrt:23.08-py3
 WORKDIR /app
 
 # Install zstd and git-lfs for model compression and distribution
-RUN apt-get update && apt-get install -y zstd git-lfs && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y zstd git-lfs libsox3 && rm -rf /var/lib/apt/lists/*
 
 # Install our torch ver matching cuda
 RUN --mount=type=cache,target=/root/.cache pip install torch==2.1.0 torchaudio==2.1.0
@@ -86,7 +86,12 @@ RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
 
 # Install compiled ctranslate2
 ENV CTRANSLATE2_ROOT=/opt/ctranslate2
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CTRANSLATE2_ROOT/lib
+
+# Dynamic library fixes
+# Workaround for speaker verification with torchaudio
+RUN ln -sf /usr/lib/x86_64-linux-gnu/libsox.so.3 /usr/lib/x86_64-linux-gnu/libsox.so
+RUN echo "$CTRANSLATE2_ROOT/lib" > /etc/ld.so.conf.d/ctranslate.conf
+RUN ldconfig
 
 COPY --from=builder $CTRANSLATE2_ROOT $CTRANSLATE2_ROOT
 RUN python3 -m pip --no-cache-dir install $CTRANSLATE2_ROOT/*.whl && \
