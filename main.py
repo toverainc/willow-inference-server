@@ -5,13 +5,13 @@
 import os
 import logging
 # FastAPI preprocessor
-from fastapi import FastAPI, UploadFile, Request, Response, status, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import FastAPI, UploadFile, Request, Response, status
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import PlainTextResponse
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 from pydantic import BaseModel
 import types
 import random
@@ -412,8 +412,10 @@ class LazyModels:
                 )
         return self._whisper_model_large
 
+
 # this is a singleton instance that is never re-assigned
 models: LazyModels = LazyModels()
+
 
 def load_models() -> LazyModels:
     # Turn up log_level for ctranslate2
@@ -1135,18 +1137,3 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
         final_response['translation'] = translation
 
     return JSONResponse(content=final_response)
-
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-
-manager = ConnectionManager()
