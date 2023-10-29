@@ -19,6 +19,7 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+              device_ids: ['0']
     volumes:
       - ./:/app
       - ./cache:/root/.cache
@@ -40,6 +41,7 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+              device_ids: ['0']
     volumes:
       - ./:/app
       - ./cache-local:/root/.local
