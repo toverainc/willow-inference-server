@@ -188,7 +188,6 @@ preload_whisper_model_base = settings.preload_whisper_model_base
 preload_whisper_model_small = settings.preload_whisper_model_small
 preload_whisper_model_medium = settings.preload_whisper_model_medium
 preload_whisper_model_large = settings.preload_whisper_model_large
-preload_chatbot_model = settings.preload_chatbot_model
 
 # bit hacky but if we need to preload all models, we need to preload each model independently too
 if preload_all_models:
@@ -197,7 +196,6 @@ if preload_all_models:
     preload_whisper_model_small = True
     preload_whisper_model_medium = True
     preload_whisper_model_large = True
-    preload_chatbot_model = True
 
 # model threads
 model_threads = settings.model_threads
@@ -207,9 +205,6 @@ support_chunking = settings.support_chunking
 
 # Support for SV
 support_sv = settings.support_sv
-
-# Support chatbot
-support_chatbot = settings.support_chatbot
 
 # Default SV threshold
 sv_threshold = settings.sv_threshold
@@ -221,21 +216,6 @@ language = settings.language
 
 # Default detect language?
 detect_language = settings.detect_language
-
-# Path to chatbot model
-chatbot_model_path = settings.chatbot_model_path
-
-# Chatbot temperature
-chatbot_temperature = settings.chatbot_temperature
-
-# Chatbot top_p
-chatbot_top_p = settings.chatbot_top_p
-
-# Chatbot model repetition penalty
-chatbot_repetition_penalty = settings.chatbot_repetition_penalty
-
-# Chatbot model max length
-chatbot_max_new_tokens = settings.chatbot_max_new_tokens
 
 concurrent_gpu_chunks = settings.concurrent_gpu_chunks
 
@@ -285,15 +265,6 @@ if device == "cuda":
             logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Volta, forcing int8')
             compute_type = "int8"
 
-        # Disable chatbot pre-Volta or low VRAM
-        if cuda_device_capability < 70 and support_chatbot:
-            logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Volta, disabling chatbot')
-            support_chatbot = False
-
-        if cuda_free_memory <= 12000000000 and support_chatbot:
-            logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling chatbot support')
-            support_chatbot = False
-
     # Set ctranslate device index based on number of supported devices
     device_index = [*range(0, cuda_num_devices, 1)]
 else:
@@ -324,9 +295,6 @@ class LazyModels:
         self._whisper_model_small = None
         self._whisper_model_medium = None
         self._whisper_model_large = None
-
-        self._chatbot_tokenizer = None
-        self._chatbot_model = None
 
     @property
     def whisper_processor(self):
@@ -444,33 +412,6 @@ class LazyModels:
                 )
         return self._whisper_model_large
 
-    @property
-    def chatbot_tokenizer(self):
-        if not (support_chatbot and device == "cuda"):
-            return None
-        if self._chatbot_tokenizer is None:
-            from transformers import AutoTokenizer
-            self._chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True)
-        return self._chatbot_tokenizer
-
-    @property
-    def chatbot_model(self):
-        if not (support_chatbot and device == "cuda"):
-            return None
-        if self._chatbot_tokenizer is None:
-            logger.info(f'CHATBOT: Using model {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
-            from auto_gptq import AutoGPTQForCausalLM
-            self._chatbot_model = AutoGPTQForCausalLM.from_quantized(
-                chatbot_model_path,
-                model_basename=chatbot_model_basename,
-                use_safetensors=True,
-                trust_remote_code=False,
-                device=chatbot_device,
-                use_triton=True,
-                quantize_config=None,
-            )
-        return self._chatbot_model
-
 # this is a singleton instance that is never re-assigned
 models: LazyModels = LazyModels()
 
@@ -497,9 +438,6 @@ def load_models() -> LazyModels:
     if preload_whisper_model_large:
         models.whisper_processor
         models.whisper_model_large
-    if preload_chatbot_model:
-        models.chatbot_tokenizer
-        models.chatbot_model
 
     return models
 
@@ -526,43 +464,6 @@ def warm_models():
     else:
         logger.info("Skipping warm_models for CPU")
         return
-
-
-def do_chatbot(text, max_new_tokens=chatbot_max_new_tokens, temperature=chatbot_temperature, top_p=chatbot_top_p,
-               repetition_penalty=chatbot_repetition_penalty):
-    if models.chatbot_model is not None:
-        first_time_start = datetime.datetime.now()
-        logger.debug(f'CHATBOT: Input is: {text}')
-        prompt = f'''USER: {text}
-ASSISTANT:'''
-        logger.debug(f'CHATBOT: Pipeline parameters are max_new_tokens {max_new_tokens} temperature {temperature}'
-                     f' top_p {top_p} repetition_penalty {repetition_penalty}')
-        chatbot_pipeline = transformers.pipeline(
-            "text-generation",
-            model=models.chatbot_model,
-            tokenizer=models.chatbot_tokenizer,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty)
-
-        output = chatbot_pipeline(prompt)[0]["generated_text"]
-
-        # Split so we don't return anything other than response
-        try:
-            output = output.split("ASSISTANT: ")[1]
-        except Exception:
-            logger.warning('CHATBOT: Response did not have assistant format')
-
-        time_end = datetime.datetime.now()
-        infer_time = time_end - first_time_start
-        infer_time_milliseconds = infer_time.total_seconds() * 1000
-        logger.debug(f'CHATBOT: Response is: {output}')
-        logger.debug('CHATBOT: Response took ' + str(infer_time_milliseconds) + ' ms')
-    else:
-        logger.warning('CHATBOT: Not installed or supported')
-        output = "Chatbot not installed or supported"
-    return output
 
 
 def do_translate(whisper_model, features, total_chunk_count, language, beam_size):
@@ -1059,9 +960,6 @@ app.mount("/rtc", StaticFiles(directory="nginx/static/rtc", html=True), name="rt
 # Mount static dir to serve files for dictation client
 app.mount("/dict", StaticFiles(directory="nginx/static/dict", html=True), name="dict_files")
 
-# Mount static dir to serve files for chatbot client
-app.mount("/chatbot", StaticFiles(directory="nginx/static/chatbot", html=True), name="chatbot_files")
-
 # Expose audio mount in the event willow is configured to save
 app.mount("/audio", StaticFiles(directory="nginx/static/audio", html=True), name="audio_files")
 
@@ -1239,19 +1137,6 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
     return JSONResponse(content=final_response)
 
 
-if support_chatbot:
-    @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens,
-                      temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p,
-                      repetition_penalty: Optional[float] = chatbot_repetition_penalty):
-        logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
-        # Do Chatbot
-        response = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
-        logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
-        final_response = {"response": response}
-        return JSONResponse(content=final_response)
-
-
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -1265,15 +1150,3 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-if support_chatbot:
-    @app.websocket("/api/ws/chatbot")
-    async def websocket_chatbot(websocket: WebSocket):
-        await manager.connect(websocket)
-        try:
-            while True:
-                text = await websocket.receive_text()
-                # await websocket.send_text(f'Asking chatbot {text}')
-                output = do_chatbot(text)
-                await websocket.send_text(output)
-        except WebSocketDisconnect:
-            manager.disconnect(websocket)
