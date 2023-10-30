@@ -611,7 +611,7 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
     for i, mel_features_batch in enumerate(
         chunkit(mel_features, concurrent_gpu_chunks)
     ):
-        logger.debug("WHISPER: Processing GPU batch %s of expected %s", i+1, len(mel_features) // concurrent_gpu_chunks + 1)
+        logger.debug("WHISPER: Processing batch %s of expected %s", i+1, len(mel_features) // concurrent_gpu_chunks + 1)
         gpu_features = ctranslate2.StorageView.from_array(mel_features_batch)
         results.extend(whisper_model.generate(
             gpu_features,
