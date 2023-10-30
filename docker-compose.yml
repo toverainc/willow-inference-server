@@ -27,7 +27,7 @@ services:
 
   coqui:
     restart: unless-stopped
-    image: ghcr.io/coqui-ai/tts:8716bf855b9d6be66bdce161c5fae9865685f3f3
+    image: ghcr.io/coqui-ai/tts:${COQUI_TAG}
     env_file:
       - .env
     shm_size: ${SHM_SIZE}

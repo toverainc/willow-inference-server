@@ -45,31 +45,6 @@ WIS_MIN_NVIDIA_VER=525
 # Recommended WIS Nvidia driver version
 WIS_REC_NVIDIA_VER=535
 
-# Detect GPU support
-if command -v nvidia-smi &> /dev/null; then
-    NVIDIA_DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader --id=0 | cut -d'.' -f1)
-    if [ $NVIDIA_DRIVER_VER -ge $WIS_MIN_NVIDIA_VER ]; then
-        DOCKER_GPUS="--gpus $GPUS"
-        DOCKER_COMPOSE_FILE="docker-compose.yml"
-    else
-        echo "Nvidia driver version $NVIDIA_DRIVER_VER is not compatible with WIS"
-        echo "You will need to upgrade to at least Nvidia driver version $WIS_MIN_NVIDIA_VER"
-        echo "Willow recommends Nvidia driver version $WIS_REC_NVIDIA_VER or later"
-        exit 1
-    fi
-else
-    echo "NVIDIA GPU Support not detected - using CPU"
-    DOCKER_GPUS=""
-    DOCKER_COMPOSE_FILE="docker-compose-cpu.yml"
-fi
-
-# Clean this up
-if [ "$FORCE_CPU" ]; then
-    echo "Forcing CPU per configuration"
-    DOCKER_GPUS=""
-    DOCKER_COMPOSE_FILE="docker-compose-cpu.yml"
-fi
-
 # Allow forwarded IPs. This is a list of hosts to allow parsing of X-Forwarded headers from
 FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
 
@@ -78,6 +53,8 @@ SHM_SIZE=${SHM_SIZE:-1gb}
 
 TAG=${TAG:-latest}
 NAME=${NAME:wis}
+
+COQUI_TAG=${TAG:-v0.19.1}
 
 # c2translate config options
 export CT2_VERBOSE=1
@@ -236,6 +213,34 @@ clean_models() {
     sudo rm -rf models/*
 }
 
+detect_compute() {
+    if command -v nvidia-smi &> /dev/null; then
+        NVIDIA_DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader --id=0 | cut -d'.' -f1)
+        if [ $NVIDIA_DRIVER_VER -ge $WIS_MIN_NVIDIA_VER ]; then
+            DOCKER_GPUS="--gpus $GPUS"
+            DOCKER_COMPOSE_FILE="docker-compose.yml"
+        else
+            echo "Nvidia driver version $NVIDIA_DRIVER_VER is not compatible with WIS"
+            echo "You will need to upgrade to at least Nvidia driver version $WIS_MIN_NVIDIA_VER"
+            echo "Willow recommends Nvidia driver version $WIS_REC_NVIDIA_VER or later"
+            echo "We will continue in CPU mode in five seconds"
+            sleep 5
+            FORCE_CPU=1
+        fi
+    else
+        echo "Nvidia driver not detected"
+        FORCE_CPU=1
+    fi
+
+    # If FORCE_CPU is set by configuration or auto-detection above it wins
+    if [ "$FORCE_CPU" ]; then
+        echo "Using CPU for WIS"
+        DOCKER_GPUS=""
+        DOCKER_COMPOSE_FILE="docker-compose-cpu.yml"
+        export FORCE_CPU
+    fi
+}
+
 case $1 in
 
 download-models)
@@ -288,6 +293,7 @@ install)
 start|run|up)
     dep_check
     check_host
+    detect_compute
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" up --remove-orphans "$@"
 ;;
@@ -295,6 +301,7 @@ start|run|up)
 stop|down)
     dep_check
     check_host
+    detect_compute
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" down "$@"
 ;;
@@ -307,6 +314,7 @@ shell|docker)
 *)
     dep_check
     check_host
+    detect_compute
     echo "Passing unknown argument directly to docker compose"
     docker compose -f "$DOCKER_COMPOSE_FILE" "$@"
 ;;
