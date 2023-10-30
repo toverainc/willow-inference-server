@@ -18,9 +18,27 @@ services:
       - ./cache:/root/.cache
     command: ./entrypoint.sh
 
+  coqui:
+    restart: unless-stopped
+    image: ghcr.io/coqui-ai/tts:${COQUI_TAG}
+    environment:
+      - FORCE_CPU
+    env_file:
+      - .env
+    shm_size: ${SHM_SIZE}
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    volumes:
+      - ./:/app
+      - ./cache-local:/root/.local
+    entrypoint: /app/entrypoint-coqui.sh
+
   nginx:
     restart: unless-stopped
     depends_on:
+      - coqui
       - wis
     image: nginx:1.25.2
     volumes:
