@@ -90,8 +90,10 @@ ENV CTRANSLATE2_ROOT=/opt/ctranslate2
 # Dynamic library fixes
 # Workaround for speaker verification with torchaudio
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libsox.so.3 /usr/lib/x86_64-linux-gnu/libsox.so
-RUN echo "$CTRANSLATE2_ROOT/lib" > /etc/ld.so.conf.d/ctranslate.conf
 RUN ldconfig
+
+# Set Ctranslate2 path
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CTRANSLATE2_ROOT/lib
 
 COPY --from=builder $CTRANSLATE2_ROOT $CTRANSLATE2_ROOT
 RUN python3 -m pip --no-cache-dir install $CTRANSLATE2_ROOT/*.whl && \
