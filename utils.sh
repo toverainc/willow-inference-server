@@ -39,10 +39,24 @@ LISTEN_IP=${LISTEN_IP:+${LISTEN_IP}:}
 # GPUS - WIP for docker compose
 GPUS=${GPUS:-"all"}
 
+# Minimum WIS Nvidia driver version
+WIS_MIN_NVIDIA_VER=525
+
+# Recommended WIS Nvidia driver version
+WIS_REC_NVIDIA_VER=535
+
 # Detect GPU support
 if command -v nvidia-smi &> /dev/null; then
-    DOCKER_GPUS="--gpus $GPUS"
-    DOCKER_COMPOSE_FILE="docker-compose.yml"
+    NVIDIA_DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader --id=0 | cut -d'.' -f1)
+    if [ $NVIDIA_DRIVER_VER -ge $WIS_MIN_NVIDIA_VER ]; then
+        DOCKER_GPUS="--gpus $GPUS"
+        DOCKER_COMPOSE_FILE="docker-compose.yml"
+    else
+        echo "Nvidia driver version $NVIDIA_DRIVER_VER is not compatible with WIS"
+        echo "You will need to upgrade to at least Nvidia driver version $WIS_MIN_NVIDIA_VER"
+        echo "Willow recommends Nvidia driver version $WIS_REC_NVIDIA_VER or later"
+        exit 1
+    fi
 else
     echo "NVIDIA GPU Support not detected - using CPU"
     DOCKER_GPUS=""
