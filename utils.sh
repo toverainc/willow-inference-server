@@ -177,6 +177,7 @@ gen_cert() {
 }
 
 gen_nginx_auth() {
+    # WIS Key Auth
     cp $WIS_DIR/nginx/auth.conf.template $WIS_DIR/nginx/auth.conf
     if [ "$WIS_API_KEY" ]; then
         KEY_LENGTH=${#WIS_API_KEY}
@@ -193,6 +194,16 @@ gen_nginx_auth() {
     else
         sed -i "s/%%DEFAULT%%/1/" "$WIS_DIR/nginx/auth.conf"
         sed -i "s/%%WIS_API_KEY%%/unused/" "$WIS_DIR/nginx/auth.conf"
+    fi
+
+    # WIS Basic Auth
+    touch $WIS_DIR/nginx/htpasswd
+    cp $WIS_DIR/nginx/auth-basic.conf.template $WIS_DIR/nginx/auth-basic.conf
+    if [ -s "$WIS_DIR/nginx/htpasswd" ]; then
+        echo "Enabling WIS HTTP Basic Auth..."
+        sed -i "s/%%AUTH_BASIC%%/'Authentication'/" "$WIS_DIR/nginx/auth-basic.conf"
+    else
+        sed -i "s/%%AUTH_BASIC%%/off/" "$WIS_DIR/nginx/auth-basic.conf"
     fi
 }
 
@@ -299,6 +310,11 @@ gen-key)
 gen-cert)
     check_host
     gen_cert $2
+;;
+
+htpasswd)
+    shift
+    docker run --rm -it -v "$WIS_DIR/nginx":/nginx "$IMAGE":"$TAG" htpasswd "$@"
 ;;
 
 freeze-requirements)
