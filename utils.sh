@@ -54,7 +54,8 @@ SHM_SIZE=${SHM_SIZE:-1gb}
 TAG=${TAG:-latest}
 NAME=${NAME:wis}
 
-COQUI_TAG=${TAG:-v0.19.1}
+COQUI_TAG=${COQUI_TAG:-v0.19.1}
+NGINX_TAG=${NGINX_TAG:-1.25.3}
 
 # c2translate config options
 export CT2_VERBOSE=1
