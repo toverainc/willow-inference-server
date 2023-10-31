@@ -129,13 +129,10 @@ dep_check() {
     mkdir -p speakers/custom_tts speakers/voice_auth nginx/cache cache
 
     # Check for new certs
-    if [ ! -r nginx/cert.pem ] || [ ! -r nginx/key.pem ]; then
-        echo "No SSL cert found - you need to run ./utils.sh gen-cert"
+    if [ ! -r nginx/cert.pem ]; then
+        echo "No SSL cert found - you need to run ./utils.sh gen-cert your_hostname.your_domain"
         exit 1
     fi
-
-    # For unprivileged docker
-    chmod 0666 nginx/key.pem nginx/cert.pem
 }
 
 gunicorn_direct() {
@@ -150,16 +147,23 @@ gunicorn_direct() {
     --keyfile nginx/key.pem --certfile nginx/cert.pem --ssl-version TLSv1_2
 }
 
+run_nginx_command() {
+    # We need to make dir world writeable temporarily
+    chmod 777 "$WIS_DIR/nginx"
+    docker run --rm -it --user nginx --entrypoint /nginx/wrap_command.sh -v "$WIS_DIR/nginx":/nginx nginx:"$NGINX_TAG" "$@"
+    chmod 755  "$WIS_DIR/nginx"
+}
+
 gen_ec_key() {
     if [ ! -f nginx/x25519.pem ]; then
-        openssl genpkey -algorithm x25519 -out nginx/x25519.pem
+        run_nginx_command openssl genpkey -algorithm x25519 -out nginx/x25519.pem
     fi
 }
 
 gen_dh_param() {
     if [ ! -f nginx/dhparam.pem ]; then
         echo "Generating secure DH parameters, this can take a while..."
-        openssl dhparam -out nginx/dhparam.pem 2048
+        run_nginx_command openssl dhparam -out nginx/dhparam.pem 2048
     fi
 }
 
@@ -175,14 +179,11 @@ gen_cert() {
         sudo rm -f key.pem cert.pem
     fi
 
-    openssl req -x509 -newkey rsa:2048 -keyout nginx/key.pem -out nginx/cert.pem -sha256 -days 3650 \
+    run_nginx_command openssl req -x509 -newkey rsa:2048 -keyout nginx/key.pem -out nginx/cert.pem -sha256 -days 3650 \
         -nodes -subj "/CN=$1"
 
     gen_ec_key
     gen_dh_param
-
-    # This is a docker workaround - fix
-    chmod 0666 nginx/key.pem nginx/x25519.pem nginx/cert.pem
 }
 
 gen_nginx_auth() {
