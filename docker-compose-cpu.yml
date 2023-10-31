@@ -40,7 +40,7 @@ services:
     depends_on:
       - coqui
       - wis
-    image: nginx:${NGINX_TAG}
+    image: ${WIS_NGINX_IMAGE}:${WIS_NGINX_TAG}
     volumes:
     - ./nginx:/nginx
     - ./nginx/nginx.conf:/etc/nginx/nginx.conf
