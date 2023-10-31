@@ -57,6 +57,9 @@ NAME=${NAME:wis}
 COQUI_TAG=${COQUI_TAG:-v0.19.1}
 NGINX_TAG=${NGINX_TAG:-1.25.3}
 
+WIS_NGINX_IMAGE=${WIS_NGINX_IMAGE:-willow-inference-server-nginx}
+WIS_NGINX_TAG=${NGINX_TAG}
+
 # c2translate config options
 export CT2_VERBOSE=1
 export QUANT="float16"
@@ -150,7 +153,7 @@ gunicorn_direct() {
 run_nginx_command() {
     # We need to make dir world writeable temporarily
     chmod 777 "$WIS_DIR/nginx"
-    docker run --rm -it --user nginx --entrypoint /nginx/wrap_command.sh -v "$WIS_DIR/nginx":/nginx nginx:"$NGINX_TAG" "$@"
+    docker run --rm -it --user nginx --entrypoint /nginx/wrap_command.sh -v "$WIS_DIR/nginx":/nginx "$WIS_NGINX_IMAGE":"$WIS_NGINX_TAG" "$@"
     chmod 755  "$WIS_DIR/nginx"
 }
 
@@ -207,7 +210,7 @@ gen_nginx_auth() {
     fi
 
     # WIS Basic Auth
-    touch $WIS_DIR/nginx/htpasswd
+    run_nginx_command touch /nginx/htpasswd
     cp $WIS_DIR/nginx/auth-basic.conf.template $WIS_DIR/nginx/auth-basic.conf
     if [ -s "$WIS_DIR/nginx/htpasswd" ]; then
         echo "Enabling WIS HTTP Basic Auth..."
@@ -215,6 +218,7 @@ gen_nginx_auth() {
     else
         sed -i "s/%%AUTH_BASIC%%/off/" "$WIS_DIR/nginx/auth-basic.conf"
     fi
+    run_nginx_command chmod 0600 /nginx/htpasswd
 }
 
 freeze_requirements() {
@@ -238,6 +242,7 @@ freeze_requirements() {
 
 build_docker() {
     docker build -t "$IMAGE":"$TAG" .
+    docker build . --build-arg NGINX_TAG="$NGINX_TAG" -f Dockerfile.nginx -t "$WIS_NGINX_IMAGE":"$WIS_NGINX_TAG"
 }
 
 shell() {
@@ -324,7 +329,10 @@ gen-cert)
 
 htpasswd)
     shift
-    docker run --rm -it -v "$WIS_DIR/nginx":/nginx "$IMAGE":"$TAG" htpasswd "$@"
+    # Always make sure we have it
+    run_nginx_command touch /nginx/htpasswd
+    run_nginx_command htpasswd "$@"
+    run_nginx_command chmod 0600 /nginx/htpasswd
 ;;
 
 freeze-requirements)
