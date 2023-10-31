@@ -156,6 +156,13 @@ gen_ec_key() {
     fi
 }
 
+gen_dh_param() {
+    if [ ! -f nginx/dhparam.pem ]; then
+        echo "Generating secure DH parameters, this can take a while..."
+        openssl dhparam -out nginx/dhparam.pem 2048
+    fi
+}
+
 gen_cert() {
     if [ -z "$1" ]; then
         echo "You need to provide your domain/common name"
@@ -172,6 +179,7 @@ gen_cert() {
         -nodes -subj "/CN=$1"
 
     gen_ec_key
+    gen_dh_param
 
     # This is a docker workaround - fix
     chmod 0666 nginx/key.pem nginx/x25519.pem nginx/cert.pem
@@ -351,6 +359,7 @@ start|run|up)
     check_host
     detect_compute
     gen_ec_key
+    gen_dh_param
     gen_nginx_auth
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" up --remove-orphans "$@"
@@ -374,6 +383,7 @@ shell|docker)
     check_host
     detect_compute
     gen_ec_key
+    gen_dh_param
     # We need to regen auth because users can bring up services here too
     gen_nginx_auth
     echo "Passing unknown argument directly to docker compose"
