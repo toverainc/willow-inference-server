@@ -74,8 +74,8 @@ FROM nvcr.io/nvidia/tensorrt:23.08-py3
 
 WORKDIR /app
 
-# Install zstd and git-lfs for model compression and distribution
-RUN apt-get update && apt-get install -y zstd git-lfs libsox3 && rm -rf /var/lib/apt/lists/*
+# Install deps
+RUN apt-get update && apt-get install -y zstd git-lfs libsox3 apache2-utils && rm -rf /var/lib/apt/lists/*
 
 # Install our torch ver matching cuda
 RUN --mount=type=cache,target=/root/.cache pip install torch==2.1.0 torchaudio==2.1.0

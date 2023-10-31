@@ -1,3 +1,4 @@
 cache
 *.pem
-auth.conf
+auth*.conf
+htpasswd
