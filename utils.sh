@@ -167,6 +167,26 @@ gen_cert() {
     chmod 0666 nginx/key.pem nginx/cert.pem
 }
 
+gen_nginx_auth() {
+    cp $WIS_DIR/nginx/auth.conf.template $WIS_DIR/nginx/auth.conf
+    if [ "$WIS_API_KEY" ]; then
+        KEY_LENGTH=${#WIS_API_KEY}
+        if [ "$KEY_LENGTH" -lt 8 ]; then
+            echo "You defined a WIS API Key but it's $KEY_LENGTH characters"
+            echo "We will not start until your key is at least 8 characters - and it should be longer!"
+            echo "You can generate a high quality random key with ./utils.sh gen-key"
+            exit 1
+        else
+            echo "Generating WIS API Key authentication..."
+            sed -i "s/%%DEFAULT%%/0/" "$WIS_DIR/nginx/auth.conf"
+            sed -i "s/%%WIS_API_KEY%%/$WIS_API_KEY/" "$WIS_DIR/nginx/auth.conf"
+        fi
+    else
+        sed -i "s/%%DEFAULT%%/1/" "$WIS_DIR/nginx/auth.conf"
+        sed -i "s/%%WIS_API_KEY%%/unused/" "$WIS_DIR/nginx/auth.conf"
+    fi
+}
+
 freeze_requirements() {
     if [ ! -f /.dockerenv ]; then
         echo "This script is meant to be run inside the container - exiting"
@@ -257,6 +277,16 @@ clean-cache)
     clean_cache
 ;;
 
+gen-auth)
+    gen_nginx_auth
+;;
+
+gen-key)
+    KEY=$(openssl rand -base64 32)
+    echo "Set this in .env and use WAS to configure your clients with it:"
+    echo "WIS_API_KEY=$KEY"
+;;
+
 gen-cert)
     check_host
     gen_cert $2
@@ -294,6 +324,7 @@ start|run|up)
     dep_check
     check_host
     detect_compute
+    gen_nginx_auth
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" up --remove-orphans "$@"
 ;;
@@ -315,6 +346,8 @@ shell|docker)
     dep_check
     check_host
     detect_compute
+    # We need to regen auth because users can bring up services here too
+    gen_nginx_auth
     echo "Passing unknown argument directly to docker compose"
     docker compose -f "$DOCKER_COMPOSE_FILE" "$@"
 ;;
