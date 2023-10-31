@@ -149,6 +149,12 @@ gunicorn_direct() {
     --keyfile nginx/key.pem --certfile nginx/cert.pem --ssl-version TLSv1_2
 }
 
+gen_ec_key() {
+    if [ ! -f nginx/x25519.pem ]; then
+        openssl genpkey -algorithm x25519 -out nginx/x25519.pem
+    fi
+}
+
 gen_cert() {
     if [ -z "$1" ]; then
         echo "You need to provide your domain/common name"
@@ -164,7 +170,10 @@ gen_cert() {
     openssl req -x509 -newkey rsa:2048 -keyout nginx/key.pem -out nginx/cert.pem -sha256 -days 3650 \
         -nodes -subj "/CN=$1"
 
-    chmod 0666 nginx/key.pem nginx/cert.pem
+    gen_ec_key
+
+    # This is a docker workaround - fix
+    chmod 0666 nginx/key.pem nginx/x25519.pem nginx/cert.pem
 }
 
 gen_nginx_auth() {
@@ -324,6 +333,7 @@ start|run|up)
     dep_check
     check_host
     detect_compute
+    gen_ec_key
     gen_nginx_auth
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" up --remove-orphans "$@"
@@ -346,6 +356,7 @@ shell|docker)
     dep_check
     check_host
     detect_compute
+    gen_ec_key
     # We need to regen auth because users can bring up services here too
     gen_nginx_auth
     echo "Passing unknown argument directly to docker compose"
