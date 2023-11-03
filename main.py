@@ -16,6 +16,9 @@ from pydantic import BaseModel
 import types
 import random
 import base64
+import hmac
+import hashlib
+import time
 import binascii
 import json
 import datetime
@@ -30,7 +33,7 @@ from typing import NamedTuple
 # WebRTC
 import asyncio
 
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver, RTCConfiguration, RTCIceServer
 from aiortc.rtp import RtcpByePacket
 from wis.media import MediaRecorderLite
 
@@ -1060,12 +1063,56 @@ def send_dc_response(channel, *args, **kargs):
     channel.send(json.dumps(response._asdict()))
 
 
+def generate_turn_credentials(secret):
+    # see https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00
+
+    # expiration timestamp - 1 day from now
+    exp = str(int(time.time() + 86400))
+
+    # 10 character random username
+    username = base64.b32encode(os.urandom(32)).decode()[:10]
+
+    # generate password as Base64(HMAC-SHA1($secret, $timestamp:$username))
+    msg = exp + ':' + username
+    digest = hmac.new(secret.encode(), msg.encode(), hashlib.sha1).digest()
+    credential = base64.b64encode(digest).decode()
+
+    return msg, credential
+
+
+def get_rtc_configuration():
+    ices = []
+    if settings.stun_server:
+        ices.append(RTCIceServer(urls=["stun:" + settings.stun_server]))
+
+    if settings.turn_server and settings.turn_shared_secret:
+        username, credential = generate_turn_credentials(settings.turn_shared_secret)
+        ices.append(RTCIceServer(
+            urls=['turn:' + settings.turn_server],
+            username=username,
+            credential=credential,
+        ))
+    elif settings.turn_server and settings.turn_username and settings.turn_password:
+        ices.append(RTCIceServer(
+            urls=['turn:' + settings.turn_server],
+            username=settings.turn_username,
+            credential=settings.turn_password,
+        ))
+
+    if ices:
+        config = RTCConfiguration(iceServers=ices)
+    else:
+        config = RTCConfiguration()
+    return config
+
+
 # Function for WebRTC handling
 async def rtc_offer(request, model, beam_size, task, detect_language):
     params = await request.json()
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
-    pc = RTCPeerConnection()
+    config = get_rtc_configuration()
+    pc = RTCPeerConnection(config)
     pcs.add(pc)
 
     recorder = None

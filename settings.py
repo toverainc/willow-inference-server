@@ -104,6 +104,23 @@ class APISettings(BaseSettings):
     # airotc debug for connectivity and other WebRTC debugging
     aiortc_debug: bool = False
 
+    # stun/turn settings
+    # stun servers help with UDP hole punching and typically do not require auth
+    # if none is specified, Google's will be used by default   # XXX I think
+    stun_server: str = None
+
+    # turn servers help with networks where hole punching does not work
+    # they relay traffic for the clients, so typically require auth
+    # if not provided, none will be used
+    turn_server: str = None
+
+    # turn server authentication
+    # provide only one of shared_secret or static username/password
+    # see https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00
+    turn_shared_secret: str = None
+    turn_username: str = None
+    turn_password: str = None
+
     class Config:
         env_prefix = ""
         case_sensitive = False
