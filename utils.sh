@@ -335,6 +335,7 @@ htpasswd)
 useradd)
     shift
     run_nginx_command touch /nginx/htpasswd
+    echo "Please type and confirm password for user $1"
     run_nginx_command htpasswd -B /nginx/htpasswd "$@"
 ;;
 
