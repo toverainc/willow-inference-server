@@ -329,10 +329,23 @@ gen-cert)
 
 htpasswd)
     shift
-    # Always make sure we have it
-    run_nginx_command touch /nginx/htpasswd
     run_nginx_command htpasswd "$@"
-    run_nginx_command chmod 0600 /nginx/htpasswd
+;;
+
+useradd)
+    shift
+    run_nginx_command touch /nginx/htpasswd
+    run_nginx_command htpasswd -B /nginx/htpasswd "$@"
+;;
+
+userdel)
+    shift
+    run_nginx_command htpasswd /nginx/htpasswd -D "$@"
+;;
+
+userlist)
+    echo "Current users for basic authentication:"
+    run_nginx_command cut -d':' -f1 /nginx/htpasswd
 ;;
 
 freeze-requirements)
