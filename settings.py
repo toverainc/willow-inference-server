@@ -35,6 +35,7 @@ class APISettings(BaseSettings):
     preload_whisper_model_small = True
     preload_whisper_model_medium = True
     preload_whisper_model_large = True
+    preload_whisper_model_large_v3 = False
 
     # SV CUDA memory threshold - equivalent of 6GB GPUs
     sv_memory_threshold: int = 5798205849
@@ -58,7 +59,7 @@ class APISettings(BaseSettings):
     # SV threshold
     sv_threshold: float = 0.75
 
-    # The default whisper model to use. Options are "tiny", "base", "small", "medium", "large"
+    # The default whisper model to use. Options are "tiny", "base", "small", "medium", "large", "large-v3"
     whisper_model_default: str = 'medium'
 
     # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware

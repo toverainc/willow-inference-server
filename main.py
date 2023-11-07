@@ -188,6 +188,7 @@ preload_whisper_model_base = settings.preload_whisper_model_base
 preload_whisper_model_small = settings.preload_whisper_model_small
 preload_whisper_model_medium = settings.preload_whisper_model_medium
 preload_whisper_model_large = settings.preload_whisper_model_large
+preload_whisper_model_large_v3 = settings.preload_whisper_model_large_v3
 
 # bit hacky but if we need to preload all models, we need to preload each model independently too
 if preload_all_models:
@@ -196,6 +197,7 @@ if preload_all_models:
     preload_whisper_model_small = True
     preload_whisper_model_medium = True
     preload_whisper_model_large = True
+    preload_whisper_model_large_v3 = True
 
 # model threads
 model_threads = settings.model_threads
@@ -290,17 +292,25 @@ else:
 class LazyModels:
     def __init__(self):
         self._whisper_processor = None
+        self._whisper_processor_v3 = None
         self._whisper_model_tiny = None
         self._whisper_model_base = None
         self._whisper_model_small = None
         self._whisper_model_medium = None
         self._whisper_model_large = None
+        self._whisper_model_large_v3 = None
 
     @property
     def whisper_processor(self):
         if self._whisper_processor is None:
             self._whisper_processor = transformers.WhisperProcessor.from_pretrained("./models/tovera-wis-whisper-base")
         return self._whisper_processor
+
+    @property
+    def whisper_processor_v3(self):
+        if self._whisper_processor_v3 is None:
+            self._whisper_processor_v3 = transformers.WhisperProcessor.from_pretrained("./models/tovera-wis-whisper-large-v3")
+        return self._whisper_processor_v3
 
     @property
     def whisper_model_tiny(self):
@@ -412,6 +422,27 @@ class LazyModels:
                 )
         return self._whisper_model_large
 
+    @property
+    def whisper_model_large_v3(self):
+        if self._whisper_model_large_v3 is None:
+            logger.info("Loading whisper model: large-v3")
+            if device == "cuda":
+                self._whisper_model_large_v3 = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-large-v3',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    device_index=device_index,
+                )
+            else:
+                self._whisper_model_large_v3 = ctranslate2.models.Whisper(
+                    'models/tovera-wis-whisper-large-v3',
+                    device=device,
+                    compute_type=compute_type,
+                    inter_threads=model_threads,
+                    intra_threads=intra_threads,
+                )
+        return self._whisper_model_large_v3
 
 # this is a singleton instance that is never re-assigned
 models: LazyModels = LazyModels()
@@ -440,6 +471,9 @@ def load_models() -> LazyModels:
     if preload_whisper_model_large:
         models.whisper_processor
         models.whisper_model_large
+    if preload_whisper_model_large_v3:
+        models.whisper_processor_v3
+        models.whisper_model_large_v3
 
     return models
 
@@ -458,6 +492,8 @@ def warm_models():
                 do_whisper("client/3sec.flac", "medium", beam_size, "transcribe", False, "en")
             if preload_whisper_model_large and models.whisper_model_large is not None:
                 do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
+            if preload_whisper_model_large_v3 and models.whisper_model_large_v3 is not None:
+                do_whisper("client/3sec.flac", "large-v3", beam_size, "transcribe", False, "en")
             if sv_model is not None:
                 # XXX sv_model is loaded at top level instead of in LazyModels
                 # XXX so it is always preloaded & warmed if supported
@@ -468,7 +504,7 @@ def warm_models():
         return
 
 
-def do_translate(whisper_model, features, total_chunk_count, language, beam_size):
+def do_translate(whisper_model, whisper_processor, features, total_chunk_count, language, beam_size):
     # Set task in token format for processor
     task = 'translate'
     logger.debug(f'WHISPER: Doing translation with {language}, beam size {beam_size}, chunk count {total_chunk_count}')
@@ -476,7 +512,7 @@ def do_translate(whisper_model, features, total_chunk_count, language, beam_size
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
-    prompt = models.whisper_processor.tokenizer.convert_tokens_to_ids(
+    prompt = whisper_processor.tokenizer.convert_tokens_to_ids(
         [
             "<|startoftranscript|>",
             language,
@@ -492,7 +528,7 @@ def do_translate(whisper_model, features, total_chunk_count, language, beam_size
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('WHISPER: Translate inference took ' + str(infer_time_milliseconds) + ' ms')
-    results = models.whisper_processor.decode(results[0].sequences_ids[0])
+    results = whisper_processor.decode(results[0].sequences_ids[0])
     logger.debug(results)
 
     return results
@@ -504,9 +540,16 @@ def check_language(language):
 
 def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "transcribe",
                detect_language: bool = False, force_language: str = None, translate: bool = False):
+    # Set defaults
+    n_mels = 80
+    whisper_processor = models.whisper_processor
     # Point to model object depending on passed model string
     if model == "large":
         whisper_model = models.whisper_model_large
+    elif model == "large-v3":
+        n_mels = 128
+        whisper_model = models.whisper_model_large_v3
+        whisper_processor = models.whisper_processor_v3
     elif model == "medium":
         whisper_model = models.whisper_model_medium
     elif model == "small":
@@ -545,14 +588,14 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
         strides = []
         for chunk, stride in chunk_iter(audio):
             chunk = pad_or_trim(chunk)
-            chunks.append(log_mel_spectrogram(chunk).numpy())
+            chunks.append(log_mel_spectrogram(chunk, n_mels=n_mels).numpy())
             strides.append(stride)
         mel_features = np.stack(chunks)
         total_chunk_count = len(chunks)
     else:
         mel_audio = pad_or_trim(audio)
-        mel_features = log_mel_spectrogram(mel_audio).numpy()
-        # Ref Whisper returns shape (80, 3000) but model expects (1, 80, 3000)
+        mel_features = log_mel_spectrogram(mel_audio, n_mels=n_mels).numpy()
+        # Ref Whisper returns shape (80|128, 3000) but model expects (1, 80|128, 3000)
         mel_features = np.expand_dims(mel_features, axis=0)
         total_chunk_count = 1
 
@@ -589,7 +632,7 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
 
     # Describe the task in the prompt.
     # See the prompt format in https://github.com/openai/whisper.
-    prompt = models.whisper_processor.tokenizer.convert_tokens_to_ids(
+    prompt = whisper_processor.tokenizer.convert_tokens_to_ids(
         [
             "<|startoftranscript|>",
             processor_language,
@@ -630,10 +673,10 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
     if use_chunking:
         assert strides, 'strides needed to compute final tokens when chunking'
         tokens = [(results[i].sequences_ids[0], strides[i]) for i in range(total_chunk_count)]
-        tokens = find_longest_common_sequence(tokens, models.whisper_processor.tokenizer)
+        tokens = find_longest_common_sequence(tokens, whisper_processor.tokenizer)
     else:
         tokens = results[0].sequences_ids[0]
-    results = models.whisper_processor.decode(tokens)
+    results = whisper_processor.decode(tokens)
     time_end = datetime.datetime.now()
     infer_time = time_end - time_start
     infer_time_milliseconds = infer_time.total_seconds() * 1000
@@ -651,7 +694,7 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
         translation = None
     elif translate:
         logger.debug(f'WHISPER: Detected non-preferred language {language}, translating')
-        translation = do_translate(whisper_model, gpu_features, total_chunk_count, language, beam_size=beam_size)
+        translation = do_translate(whisper_model, whisper_processor, gpu_features, total_chunk_count, language, beam_size=beam_size)
         # Strip tokens from translation output - brittle but works right now
         translation = translation.split('>')[2]
         translation = translation.strip()

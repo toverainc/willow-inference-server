@@ -257,6 +257,7 @@ download_models() {
     build_one_whisper tovera/wis-whisper-small
     build_one_whisper tovera/wis-whisper-medium
     build_one_whisper tovera/wis-whisper-large-v2
+    build_one_whisper tovera/wis-whisper-large-v3
     build_sv
 }
 

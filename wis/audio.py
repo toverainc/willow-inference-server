@@ -16,6 +16,7 @@ def exact_div(x, y):
 # hard-coded audio hyperparameters
 SAMPLE_RATE = 16000
 N_FFT = 400
+# Default for all but large-v3
 N_MELS = 80
 HOP_LENGTH = 160
 CHUNK_LENGTH = 30
@@ -56,9 +57,10 @@ def mel_filters(device, n_mels: int = N_MELS) -> torch.Tensor:
         np.savez_compressed(
             "mel_filters.npz",
             mel_80=librosa.filters.mel(sr=16000, n_fft=400, n_mels=80),
+            mel_128=librosa.filters.mel(sr=16000, n_fft=400, n_mels=128),
         )
     """
-    assert n_mels == 80, f"Unsupported n_mels: {n_mels}"
+    assert n_mels in {80, 128}, f"Unsupported n_mels: {n_mels}"
     with np.load(os.path.join(os.path.dirname(__file__), "assets", "mel_filters.npz")) as f:
         return torch.from_numpy(f[f"mel_{n_mels}"]).to(device)
 
@@ -73,7 +75,7 @@ def log_mel_spectrogram(audio: Union[str, np.ndarray, torch.Tensor], n_mels: int
         The path to audio as a NumPy array in 16 kHz
 
     n_mels: int
-        The number of Mel-frequency filters, only 80 is supported
+        The number of Mel-frequency filters, only 80 and 128 is supported
 
     Returns
     -------
