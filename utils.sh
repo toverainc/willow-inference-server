@@ -157,6 +157,10 @@ run_nginx_command() {
     chmod 755  "$WIS_DIR/nginx"
 }
 
+run_nginx_command_root() {
+    docker run --rm -it --user root --entrypoint /nginx/wrap_command.sh -v "$WIS_DIR/nginx":/nginx "$WIS_NGINX_IMAGE":"$WIS_NGINX_TAG" "$@"
+}
+
 gen_ec_key() {
     if [ ! -f nginx/x25519.pem ]; then
         run_nginx_command openssl genpkey -algorithm x25519 -out nginx/x25519.pem
@@ -384,6 +388,9 @@ start|run|up)
     gen_ec_key
     gen_dh_param
     gen_nginx_auth
+    # Always ensure nginx cache is writable
+    mkdir -p nginx/cache
+    run_nginx_command_root chown -R nginx /nginx/cache
     shift
     docker compose -f "$DOCKER_COMPOSE_FILE" up --remove-orphans "$@"
 ;;
