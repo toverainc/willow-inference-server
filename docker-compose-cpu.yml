@@ -20,7 +20,7 @@ services:
 
   coqui:
     restart: unless-stopped
-    image: ghcr.io/coqui-ai/tts:${COQUI_TAG}
+    image: ${COQUI_IMAGE}:${COQUI_TAG}
     environment:
       - FORCE_CPU
     env_file:
@@ -32,6 +32,7 @@ services:
       stack: 67108864
     volumes:
       - ./:/app
+      - ./cache:/root/.cache
       - ./cache-local:/root/.local
     entrypoint: /app/entrypoint-coqui.sh
 
