@@ -157,6 +157,7 @@ def predict_streaming_endpoint(parsed_input: StreamingInputs):
 # Based on 999456989833c80be735a8252b440977589615d5
 from typing import Optional
 import json
+import re
 
 def load_speaker(speaker):
     with open(f"/xtts/{speaker}.json") as f:
@@ -176,7 +177,7 @@ def load_speaker(speaker):
 # Defaults to load on startup
 default_speaker_embedding, default_gpt_cond_latent = load_speaker("default")
 
-def predict_streaming_generator_get(text, language, decoder, stream_chunk_size, add_wav_header, speaker):
+def predict_streaming_generator_get(text, language, decoder, stream_chunk_size, add_wav_header, speaker, temperature, repetition_penalty):
     speaker_embedding, gpt_cond_latent = default_speaker_embedding, default_gpt_cond_latent
     if speaker != "default":
         try:
@@ -187,7 +188,7 @@ def predict_streaming_generator_get(text, language, decoder, stream_chunk_size, 
     if decoder not in ["ne_hifigan","hifigan"]:
         decoder = "ne_hifigan"
 
-    chunks = model.inference_stream(text, language, gpt_cond_latent, speaker_embedding, decoder=decoder, stream_chunk_size=stream_chunk_size)
+    chunks = model.inference_stream(text, language, gpt_cond_latent, speaker_embedding, decoder=decoder, stream_chunk_size=stream_chunk_size, temperature=temperature, repetition_penalty=repetition_penalty)
     for i, chunk in enumerate(chunks):
         chunk = postprocess(chunk)
         if i == 0 and add_wav_header:
@@ -197,8 +198,11 @@ def predict_streaming_generator_get(text, language, decoder, stream_chunk_size, 
             yield chunk.tobytes()
 
 @app.get("/api/tts")
-def predict_streaming_endpoint_get(text, language: Optional[str] = "en", decoder: Optional[str] = "ne_hifigan", stream_chunk_size: Optional[int] = 20, add_wav_header: Optional[bool] = True, speaker: Optional[str] = "default"):
+def predict_streaming_endpoint_get(text, language: Optional[str] = "en", decoder: Optional[str] = "ne_hifigan", stream_chunk_size: Optional[int] = 20, add_wav_header: Optional[bool] = True, speaker: Optional[str] = "default", temperature: Optional[float] = 0.85, repetition_penalty: Optional[float] = 7.0):
+    print(f"Coqui XTTS request with {text} {language} {decoder} {stream_chunk_size} {speaker} {temperature} {repetition_penalty}")
+    # From their HF Space
+    text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", text)
     return StreamingResponse(
-        predict_streaming_generator_get(text, language, decoder, stream_chunk_size, add_wav_header, speaker),
+        predict_streaming_generator_get(text, language, decoder, stream_chunk_size, add_wav_header, speaker, temperature, repetition_penalty),
         media_type="audio/wav",
     )
