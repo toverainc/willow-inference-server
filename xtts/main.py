@@ -159,6 +159,8 @@ from typing import Optional
 import json
 import re
 
+supported_languages = config.languages
+
 def load_speaker(speaker):
     with open(f"/xtts/{speaker}.json") as f:
         default_speaker = json.load(f)
@@ -185,6 +187,10 @@ def predict_streaming_generator_get(text, language, decoder, stream_chunk_size, 
         except:
             print(f"Could not load requested speaker '{speaker}' - using default")
 
+    if language not in supported_languages:
+        print(f"XTTS does not support requested language '{language}' - setting en")
+        language = "en"
+
     if decoder not in ["ne_hifigan","hifigan"]:
         decoder = "ne_hifigan"
 
@@ -197,11 +203,15 @@ def predict_streaming_generator_get(text, language, decoder, stream_chunk_size, 
         else:
             yield chunk.tobytes()
 
+print('Warming TTS...')
+predict_streaming_generator_get("Warming model", "en", "ne_hifigan", 20, True, "default", 0.85, 7.0)
+
 @app.get("/api/tts")
 def predict_streaming_endpoint_get(text, language: Optional[str] = "en", decoder: Optional[str] = "ne_hifigan", stream_chunk_size: Optional[int] = 20, add_wav_header: Optional[bool] = True, speaker: Optional[str] = "default", temperature: Optional[float] = 0.85, repetition_penalty: Optional[float] = 7.0):
     print(f"Coqui XTTS request with {text} {language} {decoder} {stream_chunk_size} {speaker} {temperature} {repetition_penalty}")
     # From their HF Space
     text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", text)
+
     return StreamingResponse(
         predict_streaming_generator_get(text, language, decoder, stream_chunk_size, add_wav_header, speaker, temperature, repetition_penalty),
         media_type="audio/wav",
