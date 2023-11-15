@@ -369,6 +369,7 @@ sv-model)
 gunicorn)
     dep_check
     check_host
+    detect_compute
     gunicorn_direct
 ;;
 
@@ -405,6 +406,7 @@ stop|down)
 
 shell|docker)
     check_host
+    detect_compute
     shell
 ;;
 
