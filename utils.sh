@@ -54,7 +54,8 @@ SHM_SIZE=${SHM_SIZE:-1gb}
 TAG=${TAG:-latest}
 NAME=${NAME:wis}
 
-COQUI_TAG=${COQUI_TAG:-v0.19.1}
+COQUI_IMAGE=${COQUI_IMAGE:-ghcr.io/coqui-ai/tts}
+COQUI_TAG=${COQUI_TAG:-v0.20.4}
 NGINX_TAG=${NGINX_TAG:-1.25.3}
 
 WIS_NGINX_IMAGE=${WIS_NGINX_IMAGE:-willow-inference-server-nginx}
@@ -310,6 +311,12 @@ download-models)
 build-docker|build)
     check_host
     build_docker
+;;
+
+build-xtts)
+    check_host
+    docker build -t xtts:latest . -f Dockerfile.xtts
+    echo "To use Coqui XTTS add COQUI_IMAGE=xtts and COQUI_TAG=latest to .env"
 ;;
 
 clean-cache)

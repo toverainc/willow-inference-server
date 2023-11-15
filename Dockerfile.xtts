@@ -1,0 +1,7 @@
+FROM ghcr.io/coqui-ai/xtts-streaming-server:latest-cuda121
+
+WORKDIR /xtts
+
+COPY xtts/main.py .
+COPY xtts/default.json .
+EXPOSE 5002
