@@ -155,9 +155,10 @@ def predict_streaming_endpoint(parsed_input: StreamingInputs):
 
 ### Begin Willow
 # Based on 999456989833c80be735a8252b440977589615d5
-from typing import Optional
+from fastapi import Depends
 import json
 import re
+import copy
 
 supported_languages = config.languages
 
@@ -179,40 +180,115 @@ def load_speaker(speaker):
 # Defaults to load on startup
 default_speaker_embedding, default_gpt_cond_latent = load_speaker("default")
 
-def predict_streaming_generator_get(text, language, decoder, stream_chunk_size, add_wav_header, speaker, temperature, repetition_penalty):
-    speaker_embedding, gpt_cond_latent = default_speaker_embedding, default_gpt_cond_latent
-    if speaker != "default":
-        try:
-            speaker_embedding, gpt_cond_latent = load_speaker(speaker)
-        except:
-            print(f"Could not load requested speaker '{speaker}' - using default")
+def predict_streaming_generator_get(**kwargs):
 
-    if language not in supported_languages:
-        print(f"XTTS does not support requested language '{language}' - setting en")
-        language = "en"
-
-    if decoder not in ["ne_hifigan","hifigan"]:
-        decoder = "ne_hifigan"
-
-    chunks = model.inference_stream(text, language, gpt_cond_latent, speaker_embedding, decoder=decoder, stream_chunk_size=stream_chunk_size, temperature=temperature, repetition_penalty=repetition_penalty)
+    chunks = model.inference_stream(**kwargs)
     for i, chunk in enumerate(chunks):
         chunk = postprocess(chunk)
-        if i == 0 and add_wav_header:
+        # We always add WAV header
+        if i == 0:
             yield encode_audio_common(b"", encode_base64=False)
             yield chunk.tobytes()
         else:
             yield chunk.tobytes()
 
-print('Warming TTS...')
-predict_streaming_generator_get("Warming model", "en", "ne_hifigan", 20, True, "default", 0.85, 7.0)
+class StreamingInputs(BaseModel):
+    speaker_embedding: List[float]
+    gpt_cond_latent: List[List[float]]
+    text: str
+    language: Literal[
+        "en",
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pl",
+        "pt",
+        "tr",
+        "ru",
+        "nl",
+        "cs",
+        "ar",
+        "zh-cn",
+        "ja",
+    ]
+    add_wav_header: bool = True
+    stream_chunk_size: str = "20"
+    decoder: str = "ne_hifigan"
+
+# To-do: inherit StreamingInputs
+class WillowStreamingInputs(BaseModel):
+    # Model params from https://raw.githubusercontent.com/coqui-ai/TTS/dev/TTS/tts/models/xtts.py
+    text: str
+    language: Literal[
+        "en",
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pl",
+        "pt",
+        "tr",
+        "ru",
+        "nl",
+        "cs",
+        "ar",
+        "zh-cn",
+        "ja",
+    ] = "en"
+    stream_chunk_size: int = 20
+    overlap_wav_len: int = 1024
+    temperature: float = 0.85
+    length_penalty: float = 1.0
+    repetition_penalty: float = 7.0
+    top_k: int = 50
+    top_p: float = 0.8
+    do_sample: bool = True
+    speed: float = 1.0
+    enable_text_splitting: bool = False
+    # Ours
+    decoder: Literal ["ne_hifigan", "hifigan"] = "ne_hifigan"
+    speaker: str = "default"
 
 @app.get("/api/tts")
-def predict_streaming_endpoint_get(text, language: Optional[str] = "en", decoder: Optional[str] = "ne_hifigan", stream_chunk_size: Optional[int] = 20, add_wav_header: Optional[bool] = True, speaker: Optional[str] = "default", temperature: Optional[float] = 0.85, repetition_penalty: Optional[float] = 7.0):
-    print(f"Coqui XTTS request with {text} {language} {decoder} {stream_chunk_size} {speaker} {temperature} {repetition_penalty}")
+def predict_streaming_endpoint_get(stream: WillowStreamingInputs = Depends()):
     # From their HF Space
-    text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", text)
+    text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", stream.text)
+
+    # We load speaker from existing json on disk
+    speaker_embedding, gpt_cond_latent = default_speaker_embedding, default_gpt_cond_latent
+    if stream.speaker != "default":
+        try:
+            speaker_embedding, gpt_cond_latent = load_speaker(stream.speaker)
+        except:
+            print(f"Could not load requested speaker '{stream.speaker}' - using default")
+
+    generator_args = {
+                    'text' : text, 
+                    'language' : stream.language,
+                    'gpt_cond_latent': gpt_cond_latent,
+                    'speaker_embedding': speaker_embedding,
+                    'stream_chunk_size': stream.stream_chunk_size,
+                    'overlap_wav_len': stream.overlap_wav_len,
+                    'temperature': stream.temperature,
+                    'length_penalty': stream.length_penalty,
+                    'repetition_penalty': stream.repetition_penalty,
+                    'top_k': stream.top_k,
+                    'top_p': stream.top_p,
+                    'do_sample': stream.do_sample,
+                    'speed': stream.speed,
+                    'enable_text_splitting': stream.enable_text_splitting,
+                    'decoder': stream.decoder,
+                    'speaker': stream.speaker,
+                     }
+
+    # Log request details
+    generator_args_str = copy.deepcopy(generator_args)
+    del generator_args_str["speaker_embedding"]
+    del generator_args_str["gpt_cond_latent"]
+    print("Coqui XTTS request with args: " + str(generator_args_str))
 
     return StreamingResponse(
-        predict_streaming_generator_get(text, language, decoder, stream_chunk_size, add_wav_header, speaker, temperature, repetition_penalty),
+        predict_streaming_generator_get(**generator_args),
         media_type="audio/wav",
     )
