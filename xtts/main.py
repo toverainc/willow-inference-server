@@ -154,8 +154,9 @@ def predict_streaming_endpoint(parsed_input: StreamingInputs):
     )
 
 ### Begin Willow
-# Based on 999456989833c80be735a8252b440977589615d5
+# Based on 23fd10a
 from fastapi import Depends
+from pydantic import Field
 import json
 import re
 import copy
@@ -217,8 +218,10 @@ class StreamingInputs(BaseModel):
     decoder: str = "ne_hifigan"
 
 # To-do: inherit StreamingInputs
+# temperature and repetition_penalty come from their HF Space
+# Expose all params from https://raw.githubusercontent.com/coqui-ai/TTS/dev/TTS/tts/models/xtts.py
+# Can be passed as URL args to GET /api/tts
 class WillowStreamingInputs(BaseModel):
-    # Model params from https://raw.githubusercontent.com/coqui-ai/TTS/dev/TTS/tts/models/xtts.py
     text: str
     language: Literal[
         "en",
@@ -233,8 +236,10 @@ class WillowStreamingInputs(BaseModel):
         "nl",
         "cs",
         "ar",
-        "zh-cn",
+        "zh",
         "ja",
+        "hu",
+        "ko",
     ] = "en"
     stream_chunk_size: int = 20
     overlap_wav_len: int = 1024
@@ -242,18 +247,19 @@ class WillowStreamingInputs(BaseModel):
     length_penalty: float = 1.0
     repetition_penalty: float = 7.0
     top_k: int = 50
-    top_p: float = 0.8
+    top_p: float = Field(0.8, ge=0.0, le=1.0)
     do_sample: bool = True
     speed: float = 1.0
-    enable_text_splitting: bool = False
+    enable_text_splitting: bool = True
     # Ours
     decoder: Literal ["ne_hifigan", "hifigan"] = "ne_hifigan"
     speaker: str = "default"
 
 @app.get("/api/tts")
 def predict_streaming_endpoint_get(stream: WillowStreamingInputs = Depends()):
-    # From their HF Space
-    text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", stream.text)
+    # From their HF Space - no longer needed as of 23fd10a
+    #text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", stream.text)
+    text = stream.text
 
     # We load speaker from existing json on disk
     speaker_embedding, gpt_cond_latent = default_speaker_embedding, default_gpt_cond_latent
