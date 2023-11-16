@@ -156,6 +156,7 @@ def predict_streaming_endpoint(parsed_input: StreamingInputs):
 ### Begin Willow
 # Based on 23fd10a
 from fastapi import Depends
+from fastapi.responses import JSONResponse
 from pydantic import Field
 import json
 import re
@@ -298,3 +299,28 @@ def predict_streaming_endpoint_get(stream: WillowStreamingInputs = Depends()):
         predict_streaming_generator_get(**generator_args),
         media_type="audio/wav",
     )
+
+# Speaker clone for Willow
+@app.post("/api/tts")
+def predict_speaker_post(audio_file: UploadFile, speaker):
+    """Compute conditioning inputs from reference audio file."""
+    temp_audio_name = next(tempfile._get_candidate_names())
+    with open(temp_audio_name, "wb") as temp, torch.inference_mode():
+        temp.write(io.BytesIO(audio_file.file.read()).getbuffer())
+        gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(
+            temp_audio_name)
+
+        # TODO: Clean this up
+        gpt_cond_latent = gpt_cond_latent.cpu().squeeze()
+        speaker_embedding = speaker_embedding.cpu().squeeze()
+        gpt_cond_latent = gpt_cond_latent.squeeze().half().tolist()
+        speaker_embedding = speaker_embedding.squeeze().half().tolist()
+        os.remove(temp_audio_name)
+
+    print(f"Got speaker name {speaker}")
+    speaker_json = {'gpt_cond_latent': gpt_cond_latent, 'speaker_embedding': speaker_embedding}
+    speaker_json = json.dumps(speaker_json, indent=2)
+    with open(f'/xtts/{speaker}.json', "w") as f:
+        f.write(str(speaker_json))
+
+    return JSONResponse(content={'status': f"Added speaker '{speaker}'"})
