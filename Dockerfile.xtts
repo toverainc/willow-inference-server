@@ -3,5 +3,5 @@ FROM ghcr.io/coqui-ai/xtts-streaming-server:main-cuda121-23fd10a43558942fedd16e5
 WORKDIR /xtts
 
 COPY xtts/main.py .
-COPY xtts/default.json .
+COPY xtts/*.json .
 EXPOSE 5002
