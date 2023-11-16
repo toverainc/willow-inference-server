@@ -20,8 +20,17 @@ from TTS.tts.models.xtts import Xtts
 from TTS.utils.generic_utils import get_user_data_dir
 from TTS.utils.manage import ModelManager
 
-torch.set_num_threads(int(os.environ.get("NUM_THREADS", "2")))
-device = torch.device("cuda")
+if torch.cuda.is_available():
+    threads = int(os.environ.get("XTTS_NUM_THREADS", "2"))
+    use_deepspeed = True
+    device = "cuda"
+else:
+    threads = int(os.environ.get("XTTS_NUM_THREADS", os.cpu_count()))
+    use_deepspeed = False
+    device = "cpu"
+
+print(f'Using {threads} threads for device {device}')
+torch.set_num_threads(threads)
 
 model_name = "tts_models/multilingual/multi-dataset/xtts_v2"
 print("Downloading XTTS Model:",model_name,flush=True)
@@ -33,7 +42,7 @@ print("Loading XTTS",flush=True)
 config = XttsConfig()
 config.load_json(os.path.join(model_path, "config.json"))
 model = Xtts.init_from_config(config)
-model.load_checkpoint(config, checkpoint_dir=model_path, eval=True, use_deepspeed=True)
+model.load_checkpoint(config, checkpoint_dir=model_path, eval=True, use_deepspeed=use_deepspeed)
 model.to(device)
 print("XTTS Loaded.",flush=True)
 
@@ -159,10 +168,8 @@ from fastapi import Depends
 from fastapi.responses import JSONResponse
 from pydantic import Field
 import json
-import re
+#import re
 import copy
-
-supported_languages = config.languages
 
 def load_speaker(speaker):
     with open(f"/xtts/{speaker}.json") as f:
