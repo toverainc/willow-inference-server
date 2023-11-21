@@ -1,4 +1,4 @@
-FROM ghcr.io/coqui-ai/xtts-streaming-server:main-cuda121-23fd10a43558942fedd16e59f0ec0b57a9be3e81
+FROM ghcr.io/coqui-ai/xtts-streaming-server:main-cuda121-8a7c96a7eca9306afb0f4f7c9e3cf1b32d82ec53
 
 WORKDIR /xtts
 
