@@ -251,7 +251,7 @@ class WillowStreamingInputs(BaseModel):
     ] = "en"
     stream_chunk_size: int = 20
     overlap_wav_len: int = 1024
-    temperature: float = 0.85
+    temperature: float = 0.1
     length_penalty: float = 1.0
     repetition_penalty: float = 7.0
     top_k: int = 50
