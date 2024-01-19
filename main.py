@@ -5,13 +5,13 @@
 import os
 import logging
 # FastAPI preprocessor
-from fastapi import FastAPI, UploadFile, Request, Response, status, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import FastAPI, UploadFile, Request, Response, status
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import PlainTextResponse
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 from pydantic import BaseModel
 import types
 import random
@@ -41,16 +41,8 @@ import librosa
 import transformers
 import wis.languages
 
-# TTS
-import soundfile as sf
-from speechbrain.pretrained import EncoderClassifier
-import torchaudio
-import tempfile
-import shutil
-from num2words import num2words
-import mimetypes
-
 import torch
+import torchaudio
 
 # SV
 from torchaudio.sox_effects import apply_effects_tensor
@@ -63,7 +55,6 @@ from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest
 import wave
 import av
 
-mimetypes.init()
 logger = logging.getLogger("infer")
 gunicorn_logger = logging.getLogger('gunicorn.error')
 logger.handlers = gunicorn_logger.handlers
@@ -197,8 +188,6 @@ preload_whisper_model_base = settings.preload_whisper_model_base
 preload_whisper_model_small = settings.preload_whisper_model_small
 preload_whisper_model_medium = settings.preload_whisper_model_medium
 preload_whisper_model_large = settings.preload_whisper_model_large
-preload_chatbot_model = settings.preload_chatbot_model
-preload_tts_model = settings.preload_tts_model
 
 # bit hacky but if we need to preload all models, we need to preload each model independently too
 if preload_all_models:
@@ -207,8 +196,6 @@ if preload_all_models:
     preload_whisper_model_small = True
     preload_whisper_model_medium = True
     preload_whisper_model_large = True
-    preload_chatbot_model = True
-    preload_tts_model = True
 
 # model threads
 model_threads = settings.model_threads
@@ -216,44 +203,19 @@ model_threads = settings.model_threads
 # Support for chunking
 support_chunking = settings.support_chunking
 
-# Support for TTS
-support_tts = settings.support_tts
-
 # Support for SV
 support_sv = settings.support_sv
-
-# Support chatbot
-support_chatbot = settings.support_chatbot
 
 # Default SV threshold
 sv_threshold = settings.sv_threshold
 
 whisper_model_default = settings.whisper_model_default
 
-tts_default_format = settings.tts_default_format
-
-tts_default_speaker = settings.tts_default_speaker
-
 # Default language
 language = settings.language
 
 # Default detect language?
 detect_language = settings.detect_language
-
-# Path to chatbot model
-chatbot_model_path = settings.chatbot_model_path
-
-# Chatbot temperature
-chatbot_temperature = settings.chatbot_temperature
-
-# Chatbot top_p
-chatbot_top_p = settings.chatbot_top_p
-
-# Chatbot model repetition penalty
-chatbot_repetition_penalty = settings.chatbot_repetition_penalty
-
-# Chatbot model max length
-chatbot_max_new_tokens = settings.chatbot_max_new_tokens
 
 concurrent_gpu_chunks = settings.concurrent_gpu_chunks
 
@@ -290,10 +252,6 @@ if device == "cuda":
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling chunking support')
             support_chunking = False
 
-        if cuda_free_memory <= settings.tts_memory_threshold:
-            logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling TTS support')
-            support_tts = False
-
         if cuda_free_memory <= settings.sv_memory_threshold:
             logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling SV support')
             support_sv = False
@@ -306,15 +264,6 @@ if device == "cuda":
         elif cuda_device_capability < 70:
             logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Volta, forcing int8')
             compute_type = "int8"
-
-        # Disable chatbot pre-Volta or low VRAM
-        if cuda_device_capability < 70 and support_chatbot:
-            logger.warning(f'CUDA: Device {cuda_dev_num} is pre-Volta, disabling chatbot')
-            support_chatbot = False
-
-        if cuda_free_memory <= 12000000000 and support_chatbot:
-            logger.warning(f'CUDA: Device {cuda_dev_num} has low memory, disabling chatbot support')
-            support_chatbot = False
 
     # Set ctranslate device index based on number of supported devices
     device_index = [*range(0, cuda_num_devices, 1)]
@@ -346,13 +295,6 @@ class LazyModels:
         self._whisper_model_small = None
         self._whisper_model_medium = None
         self._whisper_model_large = None
-
-        self._tts_processor = None
-        self._tts_model = None
-        self._tts_vocoder = None
-
-        self._chatbot_tokenizer = None
-        self._chatbot_model = None
 
     @property
     def whisper_processor(self):
@@ -470,61 +412,10 @@ class LazyModels:
                 )
         return self._whisper_model_large
 
-    @property
-    def tts_processor(self):
-        if not support_tts:
-            return None
-        if self._tts_processor is None:
-            self._tts_processor = transformers.SpeechT5Processor.from_pretrained("./models/microsoft-speecht5_tts")
-        return self._tts_processor
-
-    @property
-    def tts_model(self):
-        if not support_tts:
-            return None
-        if self._tts_model is None:
-            self._tts_model = transformers.SpeechT5ForTextToSpeech.from_pretrained(
-                "./models/microsoft-speecht5_tts").to(device=device)
-        return self._tts_model
-
-    @property
-    def tts_vocoder(self):
-        if not support_tts:
-            return None
-        if self._tts_vocoder is None:
-            self._tts_vocoder = transformers.SpeechT5HifiGan.from_pretrained(
-                "./models/microsoft-speecht5_hifigan").to(device=device)
-        return self._tts_vocoder
-
-    @property
-    def chatbot_tokenizer(self):
-        if not (support_chatbot and device == "cuda"):
-            return None
-        if self._chatbot_tokenizer is None:
-            from transformers import AutoTokenizer
-            self._chatbot_tokenizer = AutoTokenizer.from_pretrained(chatbot_model_path, use_fast=True)
-        return self._chatbot_tokenizer
-
-    @property
-    def chatbot_model(self):
-        if not (support_chatbot and device == "cuda"):
-            return None
-        if self._chatbot_tokenizer is None:
-            logger.info(f'CHATBOT: Using model {chatbot_model_path} and CUDA, attempting load (this takes a while)...')
-            from auto_gptq import AutoGPTQForCausalLM
-            self._chatbot_model = AutoGPTQForCausalLM.from_quantized(
-                chatbot_model_path,
-                model_basename=chatbot_model_basename,
-                use_safetensors=True,
-                trust_remote_code=False,
-                device=chatbot_device,
-                use_triton=True,
-                quantize_config=None,
-            )
-        return self._chatbot_model
 
 # this is a singleton instance that is never re-assigned
 models: LazyModels = LazyModels()
+
 
 def load_models() -> LazyModels:
     # Turn up log_level for ctranslate2
@@ -549,13 +440,6 @@ def load_models() -> LazyModels:
     if preload_whisper_model_large:
         models.whisper_processor
         models.whisper_model_large
-    if preload_tts_model:
-        models.tts_processor
-        models.tts_vocoder
-        models.tts_model
-    if preload_chatbot_model:
-        models.chatbot_tokenizer
-        models.chatbot_model
 
     return models
 
@@ -579,50 +463,9 @@ def warm_models():
                 # XXX so it is always preloaded & warmed if supported
                 do_sv("client/3sec.flac")
 
-            if preload_tts_model and models.tts_model is not None:
-                logger.info("Warming TTS... This takes a while on first run.")
-                do_tts("Hello from Willow")
-
     else:
         logger.info("Skipping warm_models for CPU")
         return
-
-
-def do_chatbot(text, max_new_tokens=chatbot_max_new_tokens, temperature=chatbot_temperature, top_p=chatbot_top_p,
-               repetition_penalty=chatbot_repetition_penalty):
-    if models.chatbot_model is not None:
-        first_time_start = datetime.datetime.now()
-        logger.debug(f'CHATBOT: Input is: {text}')
-        prompt = f'''USER: {text}
-ASSISTANT:'''
-        logger.debug(f'CHATBOT: Pipeline parameters are max_new_tokens {max_new_tokens} temperature {temperature}'
-                     f' top_p {top_p} repetition_penalty {repetition_penalty}')
-        chatbot_pipeline = transformers.pipeline(
-            "text-generation",
-            model=models.chatbot_model,
-            tokenizer=models.chatbot_tokenizer,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty)
-
-        output = chatbot_pipeline(prompt)[0]["generated_text"]
-
-        # Split so we don't return anything other than response
-        try:
-            output = output.split("ASSISTANT: ")[1]
-        except Exception:
-            logger.warning('CHATBOT: Response did not have assistant format')
-
-        time_end = datetime.datetime.now()
-        infer_time = time_end - first_time_start
-        infer_time_milliseconds = infer_time.total_seconds() * 1000
-        logger.debug(f'CHATBOT: Response is: {output}')
-        logger.debug('CHATBOT: Response took ' + str(infer_time_milliseconds) + ' ms')
-    else:
-        logger.warning('CHATBOT: Not installed or supported')
-        output = "Chatbot not installed or supported"
-    return output
 
 
 def do_translate(whisper_model, features, total_chunk_count, language, beam_size):
@@ -768,7 +611,7 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
     for i, mel_features_batch in enumerate(
         chunkit(mel_features, concurrent_gpu_chunks)
     ):
-        logger.debug("Processing GPU batch %s of expected %s", i+1, len(mel_features) // concurrent_gpu_chunks + 1)
+        logger.debug("WHISPER: Processing batch %s of expected %s", i+1, len(mel_features) // concurrent_gpu_chunks + 1)
         gpu_features = ctranslate2.StorageView.from_array(mel_features_batch)
         results.extend(whisper_model.generate(
             gpu_features,
@@ -844,94 +687,6 @@ def num_to_word(text):
         else:
             newstr = newstr+ch
     return newstr
-
-
-def do_tts(text, format='WAV', speaker=tts_default_speaker):
-    logger.debug(f'TTS: Got request for speaker {speaker} with text: {text}')
-
-    if support_tts is False:
-        return
-
-    # Convert numbers to words because T5 doesn't support numbers
-    if re.search(r'\d', text):
-        logger.debug('TTS: Text contains numbers, converting to words')
-        output_string = []
-        for sentence in [text]:
-            output_sentence = []
-            for word in sentence.split():
-                if word.isdigit():
-                    word = num2words(word)
-                    word = word.replace("-", " ")
-                    output_sentence.append(word)
-                else:
-                    output_sentence.append(word)
-            output_string.append(' '.join(output_sentence))
-        text = str(output_string)
-        logger.debug(f'TTS: Text after number substitution: {text}')
-
-    # Load speaker embedding
-    time_initial_start = datetime.datetime.now()
-
-    file_path = f"wis/assets/spkemb/{speaker}.npy"
-    if os.path.isfile(file_path):
-        speaker_numpy = file_path
-        logger.debug(f'TTS: Loaded included speaker {speaker}')
-
-    # Try and potentially override with a custom speaker
-    file_path = f"speakers/custom_tts/{speaker}.npy"
-    if os.path.isfile(file_path):
-        speaker_numpy = file_path
-        logger.debug(f'TTS: Loaded custom speaker {speaker}')
-
-    speaker_embedding = np.load(speaker_numpy)
-    speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(device=device)
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_initial_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS: Loading speaker embedding took ' + str(infer_time_milliseconds) + ' ms')
-
-    # Get inputs
-    time_start = datetime.datetime.now()
-    inputs = models.tts_processor(text=text, is_split_into_words=True, return_tensors="pt").to(device=device)
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS: Getting inputs took ' + str(infer_time_milliseconds) + ' ms')
-
-    # Generate audio - SLOW
-    time_start = datetime.datetime.now()
-    with torch.inference_mode():
-        audio = models.tts_model.generate_speech(inputs["input_ids"], speaker_embedding, vocoder=models.tts_vocoder).to(
-            device=device)
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS: Generating audio took ' + str(infer_time_milliseconds) + ' ms')
-
-    # Setup access to file and pass it back to calling function
-    time_start = datetime.datetime.now()
-
-    # If we're not running on CPU copy audio to CPU so we can write it out
-    if device != "cpu":
-        audio = audio.cpu()
-
-    file = io.BytesIO()
-    sf.write(file, audio.numpy(), samplerate=16000, format=format)
-    file.seek(0)
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS: Generating file took ' + str(infer_time_milliseconds) + ' ms')
-
-    fake_filename = f'tts.{format}'
-    media_type = mimetypes.guess_type(fake_filename)[0]
-
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_initial_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('TTS: Total time took ' + str(infer_time_milliseconds) + ' ms')
-
-    return file, media_type
 
 
 def do_sv(audio_file, threshold=sv_threshold):
@@ -1015,38 +770,6 @@ def do_sv(audio_file, threshold=sv_threshold):
 
     # Return result
     return result
-
-
-# Adapted from https://github.com/thingless/t5voice
-def do_speaker_embed(audio_file, speaker_name):
-    spk_model = "speechbrain/spkrec-xvect-voxceleb"
-    size_embed = 512
-    # Override to CPU for now
-    device = "cpu"
-
-    tmpdir = tempfile.mkdtemp()
-    try:
-        classifier = EncoderClassifier.from_hparams(source=spk_model, run_opts={"device": device}, savedir=tmpdir)
-
-        audio, sr = torchaudio.load(audio_file)
-        if len(audio.shape) > 1 and audio.shape[0] > 1:
-            audio = audio[0]  # left channel only
-        if sr != 16000:
-            # resample
-            resampler = torchaudio.transforms.Resample(sr, 16000, dtype=audio.dtype)
-            audio = resampler(audio)
-        with torch.no_grad():
-            embeddings = classifier.encode_batch(audio)
-            embeddings = torch.nn.functional.normalize(embeddings, dim=2)
-            save_path = f"speakers/custom_tts/{speaker_name}"
-            np.save(save_path, embeddings.squeeze())
-            embeddings = embeddings.squeeze().cpu().numpy()
-        assert embeddings.shape[0] == size_embed, embeddings.shape[0]
-    finally:
-        assert len(tmpdir) > 3
-        shutil.rmtree(tmpdir)
-
-    return embeddings, save_path
 
 
 class DataChannelMessage(NamedTuple):
@@ -1239,9 +962,6 @@ app.mount("/rtc", StaticFiles(directory="nginx/static/rtc", html=True), name="rt
 # Mount static dir to serve files for dictation client
 app.mount("/dict", StaticFiles(directory="nginx/static/dict", html=True), name="dict_files")
 
-# Mount static dir to serve files for chatbot client
-app.mount("/chatbot", StaticFiles(directory="nginx/static/chatbot", html=True), name="chatbot_files")
-
 # Expose audio mount in the event willow is configured to save
 app.mount("/audio", StaticFiles(directory="nginx/static/audio", html=True), name="audio_files")
 
@@ -1417,148 +1137,3 @@ async def willow(request: Request, response: Response, model: Optional[str] = wh
         final_response['translation'] = translation
 
     return JSONResponse(content=final_response)
-
-
-if support_chatbot:
-    @app.get("/api/chatbot", summary="Submit text for chatbot", response_description="Chatbot answer")
-    async def chatbot(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens,
-                      temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p,
-                      repetition_penalty: Optional[float] = chatbot_repetition_penalty):
-        logger.debug(f"FASTAPI: Got chatbot request with text: {text}")
-        # Do Chatbot
-        response = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
-        logger.debug(f"FASTAPI: Got chatbot response with text: {response}")
-        final_response = {"response": response}
-        return JSONResponse(content=final_response)
-
-    @app.get("/api/chatbot/tts", summary="Submit text for chatbot and get audio in response",
-             response_description="Chatbot answer audio")
-    async def chatbot_tts(text: str, max_new_tokens: Optional[int] = chatbot_max_new_tokens,
-                          temperature: Optional[float] = chatbot_temperature, top_p: Optional[float] = chatbot_top_p,
-                          repetition_penalty: Optional[float] = chatbot_repetition_penalty,
-                          format: Optional[str] = tts_default_format,
-                          speaker: Optional[str] = tts_default_speaker):
-        logger.debug(f"FASTAPI: Got chatbot TTS request with text: {text} and speaker {speaker}")
-        # Do Chatbot
-        chatbot = do_chatbot(text, max_new_tokens, temperature, top_p, repetition_penalty)
-        logger.debug(f"FASTAPI: Got chatbot TTS response with text: {chatbot}")
-        # Do TTS
-        response, media_type = do_tts(chatbot, format, speaker)
-        return StreamingResponse(response, media_type=media_type)
-
-if support_tts:
-    @app.get("/api/tts", summary="Submit text for text to speech",
-             response_description="Audio file of generated speech")
-    async def tts(text: str, format: Optional[str] = tts_default_format, speaker: Optional[str] = tts_default_speaker):
-        logger.debug(f"FASTAPI: Got TTS request for speaker {speaker} with format {format} and text: {text}")
-        # Do TTS
-        response, media_type = do_tts(text, format, speaker)
-
-        return StreamingResponse(response, media_type=media_type)
-
-    @app.post("/api/sts", summary="Submit speech, do ASR, and TTS",
-              response_description="Audio file of generated speech")
-    async def sts(request: Request, audio_file: UploadFile, response: Response,
-                  model: Optional[str] = whisper_model_default, detect_language: Optional[bool] = detect_language,
-                  beam_size: Optional[int] = beam_size, force_language: Optional[str] = None,
-                  translate: Optional[bool] = False, speaker: Optional[str] = tts_default_speaker):
-        logger.debug(f'FASTAPI: Got STS request for model {model} beam size {beam_size} '
-                     f'language detection {detect_language}')
-        task = "transcribe"
-
-        if force_language:
-            if not check_language(force_language):
-                logger.debug("FASTAPI: Invalid force_language in request - returning HTTP 400")
-                response = {"error": "Invalid force_language"}
-                return JSONResponse(content=response, status_code=status.HTTP_400_BAD_REQUEST)
-
-        # Setup access to file
-        audio_file = io.BytesIO(await audio_file.read())
-        # Do Whisper
-        language, results, infer_time, translation, infer_speedup, audio_duration = do_whisper(audio_file, model,
-                                                                                               beam_size, task,
-                                                                                               detect_language,
-                                                                                               force_language,
-                                                                                               translate)
-
-        # Do TTS
-        response = do_tts(results, 'FLAC', speaker)
-        fake_filename = f'tts.{format}'
-        media_type = mimetypes.types_map[fake_filename]
-        return StreamingResponse(response, media_type=media_type[0])
-
-    class Speaker(BaseModel):
-        message: str
-
-    @app.post("/api/speaker", response_model=Speaker, summary="Add custom speaker",
-              response_description="Speaker creation status")
-    async def speaker_create(request: Request, audio_file: UploadFile, speaker_name: Optional[str] = "CUSTOM"):
-        logger.debug("FASTAPI: Got new speaker request")
-        # Setup access to file
-        audio_file = io.BytesIO(await audio_file.read())
-        # Do embed but don't do anything with the output other than save in do_speaker_embed
-        embedding, save_path = do_speaker_embed(audio_file, speaker_name)
-        status_text = f"Created custom speaker successfully - you can now use the {speaker_name} speaker for TTS"
-        logger.debug(f"FASTAPI: {status_text}")
-
-        response = {"message": status_text}
-        return JSONResponse(content=response)
-
-    @app.delete("/api/speaker", response_model=Speaker, summary="Delete custom speaker",
-                response_description="Speaker deletion status")
-    async def speaker_delete(request: Request, speaker_name: Optional[str] = "CUSTOM"):
-        logger.debug("FASTAPI: Got delete speaker request")
-        os.remove(f'speakers/custom_tts/{speaker_name}.npy')
-        status_text = f"Deleted custom speaker {speaker_name} successfully"
-        logger.debug(f"FASTAPI: {status_text}")
-
-        response = {"message": status_text}
-        return JSONResponse(content=response)
-
-    class SpeakersList(BaseModel):
-        speakers: list
-
-    @app.get("/api/speaker", response_model=SpeakersList, summary="Show supported speakers",
-             response_description="Speakers list")
-    async def speaker_delete_get(request: Request):
-        logger.debug("FASTAPI: Got list speakers request")
-        speakers = []
-        dirs = ["wis/assets/spkemb", "speakers/custom_tts"]
-        for dir in dirs:
-            logger.debug(f"FASTAPI: Getting speakers for directory {dir}")
-            for (root, dirs, file) in os.walk(dir):
-                for f in file:
-                    if '.npy' in f:
-                        name = f.replace(".npy", "")
-                        logger.debug(f"FASTAPI: Getting speakers found speaker {name}")
-                        speakers.append(name)
-
-        response = {"speakers": speakers}
-        return JSONResponse(content=response)
-
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-
-manager = ConnectionManager()
-if support_chatbot:
-    @app.websocket("/api/ws/chatbot")
-    async def websocket_chatbot(websocket: WebSocket):
-        await manager.connect(websocket)
-        try:
-            while True:
-                text = await websocket.receive_text()
-                # await websocket.send_text(f'Asking chatbot {text}')
-                output = do_chatbot(text)
-                await websocket.send_text(output)
-        except WebSocketDisconnect:
-            manager.disconnect(websocket)

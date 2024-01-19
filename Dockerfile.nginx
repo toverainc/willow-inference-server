@@ -1,0 +1,6 @@
+ARG NGINX_TAG
+
+FROM nginx:${NGINX_TAG}
+
+RUN apt-get update && apt-get install --no-install-recommends -y apache2-utils \
+    && rm -rf /var/lib/apt/lists/*

@@ -18,11 +18,30 @@ services:
       - ./cache:/root/.cache
     command: ./entrypoint.sh
 
+  coqui:
+    restart: unless-stopped
+    image: ${COQUI_IMAGE}:${COQUI_TAG}
+    environment:
+      - FORCE_CPU
+    env_file:
+      - .env
+    shm_size: ${SHM_SIZE}
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    volumes:
+      - ./:/app
+      - ./cache:/root/.cache
+      - ./cache-local:/root/.local
+    entrypoint: /app/entrypoint-coqui.sh
+
   nginx:
     restart: unless-stopped
     depends_on:
+      - coqui
       - wis
-    image: nginx:1.25.2
+    image: ${WIS_NGINX_IMAGE}:${WIS_NGINX_TAG}
     volumes:
     - ./nginx:/nginx
     - ./nginx/nginx.conf:/etc/nginx/nginx.conf

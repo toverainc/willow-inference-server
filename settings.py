@@ -35,11 +35,6 @@ class APISettings(BaseSettings):
     preload_whisper_model_small = True
     preload_whisper_model_medium = True
     preload_whisper_model_large = True
-    preload_chatbot_model = True  # only used if support_chatbot is True too
-    preload_tts_model = True  # only used if support_tts is True too
-
-    # TTS CUDA memory threshold - equivalent of 4GB GPUs
-    tts_memory_threshold: int = 3798205849
 
     # SV CUDA memory threshold - equivalent of 6GB GPUs
     sv_memory_threshold: int = 5798205849
@@ -57,9 +52,6 @@ class APISettings(BaseSettings):
     # 8GB GPUs should support at least 2 chunks so starting with that
     concurrent_gpu_chunks: int = 2
 
-    # Enable TTS
-    support_tts: bool = True
-
     # Enable SV
     support_sv: bool = False
 
@@ -69,12 +61,6 @@ class APISettings(BaseSettings):
     # The default whisper model to use. Options are "tiny", "base", "small", "medium", "large"
     whisper_model_default: str = 'medium'
 
-    # Default TTS format to use
-    tts_default_format: str = "FLAC"
-
-    # Default TTS speaker to use. CLB is US female
-    tts_default_speaker: str = "CLB"
-
     # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
     cors_allowed_origins: List[str] = []
 
@@ -82,24 +68,6 @@ class APISettings(BaseSettings):
     # If basic_auth_user is falsy it will not be checked. If basic_auth_pass is falsy it will not be checked.
     basic_auth_user: str = None
     basic_auth_pass: str = None
-
-    # Support chatbot
-    support_chatbot: bool = False
-
-    # Path to chatbot model - download from HuggingFace at runtime by default (gets cached)
-    chatbot_model_path: str = 'TheBloke/vicuna-13b-v1.3.0-GPTQ'
-
-    # Chatbot pipeline default temperature
-    chatbot_temperature: float = 0.7
-
-    # Chatbot pipeline default top_p
-    chatbot_top_p: float = 0.95
-
-    # Chatbot pipeline default repetition penalty
-    chatbot_repetition_penalty: float = 1.15
-
-    # Chatbot pipeline default max new tokens
-    chatbot_max_new_tokens: int = 512
 
     # airotc debug for connectivity and other WebRTC debugging
     aiortc_debug: bool = False

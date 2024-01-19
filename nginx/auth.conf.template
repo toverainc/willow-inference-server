@@ -1,0 +1,4 @@
+map $http_x_api_key $valid_key {
+    default %%DEFAULT%%;
+    "%%WIS_API_KEY%%" 1;
+}
