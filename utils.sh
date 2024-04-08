@@ -56,7 +56,7 @@ NAME=${NAME:wis}
 
 COQUI_IMAGE=${COQUI_IMAGE:-ghcr.io/coqui-ai/tts}
 COQUI_TAG=${COQUI_TAG:-v0.20.6}
-NGINX_TAG=${NGINX_TAG:-1.25.3}
+NGINX_TAG=${NGINX_TAG:-1.25.4}
 
 WIS_NGINX_IMAGE=${WIS_NGINX_IMAGE:-willow-inference-server-nginx}
 WIS_NGINX_TAG=${NGINX_TAG}
