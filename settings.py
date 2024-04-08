@@ -1,5 +1,5 @@
 from functools import lru_cache
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from typing import List
 
 
@@ -16,7 +16,7 @@ class APISettings(BaseSettings):
     long_beam_size: int = 3
     # Audio duration in ms to activate "long" mode. Any audio longer than this will use long_beam_size.
     long_beam_size_threshold: int = 12000
-    model_threads: int = 10
+    ctranslate2_threads: int = 10
 
     # Default language
     language: str = "en"
@@ -30,11 +30,11 @@ class APISettings(BaseSettings):
 
     # Models to preload
     # if preload_all_models is True, these are irrelevant
-    preload_whisper_model_tiny = True
-    preload_whisper_model_base = True
-    preload_whisper_model_small = True
-    preload_whisper_model_medium = True
-    preload_whisper_model_large = True
+    preload_whisper_model_tiny: bool = True
+    preload_whisper_model_base: bool  = True
+    preload_whisper_model_small: bool  = True
+    preload_whisper_model_medium: bool = True
+    preload_whisper_model_large: bool = True
 
     # SV CUDA memory threshold - equivalent of 6GB GPUs
     sv_memory_threshold: int = 5798205849
@@ -66,8 +66,8 @@ class APISettings(BaseSettings):
 
     # If basic_auth_pass or basic_auth_user are set all endpoints are guarded by basic auth
     # If basic_auth_user is falsy it will not be checked. If basic_auth_pass is falsy it will not be checked.
-    basic_auth_user: str = None
-    basic_auth_pass: str = None
+    #basic_auth_user: str = "your_username"
+    #basic_auth_pass: str = "your_password"
 
     # airotc debug for connectivity and other WebRTC debugging
     aiortc_debug: bool = False
