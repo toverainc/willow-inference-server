@@ -9,24 +9,13 @@ RUN apt-get update && \
         python3-dev \
         python3-pip \
         wget \
-        lsb-release \
-        software-properties-common \
-        gnupg \
         && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root
 
-# Install clang 16
-RUN wget -O llvm.sh https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
-RUN ./llvm.sh 16
-
-# Use clang 16
-ENV CC=/usr/bin/clang-16
-ENV CXX=/usr/bin/clang++-16
-
-ENV ONEAPI_VERSION=2023.2.0
+ENV ONEAPI_VERSION=2023.0.0
 RUN wget -q https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
     apt-key add *.PUB && \
     rm *.PUB && \
@@ -40,9 +29,7 @@ RUN wget -q https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PROD
 
 RUN --mount=type=cache,target=/root/.cache pip install cmake==3.22.*
 
-RUN apt-get update && apt-get install -y libomp-16-dev
-
-ENV ONEDNN_VERSION=3.3
+ENV ONEDNN_VERSION=3.1.1
 RUN wget -q https://github.com/oneapi-src/oneDNN/archive/refs/tags/v${ONEDNN_VERSION}.tar.gz && \
     tar xf *.tar.gz && \
     rm *.tar.gz && \
@@ -88,14 +75,7 @@ FROM nvcr.io/nvidia/tensorrt:23.08-py3
 WORKDIR /app
 
 # Install deps
-RUN apt-get update && apt-get install -y zstd git-lfs libsox3 gnupg software-properties-common && rm -rf /var/lib/apt/lists/*
-
-# Install clang deps - installs full clang, which we can remove later
-RUN wget -O llvm.sh https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
-RUN ./llvm.sh 16 && rm llvm.sh
-
-# Change to runtime later
-RUN apt-get update && apt-get install -y libomp-16-dev
+RUN apt-get update && apt-get install -y zstd git-lfs libsox3 && rm -rf /var/lib/apt/lists/*
 
 # Install our torch ver matching cuda
 RUN --mount=type=cache,target=/root/.cache pip install torch==2.1.0 torchaudio==2.1.0
