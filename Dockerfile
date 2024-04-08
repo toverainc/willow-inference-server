@@ -1,7 +1,7 @@
 # A lot of software, a lot of versions
 
 ARG CLANG_VER=14
-ARG CTRANSLATE2_VER=1e37b52
+ARG CTRANSLATE2_VER=cd26b3e
 ARG NVIDIA_VER=23.05
 ARG ONEAPI_VER=2023.1.0
 ARG ONEDNN_VER=3.1.1
@@ -11,7 +11,7 @@ ARG TORCH_AUDIO_VER=2.1.0
 # Misc
 ARG CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6;8.9;9.0+PTX"
 ARG CTRANSLATE2_ROOT="/opt/ctranslate2"
-ARG CTRANSLATE2_URL="https://github.com/OpenNMT/CTranslate2.git"
+ARG CTRANSLATE2_URL="https://github.com/chiiyeh/CTranslate2.git"
 
 # Builder
 FROM nvcr.io/nvidia/tensorrt:${NVIDIA_VER}-py3 as builder
