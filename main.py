@@ -198,7 +198,7 @@ if preload_all_models:
     preload_whisper_model_large = True
 
 # model threads
-model_threads = settings.model_threads
+ctranslate2_threads = settings.ctranslate2_threads
 
 # Support for chunking
 support_chunking = settings.support_chunking
@@ -272,7 +272,7 @@ else:
     compute_type = "int8"
     # Tested to generally perform best on CPU
     intra_threads = num_cpu_cores // 2
-    model_threads = num_cpu_cores // 2
+    ctranslate2_threads = num_cpu_cores // 2
     logger.info(f'CUDA: Not found - using CPU with {num_cpu_cores} cores')
 
 # These models refuse to cooperate otherwise
@@ -311,7 +311,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-tiny',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     device_index=device_index,
                 )
             else:
@@ -319,7 +319,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-tiny',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     intra_threads=intra_threads,
                 )
         return self._whisper_model_tiny
@@ -333,7 +333,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-base',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     device_index=device_index,
                 )
             else:
@@ -341,7 +341,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-base',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     intra_threads=intra_threads,
                 )
         return self._whisper_model_base
@@ -355,7 +355,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-small',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     device_index=device_index,
                 )
             else:
@@ -363,7 +363,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-small',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     intra_threads=intra_threads,
                 )
         return self._whisper_model_small
@@ -377,7 +377,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-medium',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     device_index=device_index,
                 )
             else:
@@ -385,7 +385,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-medium',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     intra_threads=intra_threads,
                 )
         return self._whisper_model_medium
@@ -399,7 +399,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-large-v2',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     device_index=device_index,
                 )
             else:
@@ -407,7 +407,7 @@ class LazyModels:
                     'models/tovera-wis-whisper-large-v2',
                     device=device,
                     compute_type=compute_type,
-                    inter_threads=model_threads,
+                    inter_threads=ctranslate2_threads,
                     intra_threads=intra_threads,
                 )
         return self._whisper_model_large
@@ -939,10 +939,11 @@ class HttpBasicAuth(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-if settings.basic_auth_pass and settings.basic_auth_user:
-    logger.info(f"{settings.name} is configured for HTTP Basic Authentication")
+try:
     app.add_middleware(HttpBasicAuth, username=settings.basic_auth_user, password=settings.basic_auth_pass)
-
+    logger.info(f"{settings.name} is configured for HTTP Basic Authentication")
+except:
+    pass
 
 @app.on_event("startup")
 def startup_event():
