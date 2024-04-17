@@ -742,6 +742,10 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
         language = settings.language
         translation = None
         results = send_whisper_triton(audio, audio_sr, triton_client=triton_client)
+        time_end = datetime.datetime.now()
+        infer_time = time_end - time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug('TRITON: Model took ' + str(infer_time_milliseconds) + ' ms')
 
     results = results.strip()
 
