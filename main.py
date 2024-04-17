@@ -34,15 +34,81 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, RTCRtpReceiver
 from aiortc.rtp import RtcpByePacket
 from wis.media import MediaRecorderLite
 
+# Triton support
+triton_url = os.getenv('TRITON_URL')
 
 # Whisper
-import ctranslate2
+if triton_url is None:
+    import ctranslate2
+else:
+    import tritonclient
+    import tritonclient.grpc as grpcclient
+    from tritonclient.utils import InferenceServerException
+    from tritonclient.utils import np_to_triton_dtype
+
+    triton_client = grpcclient.InferenceServerClient(triton_url)
+
 import librosa
 import transformers
 import wis.languages
 
 import torch
 import torchaudio
+
+# Use Triton Whisper
+if triton_url is not None:
+    def send_whisper_triton(
+        waveform, sample_rate,
+        triton_client: tritonclient.grpc.InferenceServerClient,
+        model_name: str = "whisper",
+        padding_duration: int = 10,
+        whisper_prompt: str = "<|startoftranscript|><|en|><|transcribe|><|notimestamps|>",
+    ):
+        total_duration = 0.0
+
+        duration = int(len(waveform) / sample_rate)
+
+        # padding to nearset 10 seconds
+        samples = np.zeros(
+            (
+                1,
+                padding_duration * sample_rate * ((duration // padding_duration) + 1),
+            ),
+            dtype=np.float32,
+        )
+
+        samples[0, : len(waveform)] = waveform
+
+        inputs = [
+            grpcclient.InferInput(
+                "WAV", samples.shape, np_to_triton_dtype(samples.dtype)
+            ),
+            grpcclient.InferInput(
+                "TEXT_PREFIX", [1, 1], "BYTES"
+            ),
+        ]
+        inputs[0].set_data_from_numpy(samples)
+
+        input_data_numpy = np.array([whisper_prompt], dtype=object)
+        input_data_numpy = input_data_numpy.reshape((1, 1))
+        inputs[1].set_data_from_numpy(input_data_numpy)
+
+        outputs = [grpcclient.InferRequestedOutput("TRANSCRIPTS")]
+
+        response = triton_client.infer(
+            model_name=model_name, inputs=inputs, outputs=outputs
+        )
+
+        decoding_results = response.as_numpy("TRANSCRIPTS")[0]
+        if type(decoding_results) == np.ndarray:
+            decoding_results = b" ".join(decoding_results).decode("utf-8")
+        else:
+            # For wenet
+            decoding_results = decoding_results.decode("utf-8")
+
+        total_duration += duration
+
+        return decoding_results
 
 # SV
 from torchaudio.sox_effects import apply_effects_tensor
@@ -182,23 +248,24 @@ long_beam_size = settings.long_beam_size
 long_beam_size_threshold = settings.long_beam_size_threshold
 
 # models to preload
-preload_all_models = settings.preload_all_models
-preload_whisper_model_tiny = settings.preload_whisper_model_tiny
-preload_whisper_model_base = settings.preload_whisper_model_base
-preload_whisper_model_small = settings.preload_whisper_model_small
-preload_whisper_model_medium = settings.preload_whisper_model_medium
-preload_whisper_model_large = settings.preload_whisper_model_large
+if triton_url is None:
+    preload_all_models = settings.preload_all_models
+    preload_whisper_model_tiny = settings.preload_whisper_model_tiny
+    preload_whisper_model_base = settings.preload_whisper_model_base
+    preload_whisper_model_small = settings.preload_whisper_model_small
+    preload_whisper_model_medium = settings.preload_whisper_model_medium
+    preload_whisper_model_large = settings.preload_whisper_model_large
 
-# bit hacky but if we need to preload all models, we need to preload each model independently too
-if preload_all_models:
-    preload_whisper_model_tiny = True
-    preload_whisper_model_base = True
-    preload_whisper_model_small = True
-    preload_whisper_model_medium = True
-    preload_whisper_model_large = True
+    # bit hacky but if we need to preload all models, we need to preload each model independently too
+    if preload_all_models:
+        preload_whisper_model_tiny = True
+        preload_whisper_model_base = True
+        preload_whisper_model_small = True
+        preload_whisper_model_medium = True
+        preload_whisper_model_large = True
 
-# model threads
-ctranslate2_threads = settings.ctranslate2_threads
+    # model threads
+    ctranslate2_threads = settings.ctranslate2_threads
 
 # Support for chunking
 support_chunking = settings.support_chunking
@@ -505,16 +572,17 @@ def check_language(language):
 def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "transcribe",
                detect_language: bool = False, force_language: str = None, translate: bool = False):
     # Point to model object depending on passed model string
-    if model == "large":
-        whisper_model = models.whisper_model_large
-    elif model == "medium":
-        whisper_model = models.whisper_model_medium
-    elif model == "small":
-        whisper_model = models.whisper_model_small
-    elif model == "base":
-        whisper_model = models.whisper_model_base
-    elif model == "tiny":
-        whisper_model = models.whisper_model_tiny
+    if triton_url is None:
+        if model == "large":
+            whisper_model = models.whisper_model_large
+        elif model == "medium":
+            whisper_model = models.whisper_model_medium
+        elif model == "small":
+            whisper_model = models.whisper_model_small
+        elif model == "base":
+            whisper_model = models.whisper_model_base
+        elif model == "tiny":
+            whisper_model = models.whisper_model_tiny
 
     processor_task = f'<|{task}|>'
     first_time_start = datetime.datetime.now()
@@ -539,130 +607,137 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
     infer_time_milliseconds = infer_time.total_seconds() * 1000
     logger.debug('WHISPER: Loading audio took ' + str(infer_time_milliseconds) + ' ms')
 
-    time_start = datetime.datetime.now()
-    if use_chunking:
-        chunks = []
-        strides = []
-        for chunk, stride in chunk_iter(audio):
-            chunk = pad_or_trim(chunk)
-            chunks.append(log_mel_spectrogram(chunk).numpy())
-            strides.append(stride)
-        mel_features = np.stack(chunks)
-        total_chunk_count = len(chunks)
-    else:
-        mel_audio = pad_or_trim(audio)
-        mel_features = log_mel_spectrogram(mel_audio).numpy()
-        # Ref Whisper returns shape (80, 3000) but model expects (1, 80, 3000)
-        mel_features = np.expand_dims(mel_features, axis=0)
-        total_chunk_count = 1
-
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('WHISPER: Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
-
-    # Whisper STEP 2 - optionally actually detect the language or default to configuration
-    time_start = datetime.datetime.now()
-
-    # System default language by default
-    language = settings.language
-    processor_language = f'<|{language}|>'
-
-    if detect_language and not force_language:
-        # load the first mel_features batch into the GPU
-        # just for language detection
-        # important - this is named gpu_features so it will be unloaded during our batch processing later
-        first_mel_features = mel_features[0:1, :, :]
-        gpu_features = ctranslate2.StorageView.from_array(first_mel_features)
-        results = whisper_model.detect_language(gpu_features)
-        language, probability = results[0][0]
-        processor_language = language
-        logger.debug(f"WHISPER: Detected language {language} with probability {probability}")
-
-    else:
-        if force_language:
-            language = force_language
-            logger.debug(f'WHISPER: Forcing language {language}')
-            processor_language = f'<|{language}|>'
+    if triton_url is None:
+        time_start = datetime.datetime.now()
+        if use_chunking:
+            chunks = []
+            strides = []
+            for chunk, stride in chunk_iter(audio):
+                chunk = pad_or_trim(chunk)
+                chunks.append(log_mel_spectrogram(chunk).numpy())
+                strides.append(stride)
+            mel_features = np.stack(chunks)
+            total_chunk_count = len(chunks)
         else:
-            logger.debug(f'WHISPER: Using system default language {language}')
+            mel_audio = pad_or_trim(audio)
+            mel_features = log_mel_spectrogram(mel_audio).numpy()
+            # Ref Whisper returns shape (80, 3000) but model expects (1, 80, 3000)
+            mel_features = np.expand_dims(mel_features, axis=0)
+            total_chunk_count = 1
 
-    # Describe the task in the prompt.
-    # See the prompt format in https://github.com/openai/whisper.
-    prompt = models.whisper_processor.tokenizer.convert_tokens_to_ids(
-        [
-            "<|startoftranscript|>",
-            processor_language,
-            processor_task,
-            "<|notimestamps|>",  # Remove this token to generate timestamps.
-        ]
-    )
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    if detect_language:
-        logger.debug('WHISPER: Language detection took ' + str(infer_time_milliseconds) + ' ms')
+        time_end = datetime.datetime.now()
+        infer_time = time_end - time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug('WHISPER: Feature extraction took ' + str(infer_time_milliseconds) + ' ms')
+
+        # Whisper STEP 2 - optionally actually detect the language or default to configuration
+        time_start = datetime.datetime.now()
+
+        # System default language by default
+        language = settings.language
+        processor_language = f'<|{language}|>'
+
+        if detect_language and not force_language:
+            # load the first mel_features batch into the GPU
+            # just for language detection
+            # important - this is named gpu_features so it will be unloaded during our batch processing later
+            first_mel_features = mel_features[0:1, :, :]
+            gpu_features = ctranslate2.StorageView.from_array(first_mel_features)
+            results = whisper_model.detect_language(gpu_features)
+            language, probability = results[0][0]
+            processor_language = language
+            logger.debug(f"WHISPER: Detected language {language} with probability {probability}")
+
+        else:
+            if force_language:
+                language = force_language
+                logger.debug(f'WHISPER: Forcing language {language}')
+                processor_language = f'<|{language}|>'
+            else:
+                logger.debug(f'WHISPER: Using system default language {language}')
+
+        # Describe the task in the prompt.
+        # See the prompt format in https://github.com/openai/whisper.
+        prompt = models.whisper_processor.tokenizer.convert_tokens_to_ids(
+            [
+                "<|startoftranscript|>",
+                processor_language,
+                processor_task,
+                "<|notimestamps|>",  # Remove this token to generate timestamps.
+            ]
+        )
+        time_end = datetime.datetime.now()
+        infer_time = time_end - time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        if detect_language:
+            logger.debug('WHISPER: Language detection took ' + str(infer_time_milliseconds) + ' ms')
 
     # Whisper STEP 3 - run model
     time_start = datetime.datetime.now()
-    logger.debug(f'WHISPER: Using model {model} with beam size {beam_size}')
+    if triton_url is None:
+        logger.debug(f'WHISPER: Using model {model} with beam size {beam_size}')
 
-    results = []
-    for i, mel_features_batch in enumerate(
-        chunkit(mel_features, concurrent_gpu_chunks)
-    ):
-        logger.debug("WHISPER: Processing batch %s of expected %s", i+1, len(mel_features) // concurrent_gpu_chunks + 1)
-        gpu_features = ctranslate2.StorageView.from_array(mel_features_batch)
-        results.extend(whisper_model.generate(
-            gpu_features,
-            [prompt]*len(mel_features_batch),
-            beam_size=beam_size,
-            return_scores=False,
-        ))
-    assert len(results) == total_chunk_count, "Result length doesn't match expected total_chunk_count"
+        results = []
+        for i, mel_features_batch in enumerate(
+            chunkit(mel_features, concurrent_gpu_chunks)
+        ):
+            logger.debug("WHISPER: Processing batch %s of expected %s", i+1, len(mel_features) // concurrent_gpu_chunks + 1)
+            gpu_features = ctranslate2.StorageView.from_array(mel_features_batch)
+            results.extend(whisper_model.generate(
+                gpu_features,
+                [prompt]*len(mel_features_batch),
+                beam_size=beam_size,
+                return_scores=False,
+            ))
+        assert len(results) == total_chunk_count, "Result length doesn't match expected total_chunk_count"
 
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('WHISPER: Model took ' + str(infer_time_milliseconds) + ' ms')
+        time_end = datetime.datetime.now()
+        infer_time = time_end - time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug('WHISPER: Model took ' + str(infer_time_milliseconds) + ' ms')
 
-    time_start = datetime.datetime.now()
-    if use_chunking:
-        assert strides, 'strides needed to compute final tokens when chunking'
-        tokens = [(results[i].sequences_ids[0], strides[i]) for i in range(total_chunk_count)]
-        tokens = find_longest_common_sequence(tokens, models.whisper_processor.tokenizer)
+        time_start = datetime.datetime.now()
+        if use_chunking:
+            assert strides, 'strides needed to compute final tokens when chunking'
+            tokens = [(results[i].sequences_ids[0], strides[i]) for i in range(total_chunk_count)]
+            tokens = find_longest_common_sequence(tokens, models.whisper_processor.tokenizer)
+        else:
+            tokens = results[0].sequences_ids[0]
+        results = models.whisper_processor.decode(tokens)
+        time_end = datetime.datetime.now()
+        infer_time = time_end - time_start
+        infer_time_milliseconds = infer_time.total_seconds() * 1000
+        logger.debug('WHISPER: Decode took ' + str(infer_time_milliseconds) + ' ms')
+        logger.debug('WHISPER: ASR transcript: ' + results)
+
+        # Strip out token stuff
+        pattern = re.compile("[A-Za-z0-9]+", )
+        language = pattern.findall(language)[0]
+
+        # the gpu_features were loaded above when we ran the initial whisper model
+        # so we don't need to reload them to the GPU here
+        if translate and len(total_chunk_count) > concurrent_gpu_chunks:
+            logger.warning("Cannot translate because too much audio for the GPU memory")
+            translation = None
+        elif translate:
+            logger.debug(f'WHISPER: Detected non-preferred language {language}, translating')
+            translation = do_translate(whisper_model, gpu_features, total_chunk_count, language, beam_size=beam_size)
+            # Strip tokens from translation output - brittle but works right now
+            translation = translation.split('>')[2]
+            translation = translation.strip()
+            logger.debug(f'WHISPER: ASR translation: {translation}')
+        else:
+            translation = None
+
+        # Strip tokens from results output - brittle but works right now
+        # if detect_language:
+        #     results = results.split('>')[2]
+        # Remove trailing and leading spaces
     else:
-        tokens = results[0].sequences_ids[0]
-    results = models.whisper_processor.decode(tokens)
-    time_end = datetime.datetime.now()
-    infer_time = time_end - time_start
-    infer_time_milliseconds = infer_time.total_seconds() * 1000
-    logger.debug('WHISPER: Decode took ' + str(infer_time_milliseconds) + ' ms')
-    logger.debug('WHISPER: ASR transcript: ' + results)
-
-    # Strip out token stuff
-    pattern = re.compile("[A-Za-z0-9]+", )
-    language = pattern.findall(language)[0]
-
-    # the gpu_features were loaded above when we ran the initial whisper model
-    # so we don't need to reload them to the GPU here
-    if translate and len(total_chunk_count) > concurrent_gpu_chunks:
-        logger.warning("Cannot translate because too much audio for the GPU memory")
+        language = settings.language
         translation = None
-    elif translate:
-        logger.debug(f'WHISPER: Detected non-preferred language {language}, translating')
-        translation = do_translate(whisper_model, gpu_features, total_chunk_count, language, beam_size=beam_size)
-        # Strip tokens from translation output - brittle but works right now
-        translation = translation.split('>')[2]
-        translation = translation.strip()
-        logger.debug(f'WHISPER: ASR translation: {translation}')
-    else:
-        translation = None
+        results = send_whisper_triton(audio, audio_sr, triton_client=triton_client)
 
-    # Strip tokens from results output - brittle but works right now
-    # if detect_language:
-    #     results = results.split('>')[2]
-    # Remove trailing and leading spaces
     results = results.strip()
 
     time_end = datetime.datetime.now()
@@ -947,8 +1022,11 @@ except:
 
 @app.on_event("startup")
 def startup_event():
-    load_models()
-    warm_models()
+    if triton_url is None:
+        load_models()
+        warm_models()
+    else:
+        logger.info(f"Using Triton URL {triton_url}")
     logger.info(f"{settings.name} is ready for requests!")
 
 
