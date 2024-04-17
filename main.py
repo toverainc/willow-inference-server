@@ -512,6 +512,11 @@ def load_models() -> LazyModels:
 
 
 def warm_models():
+    if triton_url is not None:
+        for x in range(3):
+            do_whisper("client/3sec.flac", "large", beam_size, "transcribe", False, "en")
+        return
+
     if device == "cuda":
         logger.info("Warming models...")
         for x in range(3):
@@ -1024,9 +1029,9 @@ except:
 def startup_event():
     if triton_url is None:
         load_models()
-        warm_models()
     else:
         logger.info(f"Using Triton URL {triton_url}")
+    warm_models()
     logger.info(f"{settings.name} is ready for requests!")
 
 
