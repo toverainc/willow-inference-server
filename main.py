@@ -115,7 +115,8 @@ from torchaudio.sox_effects import apply_effects_tensor
 import operator
 
 # Import audio stuff adapted from ref Whisper implementation
-from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
+if triton_url is None:
+    from wis.audio import log_mel_spectrogram, pad_or_trim, chunk_iter, find_longest_common_sequence
 
 # Willow
 import wave
