@@ -1482,10 +1482,8 @@ if support_tts:
                                                                                                translate)
 
         # Do TTS
-        response = do_tts(results, 'FLAC', speaker)
-        fake_filename = f'tts.{format}'
-        media_type = mimetypes.types_map[fake_filename]
-        return StreamingResponse(response, media_type=media_type[0])
+        response, media_type = do_tts(results, 'FLAC', speaker)
+        return StreamingResponse(response, media_type=media_type)
 
     class Speaker(BaseModel):
         message: str
