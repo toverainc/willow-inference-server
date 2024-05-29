@@ -672,6 +672,8 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
         whisper_model = models.whisper_model_base
     elif model == "tiny":
         whisper_model = models.whisper_model_tiny
+    else:
+        raise NotImplementedError(model)
 
     processor_task = f'<|{task}|>'
     first_time_start = datetime.datetime.now()
