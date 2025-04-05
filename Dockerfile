@@ -79,6 +79,7 @@ RUN apt-get update && apt-get install -y zstd git-lfs && rm -rf /var/lib/apt/lis
 
 COPY requirements.txt .
 # Run pip install with cache so we speedup subsequent rebuilds
+RUN --mount=type=cache,target=/root/.cache pip install -U pip setuptools
 RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
 
 # Install our torch ver matching cuda
