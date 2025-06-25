@@ -20,7 +20,9 @@ N_MELS = 80
 HOP_LENGTH = 160
 CHUNK_LENGTH = 30
 N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000: number of samples in a chunk
-N_FRAMES = exact_div(N_SAMPLES, HOP_LENGTH)  # 3000: number of frames in a mel spectrogram input
+N_FRAMES = exact_div(
+    N_SAMPLES, HOP_LENGTH
+)  # 3000: number of frames in a mel spectrogram input
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
@@ -29,7 +31,9 @@ def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
     """
     if torch.is_tensor(array):
         if array.shape[axis] > length:
-            array = array.index_select(dim=axis, index=torch.arange(length, device=array.device))
+            array = array.index_select(
+                dim=axis, index=torch.arange(length, device=array.device)
+            )
 
         if array.shape[axis] < length:
             pad_widths = [(0, 0)] * array.ndim
@@ -59,11 +63,15 @@ def mel_filters(device, n_mels: int = N_MELS) -> torch.Tensor:
         )
     """
     assert n_mels == 80, f"Unsupported n_mels: {n_mels}"
-    with np.load(os.path.join(os.path.dirname(__file__), "assets", "mel_filters.npz")) as f:
+    with np.load(
+        os.path.join(os.path.dirname(__file__), "assets", "mel_filters.npz")
+    ) as f:
         return torch.from_numpy(f[f"mel_{n_mels}"]).to(device)
 
 
-def log_mel_spectrogram(audio: Union[str, np.ndarray, torch.Tensor], n_mels: int = N_MELS):
+def log_mel_spectrogram(
+    audio: Union[str, np.ndarray, torch.Tensor], n_mels: int = N_MELS
+):
     """
     Compute the log-Mel spectrogram of
 
@@ -95,10 +103,13 @@ def log_mel_spectrogram(audio: Union[str, np.ndarray, torch.Tensor], n_mels: int
     return log_spec
 
 
-chunk_length_s = 22  # in seconds. See https://huggingface.co/blog/asr-chunking for context.
+chunk_length_s = (
+    22  # in seconds. See https://huggingface.co/blog/asr-chunking for context.
+)
 stride_length_s = [4, 4]  # in seconds [left, right]
-assert chunk_length_s + stride_length_s[0] + stride_length_s[1] == 30, \
-    'Invalid chunk_length_s & stride_length_s config. Should use full 30 seconds'
+assert (
+    chunk_length_s + stride_length_s[0] + stride_length_s[1] == 30
+), "Invalid chunk_length_s & stride_length_s config. Should use full 30 seconds"
 chunk_len = chunk_length_s * SAMPLE_RATE
 stride_left = stride_length_s[0] * SAMPLE_RATE
 stride_right = stride_length_s[1] * SAMPLE_RATE
@@ -106,12 +117,12 @@ stride_right = stride_length_s[1] * SAMPLE_RATE
 
 # chunk_iter() is modified/simplified version of https://github.com/huggingface/transformers/blob/ae54e3c3b18bac0832ad62ea9b896dfd52a09850/src/transformers/pipelines/automatic_speech_recognition.py#L59 # noqa: E501
 def chunk_iter(inputs):
-    assert not torch.is_tensor(inputs), 'chunk_iter only takes numpy array'
+    assert not torch.is_tensor(inputs), "chunk_iter only takes numpy array"
     inputs_len = inputs.shape[0]
     step = chunk_len - stride_left - stride_right
     for i in range(0, inputs_len, step):
         # add start and end paddings to the chunk
-        chunk = inputs[i: i + chunk_len]
+        chunk = inputs[i : i + chunk_len]
 
         # feature_extractor(chunk, sampling_rate=feature_extractor.sampling_rate, return_tensors="pt")
         _stride_left = 0 if i == 0 else stride_left
@@ -126,9 +137,13 @@ def chunk_iter(inputs):
 # copied and modified from https://github.com/huggingface/transformers/blob/ae54e3c3b18bac0832ad62ea9b896dfd52a09850/src/transformers/pipelines/automatic_speech_recognition.py#L211 # noqa: E501
 # See https://github.com/huggingface/transformers/pull/20104 for limitations
 def find_longest_common_sequence(sequences, tokenizer):
-    sequence = [tok_id for tok_id in sequences[0][0] if tok_id not in tokenizer.all_special_ids]
+    sequence = [
+        tok_id for tok_id in sequences[0][0] if tok_id not in tokenizer.all_special_ids
+    ]
     for new_seq in sequences[1:]:
-        new_sequence = [tok_id for tok_id in new_seq[0] if tok_id not in tokenizer.all_special_ids]
+        new_sequence = [
+            tok_id for tok_id in new_seq[0] if tok_id not in tokenizer.all_special_ids
+        ]
 
         index = 0
         max_ = 0.0

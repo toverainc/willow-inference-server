@@ -7,7 +7,6 @@ import av
 
 from aiortc.mediastreams import MediaStreamError, MediaStreamTrack
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -37,11 +36,13 @@ class MediaRecorderLite:
     :param options: Additional options to pass to FFmpeg.
     """
 
-    def __init__(self, file=None, format='wav', options={}):
+    def __init__(self, file=None, format="wav", options={}):
         if file is None:
             file = io.BytesIO()
         self.file = file
-        logger.debug(f'RTC MEDIA: MediaRecorderLite using file {file} format {format} options {options}')
+        logger.debug(
+            f"RTC MEDIA: MediaRecorderLite using file {file} format {format} options {options}"
+        )
         self.__container = av.open(file=file, format=format, mode="w", options=options)
         self.__tracks = {}
 
@@ -57,7 +58,7 @@ class MediaRecorderLite:
         self.__tracks[track] = MediaRecorderLiteContext(stream)
 
     def start(self):
-        logger.debug('RTC MEDIA: Called start')
+        logger.debug("RTC MEDIA: Called start")
         """
         Start recording.
         """
@@ -66,7 +67,7 @@ class MediaRecorderLite:
                 context.task = asyncio.ensure_future(self.__run_track(track, context))
 
     def stop(self):
-        logger.debug('RTC MEDIA: Called stop')
+        logger.debug("RTC MEDIA: Called stop")
         """
         Stop recording.
         """
@@ -80,11 +81,13 @@ class MediaRecorderLite:
             self.__tracks = {}
 
             if self.__container:
-                logger.debug('RTC MEDIA: Closing container')
+                logger.debug("RTC MEDIA: Closing container")
                 self.__container.close()
                 self.__container = None
 
-    async def __run_track(self, track: MediaStreamTrack, context: MediaRecorderLiteContext):
+    async def __run_track(
+        self, track: MediaStreamTrack, context: MediaRecorderLiteContext
+    ):
         while True:
             try:
                 frame = await track.recv()
