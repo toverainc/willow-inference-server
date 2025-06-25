@@ -31,8 +31,8 @@ class APISettings(BaseSettings):
     # Models to preload
     # if preload_all_models is True, these are irrelevant
     preload_whisper_model_tiny: bool = True
-    preload_whisper_model_base: bool  = True
-    preload_whisper_model_small: bool  = True
+    preload_whisper_model_base: bool = True
+    preload_whisper_model_small: bool = True
     preload_whisper_model_medium: bool = True
     preload_whisper_model_large: bool = True
 
@@ -59,15 +59,15 @@ class APISettings(BaseSettings):
     sv_threshold: float = 0.75
 
     # The default whisper model to use. Options are "tiny", "base", "small", "medium", "large"
-    whisper_model_default: str = 'medium'
+    whisper_model_default: str = "medium"
 
     # List of allowed origins for WebRTC. See https://fastapi.tiangolo.com/tutorial/cors/#use-corsmiddleware
     cors_allowed_origins: List[str] = []
 
     # If basic_auth_pass or basic_auth_user are set all endpoints are guarded by basic auth
     # If basic_auth_user is falsy it will not be checked. If basic_auth_pass is falsy it will not be checked.
-    #basic_auth_user: str = "your_username"
-    #basic_auth_pass: str = "your_password"
+    # basic_auth_user: str = "your_username"
+    # basic_auth_pass: str = "your_password"
 
     # airotc debug for connectivity and other WebRTC debugging
     aiortc_debug: bool = False

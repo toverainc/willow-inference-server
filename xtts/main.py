@@ -29,24 +29,26 @@ else:
     use_deepspeed = False
     device = "cpu"
 
-print(f'Using {threads} threads for device {device}')
+print(f"Using {threads} threads for device {device}")
 torch.set_num_threads(threads)
 
 model_name = "tts_models/multilingual/multi-dataset/xtts_v2"
-print("Downloading XTTS Model:",model_name,flush=True)
+print("Downloading XTTS Model:", model_name, flush=True)
 ModelManager().download_model(model_name)
 model_path = os.path.join(get_user_data_dir("tts"), model_name.replace("/", "--"))
-print("XTTS Model downloaded",flush=True)
+print("XTTS Model downloaded", flush=True)
 
-print("Loading XTTS",flush=True)
+print("Loading XTTS", flush=True)
 config = XttsConfig()
 config.load_json(os.path.join(model_path, "config.json"))
 model = Xtts.init_from_config(config)
-model.load_checkpoint(config, checkpoint_dir=model_path, eval=True, use_deepspeed=use_deepspeed)
+model.load_checkpoint(
+    config, checkpoint_dir=model_path, eval=True, use_deepspeed=use_deepspeed
+)
 model.to(device)
-print("XTTS Loaded.",flush=True)
+print("XTTS Loaded.", flush=True)
 
-print("Running XTTS Server ...",flush=True)
+print("Running XTTS Server ...", flush=True)
 
 ##### Run fastapi #####
 app = FastAPI(
@@ -138,14 +140,20 @@ def predict_streaming_generator(parsed_input: dict = Body(...)):
     language = parsed_input.language
     decoder = parsed_input.decoder
 
-    if decoder not in ["ne_hifigan","hifigan"]:
+    if decoder not in ["ne_hifigan", "hifigan"]:
         decoder = "ne_hifigan"
 
     stream_chunk_size = int(parsed_input.stream_chunk_size)
     add_wav_header = parsed_input.add_wav_header
 
-
-    chunks = model.inference_stream(text, language, gpt_cond_latent, speaker_embedding, decoder=decoder,stream_chunk_size=stream_chunk_size)
+    chunks = model.inference_stream(
+        text,
+        language,
+        gpt_cond_latent,
+        speaker_embedding,
+        decoder=decoder,
+        stream_chunk_size=stream_chunk_size,
+    )
     for i, chunk in enumerate(chunks):
         chunk = postprocess(chunk)
         if i == 0 and add_wav_header:
@@ -162,14 +170,17 @@ def predict_streaming_endpoint(parsed_input: StreamingInputs):
         media_type="audio/wav",
     )
 
+
 ### Begin Willow
 # Based on 23fd10a
 from fastapi import Depends
 from fastapi.responses import JSONResponse
 from pydantic import Field
 import json
-#import re
+
+# import re
 import copy
+
 
 def load_speaker(speaker):
     with open(f"/xtts/{speaker}.json") as f:
@@ -177,17 +188,15 @@ def load_speaker(speaker):
     gpt_cond_latent = default_speaker.get("gpt_cond_latent")
     default_speaker = default_speaker.get("speaker_embedding")
 
-    speaker_embedding = (
-        torch.tensor(default_speaker).unsqueeze(0).unsqueeze(-1)
-    )
-    gpt_cond_latent = (
-        torch.tensor(gpt_cond_latent).reshape((-1, 1024)).unsqueeze(0)
-    )
+    speaker_embedding = torch.tensor(default_speaker).unsqueeze(0).unsqueeze(-1)
+    gpt_cond_latent = torch.tensor(gpt_cond_latent).reshape((-1, 1024)).unsqueeze(0)
 
     return speaker_embedding, gpt_cond_latent
 
+
 # Defaults to load on startup
 default_speaker_embedding, default_gpt_cond_latent = load_speaker("default")
+
 
 def predict_streaming_generator_get(**kwargs):
 
@@ -200,6 +209,7 @@ def predict_streaming_generator_get(**kwargs):
             yield chunk.tobytes()
         else:
             yield chunk.tobytes()
+
 
 class StreamingInputs(BaseModel):
     speaker_embedding: List[float]
@@ -224,6 +234,7 @@ class StreamingInputs(BaseModel):
     add_wav_header: bool = True
     stream_chunk_size: str = "20"
     decoder: str = "ne_hifigan"
+
 
 # To-do: inherit StreamingInputs
 # temperature and repetition_penalty come from their HF Space
@@ -260,41 +271,47 @@ class WillowStreamingInputs(BaseModel):
     speed: float = 1.0
     enable_text_splitting: bool = True
     # Ours
-    decoder: Literal ["ne_hifigan", "hifigan"] = "ne_hifigan"
+    decoder: Literal["ne_hifigan", "hifigan"] = "ne_hifigan"
     speaker: str = "default"
+
 
 @app.get("/api/tts")
 def predict_streaming_endpoint_get(stream: WillowStreamingInputs = Depends()):
     # From their HF Space - no longer needed as of 23fd10a
-    #text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", stream.text)
+    # text = re.sub("([^\x00-\x7F]|\w)(\.|\。|\?)",r"\1 \2\2", stream.text)
     text = stream.text
 
     # We load speaker from existing json on disk
-    speaker_embedding, gpt_cond_latent = default_speaker_embedding, default_gpt_cond_latent
+    speaker_embedding, gpt_cond_latent = (
+        default_speaker_embedding,
+        default_gpt_cond_latent,
+    )
     if stream.speaker != "default":
         try:
             speaker_embedding, gpt_cond_latent = load_speaker(stream.speaker)
         except:
-            print(f"Could not load requested speaker '{stream.speaker}' - using default")
+            print(
+                f"Could not load requested speaker '{stream.speaker}' - using default"
+            )
 
     generator_args = {
-                    'text' : text, 
-                    'language' : stream.language,
-                    'gpt_cond_latent': gpt_cond_latent,
-                    'speaker_embedding': speaker_embedding,
-                    'stream_chunk_size': stream.stream_chunk_size,
-                    'overlap_wav_len': stream.overlap_wav_len,
-                    'temperature': stream.temperature,
-                    'length_penalty': stream.length_penalty,
-                    'repetition_penalty': stream.repetition_penalty,
-                    'top_k': stream.top_k,
-                    'top_p': stream.top_p,
-                    'do_sample': stream.do_sample,
-                    'speed': stream.speed,
-                    'enable_text_splitting': stream.enable_text_splitting,
-                    'decoder': stream.decoder,
-                    'speaker': stream.speaker,
-                     }
+        "text": text,
+        "language": stream.language,
+        "gpt_cond_latent": gpt_cond_latent,
+        "speaker_embedding": speaker_embedding,
+        "stream_chunk_size": stream.stream_chunk_size,
+        "overlap_wav_len": stream.overlap_wav_len,
+        "temperature": stream.temperature,
+        "length_penalty": stream.length_penalty,
+        "repetition_penalty": stream.repetition_penalty,
+        "top_k": stream.top_k,
+        "top_p": stream.top_p,
+        "do_sample": stream.do_sample,
+        "speed": stream.speed,
+        "enable_text_splitting": stream.enable_text_splitting,
+        "decoder": stream.decoder,
+        "speaker": stream.speaker,
+    }
 
     # Log request details
     generator_args_str = copy.deepcopy(generator_args)
@@ -307,6 +324,7 @@ def predict_streaming_endpoint_get(stream: WillowStreamingInputs = Depends()):
         media_type="audio/wav",
     )
 
+
 # Speaker clone for Willow
 @app.post("/api/tts")
 def predict_speaker_post(audio_file: UploadFile, speaker):
@@ -315,7 +333,8 @@ def predict_speaker_post(audio_file: UploadFile, speaker):
     with open(temp_audio_name, "wb") as temp, torch.inference_mode():
         temp.write(io.BytesIO(audio_file.file.read()).getbuffer())
         gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(
-            temp_audio_name)
+            temp_audio_name
+        )
 
         # TODO: Clean this up
         gpt_cond_latent = gpt_cond_latent.cpu().squeeze()
@@ -325,9 +344,12 @@ def predict_speaker_post(audio_file: UploadFile, speaker):
         os.remove(temp_audio_name)
 
     print(f"Got speaker name {speaker}")
-    speaker_json = {'gpt_cond_latent': gpt_cond_latent, 'speaker_embedding': speaker_embedding}
+    speaker_json = {
+        "gpt_cond_latent": gpt_cond_latent,
+        "speaker_embedding": speaker_embedding,
+    }
     speaker_json = json.dumps(speaker_json, indent=2)
-    with open(f'/xtts/{speaker}.json', "w") as f:
+    with open(f"/xtts/{speaker}.json", "w") as f:
         f.write(str(speaker_json))
 
-    return JSONResponse(content={'status': f"Added speaker '{speaker}'"})
+    return JSONResponse(content={"status": f"Added speaker '{speaker}'"})
