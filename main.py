@@ -672,6 +672,8 @@ def do_whisper(audio_file, model: str, beam_size: int = beam_size, task: str = "
         whisper_model = models.whisper_model_base
     elif model == "tiny":
         whisper_model = models.whisper_model_tiny
+    else:
+        raise NotImplementedError(model)
 
     processor_task = f'<|{task}|>'
     first_time_start = datetime.datetime.now()
@@ -1482,10 +1484,8 @@ if support_tts:
                                                                                                translate)
 
         # Do TTS
-        response = do_tts(results, 'FLAC', speaker)
-        fake_filename = f'tts.{format}'
-        media_type = mimetypes.types_map[fake_filename]
-        return StreamingResponse(response, media_type=media_type[0])
+        response, media_type = do_tts(results, 'FLAC', speaker)
+        return StreamingResponse(response, media_type=media_type)
 
     class Speaker(BaseModel):
         message: str
