@@ -9,6 +9,15 @@ RUN apt-get update && \
         python3-dev \
         python3-pip \
         wget \
+        pkg-config \
+        libavformat-dev \
+        libavcodec-dev \
+        libavdevice-dev \
+        libavutil-dev \
+        libswscale-dev \
+        libswresample-dev \
+        libavfilter-dev \
+        libopus-dev \
         && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -79,7 +88,10 @@ RUN apt-get update && apt-get install -y zstd git-lfs && rm -rf /var/lib/apt/lis
 
 COPY requirements.txt .
 # Run pip install with cache so we speedup subsequent rebuilds
-RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
+RUN --mount=type=cache,id=pip-cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt || \
+    pip install -r requirements.txt
+#RUN --mount=type=cache,target=/root/.cache pip install -r requirements.txt
 
 # Install our torch ver matching cuda
 RUN --mount=type=cache,target=/root/.cache pip install -U torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0

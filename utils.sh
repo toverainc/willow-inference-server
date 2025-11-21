@@ -218,7 +218,7 @@ freeze_requirements() {
 }
 
 build_docker() {
-    docker build -t "$IMAGE":"$TAG" .
+    docker build --no-cache --debug -t "$IMAGE":"$TAG" .
 }
 
 shell() {
