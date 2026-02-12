@@ -8,6 +8,13 @@ ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;6.2;7.0;7.2;7.5;8.0;8.6;8.9;9.0+PTX"
 # Install zstd and git-lfs for model compression and distribution
 RUN apt-get update && apt-get install -y \
   git-lfs \
+  libavcodec-dev \
+  libavdevice-dev \
+  libavfilter-dev \
+  libavformat-dev \
+  libavutil-dev \
+  libswresample-dev \
+  libswscale-dev \
   pkg-config \
   zstd \
   && rm -rf /var/lib/apt/lists/*
