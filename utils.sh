@@ -3,6 +3,7 @@ set -e
 WIS_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd "$WIS_DIR"
 
+
 # Test for local environment file and use any overrides
 if [ -r .env ]; then
     echo "Using configuration overrides from .env file"
@@ -60,6 +61,10 @@ NGINX_TAG=${NGINX_TAG:-1.25.4}
 
 WIS_NGINX_IMAGE=${WIS_NGINX_IMAGE:-willow-inference-server-nginx}
 WIS_NGINX_TAG=${NGINX_TAG}
+
+WIS_CACHE_DIR="${WIS_DIR}/cache"
+
+[ -d "$WIS_CACHE_DIR" ] || mkdir "$WIS_CACHE_DIR"
 
 # c2translate config options
 export CT2_VERBOSE=1
