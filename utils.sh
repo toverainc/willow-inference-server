@@ -109,13 +109,13 @@ sv_model() {
 }
 
 build_one_whisper () {
-    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /app/utils.sh whisper-model $1
 }
 
 build_sv () {
-    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm $DOCKER_GPUS --shm-size="$SHM_SIZE" --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /app/utils.sh sv-model
 }
@@ -140,7 +140,7 @@ dep_check() {
 }
 
 gunicorn_direct() {
-    docker run --rm -it $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host \
+    docker run --rm -it $DOCKER_GPUS --shm-size="$SHM_SIZE" \
     --ulimit memlock=-1 --ulimit stack=67108864 \
     -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache  --env-file .env \
     --name "$NAME" \
@@ -251,7 +251,7 @@ build_docker() {
 }
 
 shell() {
-    docker run --rm -it $DOCKER_GPUS --shm-size="$SHM_SIZE" --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+    docker run --rm -it $DOCKER_GPUS --shm-size="$SHM_SIZE" --ulimit memlock=-1 --ulimit stack=67108864 \
         -v $WIS_DIR:/app -v $WIS_DIR/cache:/root/.cache "$IMAGE":"$TAG" \
         /usr/bin/env bash
 }
