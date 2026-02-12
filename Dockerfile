@@ -6,7 +6,7 @@ WORKDIR /app
 ENV TORCH_CUDA_ARCH_LIST="6.0;6.1;6.2;7.0;7.2;7.5;8.0;8.6;8.9;9.0+PTX"
 
 # Install zstd and git-lfs for model compression and distribution
-RUN apt-get update && apt-get install -y zstd  git-lfs && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y pkg-config zstd  git-lfs && rm -rf /var/lib/apt/lists/*
 
 # Install our torch ver matching cuda
 RUN --mount=type=cache,target=/root/.cache pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2
