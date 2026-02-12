@@ -5,17 +5,16 @@ Watch the [WIS WebRTC Demo](https://www.youtube.com/watch?v=PxCO5eONqSQ)
 [Willow](https://github.com/toverainc/willow) Inference Server (WIS) is a focused and highly optimized language inference server implementation. Our goal is to "automagically" enable performant, cost-effective self-hosting of released state of the art/best of breed models to enable speech and language tasks:
 
 - Primarily targeting CUDA with support for low-end (cheap) devices such as the Tesla P4, GTX 1060, and up. Don't worry - it screams on an RTX 4090 too! [(See benchmarks)](#benchmarks). Can also run CPU-only.
-- Memory optimized - all three default Whisper (base, medium, large-v2) models loaded simultaneously with TTS support inside of 6GB VRAM. LLM support defaults to int4 quantization (conversion scripts included). ASR/STT + TTS + Vicuna 13B require roughly 18GB VRAM. Less for 7B, of course!
+- Memory optimized - all three default Whisper (base, medium, large-v2) models loaded simultaneously with TTS support inside of 6GB VRAM.
 - ASR. Heavy emphasis - Whisper optimized for very high quality as-close-to-real-time-as-possible speech recognition via a variety of means (Willow, WebRTC, POST a file, integration with devices and client applications, etc). Results in hundreds of milliseconds or less for most intended speech tasks.
 - TTS. Primarily provided for assistant tasks (like Willow!) and visually impaired users.
-- LLM. Optionally pass input through a provided/configured LLM for question answering, chatbot, and assistant tasks. Currently supports LLaMA deriviates with strong preference for Vicuna (the author likes 13B). Built in support for quantization to int4 to conserve GPU memory.
-- Support for a variety of transports. REST, WebRTC, Web Sockets (primarily for LLM).
-- Performance and memory optimized. Leverages [CTranslate2](https://github.com/OpenNMT/CTranslate2) for Whisper support and [AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ) for LLMs.
+- Support for a variety of transports. REST, WebRTC, Web Sockets.
+- Performance and memory optimized. Leverages [CTranslate2](https://github.com/OpenNMT/CTranslate2) for Whisper support.
 - [Willow](https://github.com/toverainc/willow) support. WIS powers the Tovera hosted best-effort example server Willow users enjoy.
 - Support for WebRTC - stream audio in real-time from browsers or WebRTC applications to optimize quality and response time. Heavily optimized for long-running sessions using WebRTC audio track management. Leave your session open for days at a time and have self-hosted ASR transcription within hundreds of milliseconds while conserving network bandwidth and CPU!
 - Support for custom TTS voices. With relatively small audio recordings WIS can create and manage custom TTS voices. See API documentation for more information.
 
-With the goal of enabling democratization of this functionality WIS will detect available CUDA VRAM, compute platform support, etc and optimize and/or disable functionality automatically (currently in order - ASR, TTS, LLM). For all supported Whisper models (large-v2, medium, and base) loaded simultaneously current minimum supported hardware is GTX 1060 3GB (6GB for ASR and TTS). User applications across all supported transports are able to programatically select and configure Whisper models and parameters (model size, beam, language detection/translation, etc) and TTS voices on a per-request basis depending on the needs of the application to balance speed/quality.
+With the goal of enabling democratization of this functionality WIS will detect available CUDA VRAM, compute platform support, etc and optimize and/or disable functionality automatically (currently in order - ASR, TTS). For all supported Whisper models (large-v2, medium, and base) loaded simultaneously current minimum supported hardware is GTX 1060 3GB (6GB for ASR and TTS). User applications across all supported transports are able to programatically select and configure Whisper models and parameters (model size, beam, language detection/translation, etc) and TTS voices on a per-request basis depending on the needs of the application to balance speed/quality.
 
 Note that we are primarily targeting CUDA - the performance, cost, and power usage of cheap GPUs like the Tesla P4 and GTX 1060 is too good to ignore. We'll make our best effort to support CPU wherever possible for current and future functionality but our emphasis is on performant latency-sensitive tasks even with low-end GPUs like the GTX 1070/Tesla P4 (as of this writing roughly $100 USD on the used market - and plenty of stock!).
 
@@ -130,23 +129,6 @@ We understand the focus and emphasis on CUDA may be troubling or limiting for so
 
 Perusing eBay and other used marketplaces the GTX 1070 seems to be the best performance/price ratio for ASR/STT and TTS while leaving VRAM room for the future. The author ordered an EVGA GTX 1070 FTW ACX3.0 for $120 USD with shipping and tax on 5/19/2023.
 
-To support LLM/Vicuna an RTX 3090/4090 is suggested. RTX 3090 being sold for approximately $800 as of this writing (5/23/2023).
-
-## LLM
-WIS supports LLM on compatible CUDA devices with sufficient memory (varies depending on model selected).
-
-From WIS root:
-
-```cp settings.py custom_settings.py```
-
-Edit ```custom_settings.py``` and set ```chatbot_model_path``` to an AutoGPTQForCausalLM compatible model path from Hugging Face (example provided). The model will be automatically downloaded, cached, and loaded from Hugging Face. Depending on the GPTQ format and configuration for your chosen model you may need to also change ```chatbot_model_basename```. The various other parameters (temperature, top_p, etc) can also be set in ```custom_settings.py``` (defaults provided).
-
-Make sure to set ```support_chatbot``` to ```True```.
-
-Then start/restart WIS.
-
-Once loaded you can view the chatbot API documentation at ```https://[your host]:19000/api/docs```.
-
 ## WebRTC Tricks
 
 The author has a long background with VoIP, WebRTC, etc. We deploy some fairly unique "tricks" to support long-running WebRTC sessions while conserving bandwidth and CPU. In between start/stop of audio record we pause (and then resume) the WebRTC audio track to bring bandwidth down to 5 kbps at 5 packets per second at idle while keeping response times low. This is done to keep ICE active and any NAT/firewall pinholes open while minimizing bandwidth and CPU usage. Did I mention it's optimized?
@@ -184,8 +166,6 @@ WIS is very early and we will refactor, modularize, and improve documentation we
 ### Chaining of functions (apps)
 
 We may support user-defined modules to chain together any number of supported tasks within one request, enabling such things as:
-
-Speech in -> LLM -> Speech out
 
 Speech in -> Arbitrary API -> Speech out
 
